@@ -58,7 +58,8 @@ open-positions/
 ├── profile/                 # .gitignored — personal, never committed
 │   ├── cv.md                # Resume source of truth (markdown)
 │   ├── experiences/         # Structured experience data (ported from internal)
-│   └── config.yml           # Target roles, salary range, deal-breakers, archetypes
+│   ├── config.ts            # Target roles, salary range, deal-breakers, archetypes
+│   └── jobs.json            # Job tracker database
 │
 └── output/                  # .gitignored — generated PDFs + reports
 ```
@@ -89,7 +90,7 @@ open-positions/
 
 **Status flow:** `Pending → Evaluated → Applied → Interview → Offer / Rejected / Discarded`
 
-All statuses are plain strings. No normalization scripts needed — the schema enforces them at write time in `db.ts`.
+All statuses are plain strings. No normalization scripts needed — the schema enforces them at write time in `db.ts`. File lives at `profile/jobs.json`, gitignored.
 
 ---
 
@@ -203,10 +204,11 @@ User customizes their target archetypes in `profile/config.yml` — this file is
 | File | Purpose |
 |---|---|
 | `cv.md` | Resume source of truth. Claude reads this at eval + generate time. |
-| `experiences/` | Structured experience data (TypeScript, ported from `internal`) |
-| `config.yml` | Target roles, salary range, deal-breakers, archetype preferences |
+| `experiences/` | Structured experience data (TypeScript, imported directly) |
+| `config.ts` | Target roles, salary range, deal-breakers, archetype preferences |
+| `jobs.json` | Job tracker database, TUI-managed |
 
-These files exist only on the user's machine. The repo ships a `profile/config.example.yml`
+These files exist only on the user's machine. The repo ships a `profile/config.example.ts`
 and a `profile/cv.example.md` to guide setup.
 
 ---

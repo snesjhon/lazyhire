@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-size: 10pt;
+    color: #1a1a1a;
+    max-height: 10.5in;
+    overflow: hidden;
+    line-height: 1.45;
+  }
+  .header {
+    background: #1a1a1a; color: white;
+    padding: 0.35in 0.5in 0.3in;
+  }
+  .header h1 { font-size: 20pt; font-weight: 300; letter-spacing: 0.5px; }
+  .header .title { font-size: 11pt; color: #aaa; margin: 4px 0; }
+  .header .contact { font-size: 8.5pt; color: #bbb; margin-top: 6px; }
+  .body { padding: 0.3in 0.5in; }
+  .section { margin-bottom: 14px; }
+  .section-title {
+    font-size: 7.5pt; text-transform: uppercase; letter-spacing: 2px;
+    color: #1a1a1a; border-bottom: 1.5px solid #1a1a1a;
+    padding-bottom: 4px; margin-bottom: 9px; font-weight: bold;
+  }
+  .skills { font-size: 9.5pt; }
+  .role { margin-bottom: 9px; }
+  .role-header { display: flex; justify-content: space-between; align-items: baseline; }
+  .role-title { font-weight: 600; font-size: 10.5pt; }
+  .role-period { font-size: 8.5pt; color: #888; }
+  .role-company { font-size: 9.5pt; color: #555; margin-bottom: 4px; }
+  ul { padding-left: 13px; }
+  li { font-size: 9pt; margin-bottom: 2px; }
+  .edu { font-size: 9.5pt; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>{{NAME}}</h1>
+    <div class="title">{{TITLE}}</div>
+    <div class="contact">{{EMAIL}} &nbsp;·&nbsp; {{LOCATION}} &nbsp;·&nbsp; {{SITE}}</div>
+  </div>
+  <div class="body">
+    <div class="section">
+      <div class="section-title">Summary</div>
+      <p style="font-size:9.5pt;">{{SUMMARY}}</p>
+    </div>
+    <div class="section">
+      <div class="section-title">Skills</div>
+      <div class="skills">{{SKILLS}}</div>
+    </div>
+    <div class="section">
+      <div class="section-title">Experience</div>
+      {{ROLES}}
+    </div>
+    <div class="section">
+      <div class="section-title">Education</div>
+      {{EDUCATION}}
+    </div>
+  </div>
+</body>
+</html>

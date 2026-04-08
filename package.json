@@ -1,0 +1,30 @@
+{
+  "name": "open-positions",
+  "version": "1.0.0",
+  "packageManager": "pnpm@10.32.1",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.tsx",
+    "init": "tsx src/init.tsx",
+    "scan": "tsx src/index.tsx --scan",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-code": "^1.0.0",
+    "@types/pdf-parse": "^1.1.5",
+    "giggles": "^0.7.3",
+    "ink": "^6.8.0",
+    "pdf-parse": "^2.4.5",
+    "puppeteer": "^22.0.0",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.2",
+    "ink-testing-library": "^3.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}
