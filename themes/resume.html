@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{{NAME}} Resume</title>
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: Arial, sans-serif;
+    color: #000;
+    font-size: 12pt;
+    line-height: 1.45;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    box-sizing: border-box;
+  }
+  #main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  #experience, #education {
+    flex: 1;
+  }
+  h1 {
+    margin: 0 0 3px 0;
+    font-size: 18pt;
+    font-weight: 700;
+  }
+  h2 {
+    margin: 12px 0 5px 0;
+    font-size: 11.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1.5px solid #000;
+  }
+  h3 {
+    margin: 10px 0 2px 0;
+    font-size: 12.5pt;
+    font-weight: 700;
+  }
+  p {
+    margin: 0 0 3px 0;
+    font-size: 12pt;
+  }
+  .contact,
+  .skills {
+    font-size: 12pt;
+  }
+  .role {
+    margin-bottom: 0;
+  }
+  .role-meta {
+    margin-bottom: 3px;
+  }
+  ul {
+    margin: 3px 0 8px 0;
+    padding-left: 18px;
+  }
+  li {
+    margin-bottom: 3px;
+    font-size: 12pt;
+    line-height: 1.5;
+  }
+  .emphasis {
+    text-decoration: underline;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 2px;
+  }
+</style>
+</head>
+<body>
+  <div id="main">
+    <div>
+      <h1>{{NAME}}</h1>
+      <p>{{TITLE}}</p>
+      <p class="contact">{{EMAIL}} | {{LOCATION}} | {{SITE}}</p>
+
+      <h2>Skills</h2>
+      <p class="skills">{{SKILLS}}</p>
+    </div>
+
+    <div id="experience">
+      <h2>Experience</h2>
+      {{ROLES}}
+    </div>
+
+    <div id="education">
+      <h2>Education</h2>
+      {{EDUCATION}}
+    </div>
+  </div>
+</body>
+</html>

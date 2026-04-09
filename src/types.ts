@@ -14,7 +14,7 @@ export function isJobStatus(value: string): value is JobStatus {
   return (JOB_STATUSES as readonly string[]).includes(value);
 }
 
-export type Theme = 'minimal' | 'modern' | 'two-column';
+export type Theme = 'resume';
 
 export interface Job {
   id: string;          // zero-padded, e.g. "001"

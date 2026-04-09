@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Box, Text } from 'ink';
 import { FocusScope, useFocusScope, useNavigation } from 'giggles';
-import { Modal, Panel, Select, TextInput } from 'giggles/ui';
+import { Modal, Panel, Select } from 'giggles/ui';
 import { loadProfile, saveProfile } from '../profile.js';
 import type { Profile } from '../types.js';
+import PasteInput from './PasteInput.js';
 
 type Section =
   | 'none'
@@ -113,7 +114,7 @@ export default function ProfileScreen({ onBack }: Props) {
 
         {section === 'roles' && (
           <Modal title="Target Roles" onClose={() => setSection('none')} width={64}>
-            <TextInput
+            <PasteInput
               label="Comma-separated roles"
               value={rolesDraft}
               onChange={setRolesDraft}
@@ -138,7 +139,7 @@ export default function ProfileScreen({ onBack }: Props) {
 
         {section === 'salary-min' && (
           <Modal title="Salary Range" onClose={() => setSection('none')} width={40}>
-            <TextInput
+            <PasteInput
               label="Minimum salary"
               value={salaryDraft}
               onChange={setSalaryDraft}
@@ -154,7 +155,7 @@ export default function ProfileScreen({ onBack }: Props) {
 
         {section === 'salary-max' && (
           <Modal title="Salary Range" onClose={() => setSection('none')} width={40}>
-            <TextInput
+            <PasteInput
               label="Maximum salary"
               value={salaryDraft}
               onChange={setSalaryDraft}
@@ -204,7 +205,7 @@ export default function ProfileScreen({ onBack }: Props) {
 
         {section === 'deal-breakers' && (
           <Modal title="Deal-breakers" onClose={() => setSection('none')} width={64}>
-            <TextInput
+            <PasteInput
               label="Comma-separated deal-breakers"
               value={dealBreakersDraft}
               onChange={setDealBreakersDraft}

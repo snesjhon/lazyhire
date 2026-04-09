@@ -5,7 +5,7 @@ import { loadProfile } from './profile.js';
 import { evaluateJob } from './claude/evaluation.js';
 import { generateCV } from './claude/generate.js';
 import { renderPDF } from './pdf.js';
-import type { Job, Theme } from './types.js';
+import type { Job } from './types.js';
 
 type JobSignals = {
   pageTitle: string;
@@ -24,6 +24,14 @@ function today(): string {
 function slugify(value: string): string {
   const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   return slug || 'job';
+}
+
+function titleCaseWords(value: string): string {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 function hostnameLabel(url: string): string {
@@ -53,6 +61,21 @@ function normalizeSegment(value: string): string {
     .replace(/\b(job application for|apply for|job posting|careers?|career site|greenhouse|lever|ashby)\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function companyHintFromUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.includes('greenhouse.io')) return null;
+
+    const companyParam = parsed.searchParams.get('for');
+    if (!companyParam) return null;
+
+    const normalized = cleanText(companyParam).replace(/[-_]+/g, ' ');
+    return normalized ? titleCaseWords(normalized) : null;
+  } catch {
+    return null;
+  }
 }
 
 function splitTitleParts(title: string): string[] {
@@ -92,6 +115,7 @@ export function inferRoleAndCompanyFromSignals(signals: JobSignals, url: string)
     .flatMap(splitTitleParts)
     .map(normalizeSegment)
     .filter(Boolean);
+  const companyHint = companyHintFromUrl(url);
 
   const role = pickRole([
     signals.jsonLdTitle,
@@ -103,6 +127,7 @@ export function inferRoleAndCompanyFromSignals(signals: JobSignals, url: string)
   ]) ?? 'Career Page';
   const company = pickCompany([
     signals.jsonLdCompany,
+    companyHint ?? '',
     signals.companyText,
     ...parsedTitleParts,
     signals.ogTitle,
@@ -130,20 +155,20 @@ export async function hydrateJobFromUrl(url: string): Promise<Pick<Job, 'company
   const page = await browser.newPage();
 
   try {
+    // Prefer a static snapshot so broken third-party page scripts do not break intake.
+    await page.setJavaScriptEnabled(false);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
     await page.waitForSelector('body', { timeout: 8000 }).catch(() => null);
     await page.waitForNetworkIdle({ idleTime: 500, timeout: 1500 }).catch(() => null);
 
-    const signals = await page.evaluate(() => {
-      function readMeta(selector: string): string {
-        return (document.querySelector(selector)?.getAttribute('content') ?? '').trim();
-      }
+    const signals = await page.evaluate(`(() => {
+      const readMeta = (selector) =>
+        (document.querySelector(selector)?.getAttribute('content') ?? '').trim();
 
-      function readText(selector: string): string {
-        return (document.querySelector(selector)?.textContent ?? '').trim();
-      }
+      const readText = (selector) =>
+        (document.querySelector(selector)?.textContent ?? '').trim();
 
-      function getJsonLd(): { title: string; company: string } {
+      const getJsonLd = () => {
         const nodes = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
         for (const node of nodes) {
           const raw = node.textContent?.trim();
@@ -168,8 +193,9 @@ export async function hydrateJobFromUrl(url: string): Promise<Pick<Job, 'company
             // ignore invalid JSON-LD blobs
           }
         }
+
         return { title: '', company: '' };
-      }
+      };
 
       const jsonLd = getJsonLd();
       return {
@@ -182,7 +208,7 @@ export async function hydrateJobFromUrl(url: string): Promise<Pick<Job, 'company
         jsonLdCompany: jsonLd.company,
         text: document.body?.innerText ?? '',
       };
-    });
+    })()`) as JobSignals & { text: string };
     const { role, company } = inferRoleAndCompanyFromSignals(signals, page.url());
 
     return {
@@ -241,16 +267,18 @@ export async function evaluateAndPersistJob(job: Job): Promise<Job> {
   return updated;
 }
 
-export async function generateAndPersistPdf(job: Job, theme: Theme): Promise<Job> {
+export async function generateAndPersistPdf(job: Job, tailoringNotes = ''): Promise<Job> {
   const profile = loadProfile();
   const cv = await generateCV(
     { jd: job.jd || `URL: ${job.url}`, archetype: job.archetype },
     profile,
+    tailoringNotes,
   );
 
+  const theme = 'resume' as const;
   const filename = `${job.id}-${slugify(job.company)}-${theme}.pdf`;
   const pdfPath = join(process.cwd(), 'output', filename);
-  await renderPDF(cv, cv.roles[0]?.bullets[0] ?? '', theme, pdfPath);
+  await renderPDF(cv, pdfPath);
 
   const updated: Job = { ...job, pdfPath, theme };
   db.updateJob(job.id, { pdfPath, theme });

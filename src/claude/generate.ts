@@ -10,6 +10,7 @@ export interface GenerateInput {
   archetype: string;
   cv: string;
   experienceContext: string;
+  tailoringNotes?: string;
   candidate: {
     name: string;
     email: string;
@@ -56,6 +57,10 @@ Site: ${input.candidate.site}
 Education (static, use exactly as-is):
 ${input.education.map((e) => `- ${e.institution}: ${e.degree}`).join('\n')}
 
+## Application Guidance
+
+${input.tailoringNotes?.trim() || 'No additional guidance provided. Infer the strongest truthful framing from the JD and experience database.'}
+
 OUTPUT ONLY VALID JSON. NO EXPLANATION. NO MARKDOWN.`;
 }
 
@@ -87,13 +92,15 @@ ${e.narrative.trim()}`
 
 export async function generateCV(
   job: { jd: string; archetype: string | null },
-  profile: Profile
+  profile: Profile,
+  tailoringNotes = '',
 ): Promise<GeneratedCV> {
   const prompt = buildGeneratePrompt({
     jd: job.jd,
     archetype: job.archetype ?? 'platform',
     cv: profile.cv,
     experienceContext: buildExperienceContext(profile.experiences),
+    tailoringNotes,
     candidate: profile.candidate,
     education: profile.education,
   });

@@ -5,11 +5,9 @@ import { loadProfile } from '../profile.js';
 import { generateCV } from '../claude/generate.js';
 import { renderPDF } from '../pdf.js';
 import { db } from '../db.js';
-import type { Job, Theme } from '../types.js';
+import type { Job } from '../types.js';
 
-const THEMES: Theme[] = ['minimal', 'modern', 'two-column'];
-
-type State = 'pick' | 'generating' | 'done' | 'error';
+type State = 'editing' | 'generating' | 'done' | 'error';
 
 interface Props {
   job: Job;
@@ -17,18 +15,16 @@ interface Props {
 }
 
 export default function Generate({ job, onBack }: Props) {
-  const [cursor, setCursor] = useState(0);
-  const [state, setState] = useState<State>('pick');
+  const [state, setState] = useState<State>('editing');
   const [outputPath, setOutputPath] = useState('');
   const [error, setError] = useState('');
+  const guidance = '';
 
   useInput((input, key) => {
     if (key.escape) { onBack(); return; }
 
-    if (state === 'pick') {
-      if (key.upArrow) setCursor((c) => Math.max(0, c - 1));
-      if (key.downArrow) setCursor((c) => Math.min(THEMES.length - 1, c + 1));
-      if (key.return) runGeneration(THEMES[cursor]);
+    if (state === 'editing') {
+      if (key.return) void runGeneration();
     }
 
     if (state === 'done' || state === 'error') {
@@ -36,18 +32,20 @@ export default function Generate({ job, onBack }: Props) {
     }
   });
 
-  async function runGeneration(theme: Theme) {
+  async function runGeneration() {
     setState('generating');
     try {
       const profile = loadProfile();
       const cv = await generateCV(
         { jd: job.jd || `URL: ${job.url}`, archetype: job.archetype },
-        profile
+        profile,
+        guidance,
       );
 
+      const theme = 'resume';
       const filename = `${job.id}-${job.company.toLowerCase().replace(/\s+/g, '-')}-${theme}.pdf`;
       const path = join(process.cwd(), 'output', filename);
-      await renderPDF(cv, cv.roles[0]?.bullets[0] ?? '', theme, path);
+      await renderPDF(cv, path);
 
       db.updateJob(job.id, { pdfPath: path, theme });
       setOutputPath(path);
@@ -65,16 +63,14 @@ export default function Generate({ job, onBack }: Props) {
         <Text> — {job.role}</Text>
       </Box>
 
-      {state === 'pick' && (
+      {state === 'editing' && (
         <Box flexDirection="column">
-          <Box marginBottom={1}><Text bold>Select a theme:</Text></Box>
-          {THEMES.map((t, i) => (
-            <Text key={t} color={i === cursor ? 'cyan' : undefined}>
-              {i === cursor ? '▶ ' : '  '}{t}
-            </Text>
-          ))}
+          <Box marginBottom={1}><Text bold>Generate the canonical resume PDF.</Text></Box>
+          <Text dimColor>
+            This flow now uses one ATS-safe full-height template instead of theme variants.
+          </Text>
           <Box marginTop={1}>
-            <Text dimColor>↑↓ navigate  enter generate  esc back</Text>
+            <Text dimColor>enter generate  esc back</Text>
           </Box>
         </Box>
       )}

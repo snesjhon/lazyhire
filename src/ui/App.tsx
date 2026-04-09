@@ -3,6 +3,7 @@ import { spawn } from 'child_process';
 import { Box, Text, useStdout } from 'ink';
 import {
   FocusScope,
+  FocusTrap,
   Router,
   Screen,
   useFocusScope,
@@ -10,11 +11,10 @@ import {
 } from 'giggles';
 import {
   Badge,
-  Modal,
+  Confirm,
   Panel,
   Select,
   Spinner,
-  TextInput,
   Viewport,
 } from 'giggles/ui';
 import { db } from '../db.js';
@@ -22,7 +22,6 @@ import {
   JOB_STATUSES,
   type Job,
   type JobStatus,
-  type Theme,
 } from '../types.js';
 import {
   createPendingJob,
@@ -32,28 +31,41 @@ import {
   saveJob,
 } from '../job-actions.js';
 import MultilineInput from './MultilineInput.js';
+import PasteInput from './PasteInput.js';
 import ProfileScreen from './Profile.js';
 import Scan from './Scan.js';
 
 type View = 'dashboard' | 'scan';
 type Overlay =
   | 'none'
+  | 'job-actions'
   | 'intake-menu'
   | 'intake-url'
   | 'intake-jd'
+  | 'edit-jd'
+  | 'delete'
   | 'status'
-  | 'theme';
+  | 'generate-cv';
 type Flash = {
   message: string;
   variant: 'info' | 'success' | 'error' | 'warning';
 };
 
 const FILTERS: Array<'All' | JobStatus> = ['All', ...JOB_STATUSES];
-const THEMES: Theme[] = ['minimal', 'modern', 'two-column'];
 const INTAKE_OPTIONS = [
   { label: 'Paste job link', value: 'intake-url' as const },
   { label: 'Paste job description', value: 'intake-jd' as const },
 ];
+type JobAction =
+  | 'view-detail'
+  | 'evaluate'
+  | 'generate-cv'
+  | 'edit-jd'
+  | 'edit-status'
+  | 'open-pdf'
+  | 'delete'
+  | 'open-link'
+  | 'cancel';
 
 function scoreDisplay(score: number | null): string {
   return score === null ? '—' : score.toFixed(1);
@@ -74,6 +86,42 @@ function statusColor(status: JobStatus): string {
     Discarded: 'gray',
   };
   return map[status];
+}
+
+function footerSegment(label: string, key: string): string {
+  return `${label}: ${key}`;
+}
+
+function DetailDialog({
+  childFocusKey,
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  childFocusKey: string;
+  children: React.ReactNode;
+}) {
+  const scope = useFocusScope({
+    keybindings: {
+      escape: onClose,
+    },
+  });
+
+  useEffect(() => {
+    scope.focusChild(childFocusKey);
+  }, [childFocusKey, scope.id]);
+
+  return (
+    <FocusTrap>
+      <FocusScope handle={scope}>
+        <Panel title={title} borderColor="green">
+          {children}
+        </Panel>
+      </FocusScope>
+    </FocusTrap>
+  );
 }
 
 function flashColor(variant: Flash['variant']): string {
@@ -136,7 +184,10 @@ function DashboardScreen({ initialView }: DashboardScreenProps) {
   const [refreshToken, setRefreshToken] = useState(0);
   const [intakeUrl, setIntakeUrl] = useState('');
   const [intakeJd, setIntakeJd] = useState('');
+  const [editJdValue, setEditJdValue] = useState('');
+  const [cvGuidance, setCvGuidance] = useState('');
   const [jobCount, setJobCount] = useState(0);
+  const [activePanel, setActivePanel] = useState<'jobs' | 'detail'>('jobs');
 
   useEffect(() => {
     if (!flash) return;
@@ -186,14 +237,210 @@ function DashboardScreen({ initialView }: DashboardScreenProps) {
   const appHeight = Math.max(terminalHeight, 24);
   const queueWidth = Math.max(36, Math.floor((appWidth - 5) * 0.42));
   const detailWidth = Math.max(38, appWidth - queueWidth - 5);
-  const filterOptions = FILTERS.map((filter) => ({
-    label: filter,
-    value: filter,
-  }));
   const jobOptions = filteredJobs.map((job) => ({
     label: `#${job.id} ${clip(job.company || 'Unknown', 16)} ${clip(job.role || 'Untitled', 24)} ${scoreDisplay(job.score)}`,
     value: job.id,
   }));
+  const jobActionOptions: Array<{ label: string; value: JobAction }> = selectedJob
+    ? [
+        { label: 'View Detail', value: 'view-detail' },
+        {
+          label: selectedJob.score === null ? 'Evaluate Job' : 'Re-evaluate Job',
+          value: 'evaluate',
+        },
+        { label: 'Generate CV', value: 'generate-cv' },
+        { label: 'Edit JD', value: 'edit-jd' },
+        { label: 'Edit Status', value: 'edit-status' },
+        ...(selectedJob.pdfPath
+          ? [{ label: 'Open Last Generated CV', value: 'open-pdf' as const }]
+          : []),
+        ...(selectedJob.url
+          ? [{ label: 'Open Link', value: 'open-link' as const }]
+          : []),
+        { label: 'Delete', value: 'delete' },
+        { label: 'Cancel', value: 'cancel' },
+      ]
+    : [];
+  let modalOverlay: React.ReactNode = null;
+
+  if (overlay === 'job-actions' && selectedJob) {
+    modalOverlay = (
+      <DetailDialog
+        title={`Job Actions · #${selectedJob.id}`}
+        onClose={() => setOverlay('none')}
+        childFocusKey="modal-select"
+      >
+        <Box flexDirection="column" gap={1}>
+          <Text bold>
+            {selectedJob.company || 'Unknown Company'} · {selectedJob.role || 'Untitled Role'}
+          </Text>
+          <Select
+            focusKey="modal-select"
+            options={jobActionOptions}
+            onSubmit={(value) => handleJobAction(selectedJob, value)}
+            render={({ option, highlighted }) => (
+              <Text color={highlighted ? 'cyan' : undefined}>
+                {highlighted ? '▶ ' : '  '}
+                {option.label}
+              </Text>
+            )}
+          />
+        </Box>
+      </DetailDialog>
+    );
+  } else if (overlay === 'intake-menu') {
+    modalOverlay = (
+      <DetailDialog
+        title="Add Job"
+        onClose={() => setOverlay('none')}
+        childFocusKey="modal-select"
+      >
+          <Select
+            focusKey="modal-select"
+            options={INTAKE_OPTIONS}
+            onSubmit={(value) => setOverlay(value)}
+            render={({ option, highlighted }) => (
+              <Text color={highlighted ? 'cyan' : undefined}>
+                {highlighted ? '▶ ' : '  '}
+                {option.label}
+              </Text>
+            )}
+          />
+      </DetailDialog>
+    );
+  } else if (overlay === 'intake-url') {
+    modalOverlay = (
+      <DetailDialog
+        title="Paste Job Link"
+        onClose={() => setOverlay('none')}
+        childFocusKey="modal-input"
+      >
+          <PasteInput
+            focusKey="modal-input"
+            label="Job URL"
+            value={intakeUrl}
+            onChange={setIntakeUrl}
+            onSubmit={(value) => void handleIntakeUrl(value)}
+            placeholder="https://company.example/jobs/123"
+          />
+      </DetailDialog>
+    );
+  } else if (overlay === 'intake-jd') {
+    modalOverlay = (
+      <DetailDialog
+        title="Paste Job Description"
+        onClose={() => setOverlay('none')}
+        childFocusKey="modal-input"
+      >
+          <MultilineInput
+            focusKey="modal-input"
+            label="Job description"
+            hint="Enter submits, Ctrl+N inserts a new line"
+            value={intakeJd}
+            onChange={setIntakeJd}
+            onSubmit={(value) => void handleIntakeJd(value)}
+          />
+      </DetailDialog>
+    );
+  } else if (overlay === 'edit-jd' && selectedJob) {
+    modalOverlay = (
+      <DetailDialog
+        title={`Edit Job Description · #${selectedJob.id}`}
+        onClose={() => setOverlay('none')}
+        childFocusKey="modal-input"
+      >
+        <MultilineInput
+          focusKey="modal-input"
+          label="Job description"
+          hint="Enter saves, Ctrl+N inserts a new line"
+          value={editJdValue}
+          onChange={setEditJdValue}
+          onSubmit={(value) => runJdUpdate(selectedJob, value)}
+        />
+      </DetailDialog>
+    );
+  } else if (overlay === 'status' && selectedJob) {
+    modalOverlay = (
+      <DetailDialog
+        title="Update Status"
+        onClose={() => setOverlay('none')}
+        childFocusKey="modal-select"
+      >
+          <Select
+            focusKey="modal-select"
+            options={JOB_STATUSES.map((status) => ({
+              label: status,
+              value: status,
+            }))}
+            value={selectedJob.status}
+            onSubmit={(value) => runStatusUpdate(selectedJob, value)}
+            render={({ option, highlighted }) => (
+              <Text color={highlighted ? statusColor(option.value) : undefined}>
+                {highlighted ? '▶ ' : '  '}
+                {option.label}
+              </Text>
+            )}
+          />
+      </DetailDialog>
+    );
+  } else if (overlay === 'delete' && selectedJob) {
+    modalOverlay = (
+      <DetailDialog
+        title="Delete Job"
+        onClose={() => setOverlay('none')}
+        childFocusKey="modal-confirm"
+      >
+        <Box flexDirection="column" gap={1}>
+          <Text>Delete #{selectedJob.id} from the queue?</Text>
+          <Text dimColor>
+            {selectedJob.company || 'Unknown Company'} · {selectedJob.role || 'Untitled Role'}
+          </Text>
+          <Confirm
+            focusKey="modal-confirm"
+            message="Press y to delete or n to cancel."
+            onSubmit={(confirmed) => {
+              if (confirmed) {
+                runDeleteJob(selectedJob);
+                return;
+              }
+              setOverlay('none');
+            }}
+          />
+        </Box>
+      </DetailDialog>
+    );
+  } else if (overlay === 'generate-cv' && selectedJob) {
+    modalOverlay = (
+      <DetailDialog
+        title="Generate CV"
+        onClose={() => setOverlay('none')}
+        childFocusKey="modal-guidance"
+      >
+        <Box flexDirection="column" gap={1}>
+          <Text>Optional tailoring guidance for this application.</Text>
+          <Text dimColor>
+            Include any preferred title, technologies to emphasize, achievements to foreground,
+            or company-specific tone.
+          </Text>
+          <MultilineInput
+            focusKey="modal-guidance"
+            label="Guidance"
+            hint="Enter submits, Ctrl+N inserts a new line"
+            value={cvGuidance}
+            onChange={setCvGuidance}
+            onSubmit={(value) => void runGenerate(selectedJob, value)}
+            placeholder="Preferred title, emphasis areas, must-highlight wins..."
+          />
+        </Box>
+      </DetailDialog>
+    );
+  }
+
+  function cycleFilter(direction: 1 | -1) {
+    const index = FILTERS.indexOf(selectedFilter);
+    const nextIndex = (index + direction + FILTERS.length) % FILTERS.length;
+    setSelectedFilter(FILTERS[nextIndex]!);
+  }
 
   function refreshJobs() {
     setRefreshToken((value) => value + 1);
@@ -230,12 +477,22 @@ function DashboardScreen({ initialView }: DashboardScreenProps) {
     try {
       const hydrated = await hydrateJobFromUrl(url.trim());
       const saved = saveJob(createPendingJob(hydrated));
-      const updated = await evaluateAndPersistJob(saved);
       refreshJobs();
-      setSelectedId(updated.id);
-      setMessage(
-        `Added and evaluated #${updated.id} ${updated.company} — ${updated.role}`,
-      );
+      setSelectedId(saved.id);
+
+      try {
+        const updated = await evaluateAndPersistJob(saved);
+        refreshJobs();
+        setSelectedId(updated.id);
+        setMessage(
+          `Added and evaluated #${updated.id} ${updated.company} — ${updated.role}`,
+        );
+      } catch (error) {
+        setMessage(
+          `Saved #${saved.id} ${saved.company} — ${saved.role}; evaluation failed: ${String(error)}`,
+          'warning',
+        );
+      }
     } catch (error) {
       const fallback = saveJob(
         createPendingJob({
@@ -303,14 +560,15 @@ function DashboardScreen({ initialView }: DashboardScreenProps) {
     }
   }
 
-  async function runGenerate(job: Job | null, theme: Theme) {
+  async function runGenerate(job: Job | null, guidance: string) {
     if (!job) return;
-    const finishTask = startTask(`Generating ${theme} CV for #${job.id}`);
+    const finishTask = startTask(`Generating resume CV for #${job.id}`);
     setOverlay('none');
     try {
-      const updated = await generateAndPersistPdf(job, theme);
+      const updated = await generateAndPersistPdf(job, guidance);
       refreshJobs();
       setSelectedId(updated.id);
+      setCvGuidance('');
       setMessage(`Generated CV for #${updated.id}: ${updated.pdfPath}`);
     } catch (error) {
       setMessage(`CV generation failed: ${String(error)}`, 'error');
@@ -327,16 +585,37 @@ function DashboardScreen({ initialView }: DashboardScreenProps) {
     setOverlay('none');
   }
 
-  function openSelectedJobUrl(job: Job | null) {
-    if (!job?.url?.trim()) {
-      setMessage('No job URL available to open.', 'warning');
+  function runJdUpdate(job: Job | null, jd: string) {
+    if (!job) return;
+    db.updateJob(job.id, { jd: jd.trim() });
+    refreshJobs();
+    setEditJdValue('');
+    setMessage(`Updated job description for #${job.id}`);
+    setOverlay('none');
+  }
+
+  function runDeleteJob(job: Job | null) {
+    if (!job) return;
+    db.removeJob(job.id);
+    refreshJobs();
+    setMessage(`Deleted #${job.id} ${job.company || job.role || 'job'}`);
+    setOverlay('none');
+  }
+
+  function openExternalTarget(
+    target: string,
+    successMessage: string,
+    missingMessage: string,
+  ) {
+    if (!target.trim()) {
+      setMessage(missingMessage, 'warning');
       return;
     }
 
-    const command = browserCommand(job.url);
+    const command = browserCommand(target);
     if (!command) {
       setMessage(
-        `Opening links is not supported on ${process.platform}.`,
+        `Opening external targets is not supported on ${process.platform}.`,
         'error',
       );
       return;
@@ -347,10 +626,96 @@ function DashboardScreen({ initialView }: DashboardScreenProps) {
       stdio: 'ignore',
     });
     child.on('error', (error) => {
-      setMessage(`Failed to open link: ${String(error)}`, 'error');
+      setMessage(`Failed to open target: ${String(error)}`, 'error');
     });
     child.unref();
-    setMessage(`Opened #${job.id} in browser.`, 'info');
+    setMessage(successMessage, 'info');
+  }
+
+  function openSelectedJobUrl(job: Job | null) {
+    if (!job?.url?.trim()) {
+      setMessage('No job URL available to open.', 'warning');
+      return;
+    }
+
+    openExternalTarget(
+      job.url,
+      `Opened #${job.id} job link.`,
+      'No job URL available to open.',
+    );
+  }
+
+  function openGeneratedCv(job: Job | null) {
+    if (!job?.pdfPath?.trim()) {
+      setMessage('No generated CV available to open.', 'warning');
+      return;
+    }
+
+    setOverlay('none');
+    openExternalTarget(
+      job.pdfPath,
+      `Opened generated CV for #${job.id}.`,
+      'No generated CV available to open.',
+    );
+  }
+
+  function openJobActions(job: Job | null) {
+    if (!job) return;
+    setOverlay('job-actions');
+  }
+
+  function handleJobAction(job: Job | null, action: JobAction) {
+    if (!job) return;
+
+    if (action === 'cancel') {
+      setOverlay('none');
+      return;
+    }
+
+    if (action === 'view-detail') {
+      setOverlay('none');
+      setActivePanel('detail');
+      root.focusChild('detail');
+      return;
+    }
+
+    if (action === 'evaluate') {
+      setOverlay('none');
+      void runEvaluate(job);
+      return;
+    }
+
+    if (action === 'generate-cv') {
+      setCvGuidance('');
+      setOverlay('generate-cv');
+      return;
+    }
+
+    if (action === 'edit-jd') {
+      setEditJdValue(job.jd);
+      setOverlay('edit-jd');
+      return;
+    }
+
+    if (action === 'edit-status') {
+      setOverlay('status');
+      return;
+    }
+
+    if (action === 'open-pdf') {
+      openGeneratedCv(job);
+      return;
+    }
+
+    if (action === 'delete') {
+      setOverlay('delete');
+      return;
+    }
+
+    if (action === 'open-link') {
+      setOverlay('none');
+      openSelectedJobUrl(job);
+    }
   }
 
   const root = useFocusScope({
@@ -359,21 +724,46 @@ function DashboardScreen({ initialView }: DashboardScreenProps) {
       '2': () => navigation.push('scan'),
       '3': () => navigation.push('profile'),
       q: () => process.exit(0),
-      h: () => focusChild('filters'),
-      l: () => focusChild('jobs'),
-      tab: () =>
-        focusChild(selectedJob ? 'jobs' : 'filters'),
+      h: () => {
+        setActivePanel('jobs');
+        focusChild('jobs');
+      },
+      l: () => {
+        if (!selectedJob) return;
+        setActivePanel('detail');
+        focusChild('detail');
+      },
+      tab: () => cycleFilter(1),
+      'shift+tab': () => cycleFilter(-1),
       a: () => setOverlay('intake-menu'),
+      enter: () => openJobActions(selectedJob),
       o: () => openSelectedJobUrl(selectedJob),
       e: () => void runEvaluate(selectedJob),
+      d: () => {
+        if (selectedJob) setOverlay('delete');
+      },
       g: () => {
-        if (selectedJob) setOverlay('theme');
+        if (selectedJob) {
+          setCvGuidance('');
+          setOverlay('generate-cv');
+        }
       },
       s: () => {
         if (selectedJob) setOverlay('status');
       },
     }),
   });
+
+  useEffect(() => {
+    root.focusChild('jobs');
+  }, [root.id]);
+
+  useEffect(() => {
+    if (activePanel === 'detail' && !selectedJob) {
+      setActivePanel('jobs');
+      root.focusChild('jobs');
+    }
+  }, [activePanel, root.id, selectedJob]);
 
   return (
     <FocusScope handle={root}>
@@ -396,47 +786,28 @@ function DashboardScreen({ initialView }: DashboardScreenProps) {
           )}
         </Box>
 
-        <Panel title="Filters" borderColor={root.hasFocus ? 'green' : 'gray'}>
-          <Select
-            focusKey="filters"
-            options={filterOptions}
-            value={selectedFilter}
-            onChange={setSelectedFilter}
-            direction="horizontal"
-            gap={2}
-            render={({ option, highlighted, selected, focused }) => (
+        <Box marginBottom={1} gap={2} flexWrap="wrap">
+          {FILTERS.map((filter) => {
+            const selected = filter === selectedFilter;
+            return (
               <Text
-                color={
-                  highlighted || selected
-                    ? focused
-                      ? 'cyan'
-                      : 'green'
-                    : 'gray'
-                }
+                key={filter}
+                color={selected ? 'black' : 'gray'}
+                backgroundColor={selected ? 'cyan' : undefined}
                 bold={selected}
               >
-                {selected ? `[${option.label}]` : option.label}
+                {selected ? ` ${filter} ` : filter}
               </Text>
-            )}
-          />
-        </Panel>
+            );
+          })}
+        </Box>
 
-        {tasks.length > 0 && (
-          <Box marginTop={1}>
-            <Panel title="Tasks" borderColor="yellow" width={appWidth - 2}>
-              <Box gap={1}>
-                <Spinner color="yellow" />
-                <Text>
-                  {tasks[0]}
-                  {tasks.length > 1 ? ` (+${tasks.length - 1} more)` : ''}
-                </Text>
-              </Box>
-            </Panel>
-          </Box>
-        )}
-
-        <Box marginTop={1} gap={1} flexGrow={1}>
-          <Panel title="Queue" width={queueWidth} borderColor="green">
+        <Box gap={1} flexGrow={1}>
+          <Panel
+            title={`Queue ${selectedFilter === 'All' ? '' : `· ${selectedFilter}`}`.trim()}
+            width={queueWidth}
+            borderColor={activePanel === 'jobs' ? 'green' : 'gray'}
+          >
             {jobOptions.length === 0 ? (
               <Text dimColor>No jobs yet. Press `a` to add one.</Text>
             ) : (
@@ -446,6 +817,11 @@ function DashboardScreen({ initialView }: DashboardScreenProps) {
                 value={selectedId ?? undefined}
                 onChange={setSelectedId}
                 onHighlight={setSelectedId}
+                onSubmit={(value) => {
+                  setSelectedId(value);
+                  const job = filteredJobs.find((item) => item.id === value) ?? null;
+                  openJobActions(job);
+                }}
                 maxVisible={Math.max(8, appHeight - 14)}
                 render={({ option, highlighted, selected, focused }) => {
                   const job = filteredJobs.find((item) => item.id === option.value);
@@ -470,109 +846,109 @@ function DashboardScreen({ initialView }: DashboardScreenProps) {
             )}
           </Panel>
 
-          <Panel title="Detail" width={detailWidth} borderColor="green">
-            {selectedJob ? (
-              <Box flexDirection="column" gap={1}>
-                <Box gap={1} flexWrap="wrap">
-                  <Badge color="black" background={statusColor(selectedJob.status)}>
-                    {selectedJob.status}
-                  </Badge>
-                  <Text dimColor>#{selectedJob.id}</Text>
-                  <Text dimColor>{selectedJob.added}</Text>
-                  <Text color="cyan">Score {scoreDisplay(selectedJob.score)}</Text>
+          <Box width={detailWidth} flexDirection="column" gap={1}>
+            <Panel
+              title="Detail"
+              borderColor={activePanel === 'detail' ? 'green' : 'gray'}
+              flexGrow={1}
+            >
+              {selectedJob ? (
+                <Box flexDirection="column" gap={1}>
+                  <Box gap={1} flexWrap="wrap">
+                    <Badge color="black" background={statusColor(selectedJob.status)}>
+                      {selectedJob.status}
+                    </Badge>
+                    <Text dimColor>#{selectedJob.id}</Text>
+                    <Text dimColor>{selectedJob.added}</Text>
+                    <Text color="cyan">Score {scoreDisplay(selectedJob.score)}</Text>
+                  </Box>
+                  <Text bold>{selectedJob.company || 'Unknown Company'}</Text>
+                  <Text>{selectedJob.role || 'Untitled Role'}</Text>
+                  {selectedJob.url ? <Text dimColor>{selectedJob.url}</Text> : null}
+                  <Viewport
+                    focusKey="detail"
+                    height={Math.max(8, appHeight - (modalOverlay ? 34 : 22))}
+                  >
+                    <Text>{jobPreview(selectedJob)}</Text>
+                  </Viewport>
                 </Box>
-                <Text bold>{selectedJob.company || 'Unknown Company'}</Text>
-                <Text>{selectedJob.role || 'Untitled Role'}</Text>
-                {selectedJob.url ? <Text dimColor>{selectedJob.url}</Text> : null}
-                <Viewport height={Math.max(8, appHeight - 22)}>
-                  <Text>{jobPreview(selectedJob)}</Text>
-                </Viewport>
-                <Text dimColor>
-                  `a` add  `e` evaluate  `g` generate  `s` status  `o` open link
-                </Text>
-              </Box>
-            ) : (
-              <Text dimColor>Select a job to inspect it.</Text>
-            )}
-          </Panel>
+              ) : (
+                <Text dimColor>Select a job to inspect it.</Text>
+              )}
+            </Panel>
+
+            {modalOverlay}
+          </Box>
         </Box>
 
-        {overlay === 'intake-menu' && (
-          <Modal title="Add Job" onClose={() => setOverlay('none')} width={48}>
-            <Select
-              options={INTAKE_OPTIONS}
-              onSubmit={(value) => setOverlay(value)}
-              render={({ option, highlighted }) => (
-                <Text color={highlighted ? 'cyan' : undefined}>
-                  {highlighted ? '▶ ' : '  '}
-                  {option.label}
+        {tasks.length > 0 && (
+          <Box marginTop={1}>
+            <Panel title="Tasks" borderColor="yellow" width={appWidth - 2}>
+              <Box gap={1}>
+                <Spinner color="yellow" />
+                <Text>
+                  {tasks[0]}
+                  {tasks.length > 1 ? ` (+${tasks.length - 1} more)` : ''}
                 </Text>
-              )}
-            />
-          </Modal>
+              </Box>
+            </Panel>
+          </Box>
         )}
 
-        {overlay === 'intake-url' && (
-          <Modal title="Paste Job Link" onClose={() => setOverlay('none')} width={64}>
-            <TextInput
-              label="Job URL"
-              value={intakeUrl}
-              onChange={setIntakeUrl}
-              onSubmit={(value) => void handleIntakeUrl(value)}
-              placeholder="https://company.example/jobs/123"
-            />
-          </Modal>
-        )}
-
-        {overlay === 'intake-jd' && (
-          <Modal
-            title="Paste Job Description"
-            onClose={() => setOverlay('none')}
-            width={72}
+        <Box justifyContent="space-between" marginTop={1}>
+          <Box
+            width={appWidth - 2}
+            borderTop
+            borderColor="gray"
+            paddingTop={1}
+            flexWrap="wrap"
           >
-            <MultilineInput
-              label="Job description"
-              hint="Enter submits, Ctrl+N inserts a new line"
-              value={intakeJd}
-              onChange={setIntakeJd}
-              onSubmit={(value) => void handleIntakeJd(value)}
-            />
-          </Modal>
-        )}
+            <Text color="blueBright">
+              {footerSegment('Filter', 'tab')}
+            </Text>
+            <Text color="gray"> | </Text>
+            <Text color="blueBright">
+              {footerSegment('Panels', 'h/l')}
+            </Text>
+            <Text color="gray"> | </Text>
+            <Text color="blueBright">
+              {footerSegment('Move', 'j/k')}
+            </Text>
+            <Text color="gray"> | </Text>
+            <Text color="blueBright">
+              {footerSegment('Select', 'enter')}
+            </Text>
+            <Text color="gray"> | </Text>
+            <Text color="blueBright">
+              {footerSegment('Add', 'a')}
+            </Text>
+            <Text color="gray"> | </Text>
+            <Text color="blueBright">
+              {footerSegment('Edit', 'e')}
+            </Text>
+            <Text color="gray"> | </Text>
+            <Text color="blueBright">
+              {footerSegment('Delete', 'd')}
+            </Text>
+            <Text color="gray"> | </Text>
+            <Text color="blueBright">
+              {footerSegment('Status', 's')}
+            </Text>
+            <Text color="gray"> | </Text>
+            <Text color="blueBright">
+              {footerSegment('Generate', 'g')}
+            </Text>
+            <Text color="gray"> | </Text>
+            <Text color="blueBright">
+              {footerSegment('Open', 'o')}
+            </Text>
+            <Text color="gray"> | </Text>
+            <Text color="blueBright">
+              {footerSegment('Quit', 'q')}
+            </Text>
+          </Box>
+        </Box>
 
-        {overlay === 'status' && selectedJob && (
-          <Modal title="Update Status" onClose={() => setOverlay('none')} width={40}>
-            <Select
-              options={JOB_STATUSES.map((status) => ({
-                label: status,
-                value: status,
-              }))}
-              value={selectedJob.status}
-              onSubmit={(value) => runStatusUpdate(selectedJob, value)}
-              render={({ option, highlighted }) => (
-                <Text color={highlighted ? statusColor(option.value) : undefined}>
-                  {highlighted ? '▶ ' : '  '}
-                  {option.label}
-                </Text>
-              )}
-            />
-          </Modal>
-        )}
-
-        {overlay === 'theme' && selectedJob && (
-          <Modal title="Generate CV" onClose={() => setOverlay('none')} width={40}>
-            <Select
-              options={THEMES.map((theme) => ({ label: theme, value: theme }))}
-              onSubmit={(value) => void runGenerate(selectedJob, value)}
-              render={({ option, highlighted }) => (
-                <Text color={highlighted ? 'cyan' : undefined}>
-                  {highlighted ? '▶ ' : '  '}
-                  {option.label}
-                </Text>
-              )}
-            />
-          </Modal>
-        )}
       </Box>
     </FocusScope>
   );

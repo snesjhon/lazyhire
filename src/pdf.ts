@@ -1,47 +1,64 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import puppeteer from 'puppeteer';
-import type { GeneratedCV, Theme } from './types.js';
+import type { GeneratedCV } from './types.js';
 
-export function injectCV(template: string, cv: GeneratedCV, summary: string): string {
-  const skillsHtml = cv.skills.join(' · ');
-
-  const rolesHtml = cv.roles.map((r) => `
-    <div class="role">
-      <div class="role-header">
-        <span class="role-title">${r.role}</span>
-        <span class="role-period">${r.period.start} – ${r.period.end}</span>
-      </div>
-      <div class="role-company">${r.company}</div>
-      <ul>${r.bullets.map((b) => `<li>${b}</li>`).join('')}</ul>
-    </div>`).join('');
-
-  const eduHtml = cv.education.map((e) => `
-    <div class="edu"><strong>${e.institution}</strong><br>${e.degree}</div>`).join('');
-
-  const sidebarSkillsHtml = cv.skills.map((s) => `<div class="skill">· ${s}</div>`).join('');
-  const sidebarEduHtml = cv.education.map((e) =>
-    `<div class="edu"><strong>${e.institution}</strong><br>${e.degree}</div>`
-  ).join('');
-
-  return template
-    .replace(/\{\{NAME\}\}/g, cv.name)
-    .replace(/\{\{TITLE\}\}/g, cv.title)
-    .replace(/\{\{EMAIL\}\}/g, cv.contact.email)
-    .replace(/\{\{LOCATION\}\}/g, cv.contact.location)
-    .replace(/\{\{SITE\}\}/g, cv.contact.site)
-    .replace(/\{\{SUMMARY\}\}/g, summary)
-    .replace(/\{\{SKILLS\}\}/g, skillsHtml)
-    .replace(/\{\{ROLES\}\}/g, rolesHtml)
-    .replace(/\{\{EDUCATION\}\}/g, eduHtml)
-    .replace(/\{\{SIDEBAR_SKILLS\}\}/g, sidebarSkillsHtml)
-    .replace(/\{\{SIDEBAR_EDUCATION\}\}/g, sidebarEduHtml);
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
-export async function renderPDF(cv: GeneratedCV, summary: string, theme: Theme, outputPath: string): Promise<void> {
-  const templatePath = join(process.cwd(), 'themes', `${theme}.html`);
+function renderInlineMarkup(value: string): string {
+  const escaped = escapeHtml(value);
+  return escaped.replace(/\*\*(.+?)\*\*/g, '<span class="emphasis">$1</span>');
+}
+
+function formatPeriod(period: { start: string; end: string }): string {
+  const formatMonth = (ym: string): string => {
+    const [year, month] = ym.split('-');
+    const monthNumber = Number.parseInt(month ?? '', 10);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    if (!year || Number.isNaN(monthNumber) || monthNumber < 1 || monthNumber > 12) return ym;
+    return `${months[monthNumber - 1]} ${year}`;
+  };
+
+  return `${formatMonth(period.start)} – ${period.end === 'present' ? 'Present' : formatMonth(period.end)}`;
+}
+
+export function injectCV(template: string, cv: GeneratedCV): string {
+  const skillsHtml = renderInlineMarkup(cv.skills.join(', '));
+  const rolesHtml = cv.roles.map((role) => `
+    <div class="role">
+      <h3>${renderInlineMarkup(role.company)}</h3>
+      <p class="role-meta"><em>${renderInlineMarkup(role.role)} | ${formatPeriod(role.period)}</em></p>
+      <ul>${role.bullets.map((bullet) => `<li>${renderInlineMarkup(bullet)}</li>`).join('')}</ul>
+    </div>
+  `).join('');
+  const educationHtml = cv.education.map((entry) => `
+    <div class="edu">
+      <p><strong>${renderInlineMarkup(entry.institution)}</strong></p>
+      <p>${renderInlineMarkup(entry.degree)}</p>
+    </div>
+  `).join('');
+
+  return template
+    .replace(/\{\{NAME\}\}/g, renderInlineMarkup(cv.name))
+    .replace(/\{\{TITLE\}\}/g, renderInlineMarkup(cv.title))
+    .replace(/\{\{EMAIL\}\}/g, renderInlineMarkup(cv.contact.email))
+    .replace(/\{\{LOCATION\}\}/g, renderInlineMarkup(cv.contact.location))
+    .replace(/\{\{SITE\}\}/g, renderInlineMarkup(cv.contact.site))
+    .replace(/\{\{SKILLS\}\}/g, skillsHtml)
+    .replace(/\{\{ROLES\}\}/g, rolesHtml)
+    .replace(/\{\{EDUCATION\}\}/g, educationHtml);
+}
+
+export async function renderPDF(cv: GeneratedCV, outputPath: string): Promise<void> {
+  const templatePath = join(process.cwd(), 'themes', 'resume.html');
   const template = readFileSync(templatePath, 'utf8');
-  const html = injectCV(template, cv, summary);
+  const html = injectCV(template, cv);
 
   mkdirSync(dirname(outputPath), { recursive: true });
   const tmpHtml = join(process.cwd(), 'output', `_tmp-${Date.now()}.html`);
@@ -54,13 +71,12 @@ export async function renderPDF(cv: GeneratedCV, summary: string, theme: Theme, 
   await page.pdf({
     path: outputPath,
     format: 'Letter',
-    margin: { top: '0', bottom: '0', left: '0', right: '0' },
+    margin: { top: '0.3in', bottom: '0.3in', left: '0.45in', right: '0.45in' },
     scale: 1,
-    printBackground: true,
+    printBackground: false,
   });
   await browser.close();
 
-  // Clean up temp html
   import('fs').then(({ unlinkSync }) => {
     try { unlinkSync(tmpHtml); } catch { /* ignore */ }
   });

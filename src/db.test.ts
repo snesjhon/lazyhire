@@ -58,6 +58,17 @@ describe('db', () => {
     expect(() => db.updateJob('999', { status: 'Applied' })).toThrow('Job 999 not found');
   });
 
+  it('removes a job by id', () => {
+    db.addJob(makeJob({ id: '001' }));
+    db.addJob(makeJob({ id: '002', company: 'Beta' }));
+    db.removeJob('001');
+    expect(db.readJobs()).toEqual([makeJob({ id: '002', company: 'Beta' })]);
+  });
+
+  it('throws when removing non-existent id', () => {
+    expect(() => db.removeJob('999')).toThrow('Job 999 not found');
+  });
+
   it('nextId returns 001 for empty db', () => {
     expect(db.nextId()).toBe('001');
   });

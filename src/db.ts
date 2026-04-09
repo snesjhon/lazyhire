@@ -29,6 +29,13 @@ export function createDb(dbPath = DEFAULT_PATH) {
     writeJobs(jobs);
   }
 
+  function removeJob(id: string): void {
+    const jobs = readJobs();
+    const nextJobs = jobs.filter((job) => job.id !== id);
+    if (nextJobs.length === jobs.length) throw new Error(`Job ${id} not found`);
+    writeJobs(nextJobs);
+  }
+
   function nextId(): string {
     const jobs = readJobs();
     if (jobs.length === 0) return '001';
@@ -36,7 +43,7 @@ export function createDb(dbPath = DEFAULT_PATH) {
     return String(max + 1).padStart(3, '0');
   }
 
-  return { readJobs, writeJobs, addJob, updateJob, nextId };
+  return { readJobs, writeJobs, addJob, updateJob, removeJob, nextId };
 }
 
 // Default singleton — used by the app

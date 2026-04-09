@@ -37,11 +37,24 @@ describe('buildGeneratePrompt', () => {
       archetype: 'platform',
       cv: '# Jane',
       experienceContext: '--- Acme ---',
+      tailoringNotes: 'Use AI platform framing and emphasize reliability.',
       candidate: { name: 'Jane', email: 'j@j.com', location: 'SF', site: 'j.dev' },
       education: [{ institution: 'UC Davis', degree: 'B.A. Psychology' }],
     });
     expect(prompt).toContain('platform');
     expect(prompt).toContain('Platform engineering role');
     expect(prompt).toContain('Jane');
+    expect(prompt).toContain('Application Guidance');
+    expect(prompt).toContain('emphasize reliability');
+    expect(prompt).toContain('information-dense');
+    expect(prompt).toContain('**double-asterisk emphasis**');
+    expect(prompt).toContain('Actively mine the narrative context');
+    expect(prompt).toContain('26-42 words');
+    expect(prompt).toContain('high relevant information density');
+    expect(prompt).toContain('underline');
+    expect(prompt).toContain('technical system detail');
+    expect(prompt).toContain('Do not compress bullets into headline-like summaries');
+    expect(prompt).toContain('Do not emphasize routine technologies');
+    expect(prompt).toContain('trim redundancy and secondary detail');
   });
 });
