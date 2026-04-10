@@ -47,6 +47,7 @@ export default function ProfileScreen({ onBack }: Props) {
       '1': () => navigation.reset('dashboard'),
       '2': () => navigation.push('scan'),
       '3': () => navigation.reset('profile'),
+      '4': () => navigation.push('answers'),
       q: () => process.exit(0),
       escape: () => {
         if (section === 'none') {

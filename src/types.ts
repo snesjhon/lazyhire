@@ -115,6 +115,27 @@ export interface Profile {
   skills: string[];
 }
 
+export type AnswerCategory =
+  | 'identity'
+  | 'motivation'
+  | 'behavioral'
+  | 'strengths'
+  | 'vision'
+  | 'culture'
+  | 'situational'
+  | 'other';
+
+export interface AnswerEntry {
+  id: string;
+  question: string;
+  category: AnswerCategory;
+  answer: string;
+  tone: string;
+  context: string;
+  added: string;   // YYYY-MM-DD
+  revised: string; // YYYY-MM-DD
+}
+
 export type ScanSource = 'greenhouse' | 'lever' | 'ashby' | 'remoteok' | 'remotive' | 'hn-hiring' | 'websearch';
 
 export interface ScanJob {

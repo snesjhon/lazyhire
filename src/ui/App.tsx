@@ -34,6 +34,7 @@ import MultilineInput from './MultilineInput.js';
 import PasteInput from './PasteInput.js';
 import ProfileScreen from './Profile.js';
 import Scan from './Scan.js';
+import AnswersScreen from './Answers.js';
 
 type View = 'dashboard' | 'scan';
 type Overlay =
@@ -723,6 +724,7 @@ function DashboardScreen({ initialView }: DashboardScreenProps) {
       '1': () => navigation.reset('dashboard'),
       '2': () => navigation.push('scan'),
       '3': () => navigation.push('profile'),
+      '4': () => navigation.push('answers'),
       q: () => process.exit(0),
       h: () => {
         setActivePanel('jobs');
@@ -776,6 +778,7 @@ function DashboardScreen({ initialView }: DashboardScreenProps) {
             <Text color="cyan">[1] Queue</Text>
             <Text color="gray">[2] Scan</Text>
             <Text color="gray">[3] Profile</Text>
+            <Text color="gray">[4] Answers</Text>
           </Box>
           {flash ? (
             <Text color={flashColor(flash.variant)}>
@@ -972,6 +975,11 @@ function ProfileRoute() {
   return <ProfileScreen onBack={() => navigation.pop()} />;
 }
 
+function AnswersRoute() {
+  const navigation = useNavigation();
+  return <AnswersScreen onBack={() => navigation.pop()} />;
+}
+
 export default function App({ initialScreen = 'dashboard' }: Props) {
   return (
     <Router
@@ -981,6 +989,7 @@ export default function App({ initialScreen = 'dashboard' }: Props) {
       <Screen name="dashboard" component={DashboardRoute} />
       <Screen name="scan" component={ScanRoute} />
       <Screen name="profile" component={ProfileRoute} />
+      <Screen name="answers" component={AnswersRoute} />
     </Router>
   );
 }
