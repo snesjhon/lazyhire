@@ -7,7 +7,7 @@ import { clip, flashColor } from '../lib/utils.js';
 const TRANSPARENT_BACKGROUND = 'transparent';
 
 const TAB_OPTIONS = [
-  { name: 'Queue', description: 'Job pipeline', value: 'dashboard' as Screen },
+  { name: 'Jobs', description: 'Job pipeline', value: 'dashboard' as Screen },
   { name: 'Profile', description: 'Candidate data', value: 'profile' as Screen },
   { name: 'Answers', description: 'Saved replies', value: 'answers' as Screen },
   { name: 'Scan', description: 'Find roles', value: 'scan' as Screen, hidden: true },

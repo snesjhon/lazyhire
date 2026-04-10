@@ -27,7 +27,16 @@ import TasksIndicator from './components/TasksIndicator.js';
 import type { Flash, FocusTarget, JobAction, Overlay, Screen } from './ui.js';
 import { scoreDisplay, type FlashVariant } from './lib/utils.js';
 
-const FILTERS: Array<'All' | JobStatus> = ['All', ...JOB_STATUSES];
+const JOB_FILTERS = [
+  'Queue',
+  'Applied',
+  'Interview',
+  'Offer',
+  'Rejected',
+  'Discarded',
+] as const;
+
+type JobFilter = (typeof JOB_FILTERS)[number];
 export const initialScreen: Screen = process.argv.includes('--scan')
   ? 'scan'
   : 'dashboard';
@@ -51,7 +60,7 @@ export default function App() {
   const appHeight = Math.max(height, 24);
   const [screen, setScreen] = useState<Screen>(initialScreen);
   const [focus, setFocus] = useState<FocusTarget>('jobs');
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All');
+  const [filter, setFilter] = useState<JobFilter>('Queue');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<Overlay>('none');
   const [answerJobId, setAnswerJobId] = useState<string | null>(null);
@@ -62,8 +71,12 @@ export default function App() {
   const jobs = useMemo(() => db.readJobs(), [refreshToken]);
 
   const filteredJobs = useMemo(() => {
-    const next =
-      filter === 'All' ? jobs : jobs.filter((job) => job.status === filter);
+    const next = jobs.filter((job) => {
+      if (filter === 'Queue') {
+        return job.status === 'Pending' || job.status === 'Evaluated';
+      }
+      return job.status === filter;
+    });
     return next.slice().sort((a, b) => {
       const scoreDelta =
         (b.score ?? Number.NEGATIVE_INFINITY) -
@@ -489,7 +502,9 @@ export default function App() {
     }
     if (answerJobId) return;
     if (key.name === 'tab')
-      setFilter(FILTERS[(FILTERS.indexOf(filter) + 1) % FILTERS.length]!);
+      setFilter(
+        JOB_FILTERS[(JOB_FILTERS.indexOf(filter) + 1) % JOB_FILTERS.length]!,
+      );
     if (key.name === 'h') setFocus('jobs');
     if (key.name === 'l' && selectedJob) setFocus('detail');
     if (key.name === 'a') setOverlay('add');
@@ -536,7 +551,7 @@ export default function App() {
           detailWidth={detailWidth}
           detailHeight={detailHeight}
           filter={filter}
-          filters={FILTERS}
+          filters={JOB_FILTERS}
           filteredJobs={filteredJobs}
           selectedJob={selectedJob}
           selectedIndex={selectedIndex}

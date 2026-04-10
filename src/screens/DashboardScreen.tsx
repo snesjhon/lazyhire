@@ -1,6 +1,6 @@
 /** @jsxImportSource @opentui/react */
 import { SyntaxStyle } from '@opentui/core';
-import type { Job, JobStatus } from '../types.js';
+import type { Job } from '../types.js';
 import type { FocusTarget, Overlay } from '../ui.js';
 import { clip, scoreDisplay } from '../lib/utils.js';
 import AnswerWorkspace from '../components/AnswerWorkspace.js';
@@ -42,8 +42,16 @@ interface Props {
   queueWidth: number;
   detailWidth: number;
   detailHeight: number;
-  filter: 'All' | JobStatus;
-  filters: Array<'All' | JobStatus>;
+  filter:
+    | 'Queue'
+    | 'Applied'
+    | 'Interview'
+    | 'Offer'
+    | 'Rejected'
+    | 'Discarded';
+  filters: Array<
+    'Queue' | 'Applied' | 'Interview' | 'Offer' | 'Rejected' | 'Discarded'
+  >;
   filteredJobs: Job[];
   selectedJob: Job | null;
   selectedIndex: number;
@@ -78,8 +86,8 @@ export default function DashboardScreen({
   const roleWidth = Math.max(12, queueWidth - companyWidth - 20);
 
   const jobOptions = filteredJobs.map((job) => ({
-    name: `${job.id} ${clip(job.company || 'Unknown', companyWidth).padEnd(companyWidth)} ${clip(job.role || 'Untitled', roleWidth).padEnd(roleWidth)} ${scoreDisplay(job.score).padStart(4)}`,
-    description: `${job.status} · ${job.added}${job.category ? ` · ${job.category}` : ''}${job.focus ? ` / ${job.focus}` : ''}`,
+    name: `${clip(job.company || 'Unknown', companyWidth).padEnd(companyWidth)} ${clip(job.role || 'Untitled', roleWidth).padEnd(roleWidth)} ${scoreDisplay(job.score).padStart(4)}`,
+    description: `${clip(job.status || 'Unknown', companyWidth).padEnd(companyWidth)} ${job.category ? job.category : ''} ${job.focus ? ` / ${job.focus}` : ''} · ${job.added}`,
     value: job.id,
   }));
 
@@ -100,7 +108,7 @@ export default function DashboardScreen({
       {/* Queue + Detail */}
       <box flexDirection="row" columnGap={1} height={contentHeight}>
         <box
-          title={`Queue ${filter === 'All' ? '' : `· ${filter}`}`.trim()}
+          title={filter}
           border
           borderColor={focus === 'jobs' ? '#57cc99' : '#868e96'}
           width={queueWidth}
@@ -115,6 +123,7 @@ export default function DashboardScreen({
               selectedIndex={selectedIndex}
               showDescription
               showScrollIndicator
+              itemSpacing={1}
               backgroundColor={TRANSPARENT_BACKGROUND}
               focusedBackgroundColor={TRANSPARENT_BACKGROUND}
               selectedBackgroundColor={TRANSPARENT_BACKGROUND}
