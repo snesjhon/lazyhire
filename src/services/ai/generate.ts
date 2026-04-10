@@ -3,6 +3,7 @@ import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { query } from '@anthropic-ai/claude-code';
 import type { GeneratedCV, Experience, Profile } from '../../types.js';
+import { buildWritingGuidance } from './writing-guidance.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const GENERATE_PROMPT = readFileSync(join(__dirname, 'prompts', 'generate-cv.md'), 'utf8');
@@ -25,6 +26,10 @@ export interface GenerateInput {
 
 export function buildGeneratePrompt(input: GenerateInput): string {
   return `${GENERATE_PROMPT}
+
+---
+
+${buildWritingGuidance('cv')}
 
 ---
 

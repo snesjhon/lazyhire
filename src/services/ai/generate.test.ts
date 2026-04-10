@@ -49,9 +49,12 @@ describe('buildGeneratePrompt', () => {
     expect(prompt).toContain('Application Guidance');
     expect(prompt).toContain('emphasize reliability');
     expect(prompt).toContain('information-dense');
+    expect(prompt).toContain('## Shared Writing Constraints');
+    expect(prompt).toContain('## CV Voice');
+    expect(prompt).toContain('Never use em dashes or en dashes');
     expect(prompt).toContain('**double-asterisk emphasis**');
     expect(prompt).toContain('Actively mine the narrative context');
-    expect(prompt).toContain('26-42 words');
+    expect(prompt).toContain('27-45 words');
     expect(prompt).toContain('high relevant information density');
     expect(prompt).toContain('underline');
     expect(prompt).toContain('technical system detail');

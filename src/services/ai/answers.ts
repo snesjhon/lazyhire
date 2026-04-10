@@ -1,5 +1,6 @@
 import { query } from '@anthropic-ai/claude-code';
 import type { AnswerCategory, Job, Profile } from '../../types.js';
+import { buildWritingGuidance } from './writing-guidance.js';
 
 export const TONE_OPTIONS = [
   'Professional',
@@ -100,19 +101,20 @@ Respond with exactly one word from the list above. Nothing else.`;
   return VALID_CATEGORIES.has(category) ? category : 'other';
 }
 
-export async function generateAnswer(
+export function buildGenerateAnswerPrompt(
   question: string,
   category: AnswerCategory,
   tone: string,
   context: string,
   profile: Profile,
   job?: Pick<Job, 'company' | 'role' | 'jdSummary' | 'jd' | 'url'> | null,
-): Promise<string> {
+): string {
   const toneDesc = TONE_DESCRIPTIONS[tone] ?? tone;
   const categoryDesc = CATEGORY_DESCRIPTIONS[category];
   const jobContext = buildJobContext(job);
+  const sharedGuidance = buildWritingGuidance('answer');
 
-  const prompt = `You are helping a job candidate craft a compelling interview answer. Write a single polished response. No preamble, no labels, no meta-commentary. Just the answer itself.
+  return `You are helping a job candidate craft a compelling interview answer. Write a single polished response. No preamble, no labels, no meta-commentary. Just the answer itself.
 
 ## Candidate Background
 ${buildProfileSummary(profile)}
@@ -126,31 +128,37 @@ ${category}: ${categoryDesc}
 ## Desired Tone
 ${tone}: ${toneDesc}
 
-${context.trim() ? `## Additional Context from Candidate\n${context.trim()}\n\n` : ''}## Writing Rules (follow strictly)
+${context.trim() ? `## Additional Context from Candidate\n${context.trim()}\n\n` : ''}${sharedGuidance}
+
+## Answer-Specific Rules (follow strictly)
 - Keep the answer to approximately 100 words
-- Sound like a real person talking, not generated text
-- No em-dashes (never use — or –). Use commas, periods, or conjunctions instead
-- No filler openers: do not start with "Absolutely", "Certainly", "Great question", "I am passionate about", "Throughout my career"
-- Vary sentence length. Mix short punchy sentences with longer ones. Avoid uniform structure
-- No repetitive phrasing. Do not reuse the same word or phrase within 2 sentences of each other
-- Plain readable language. Aim for 8th-grade clarity. No jargon unless the role requires it
-- Each sentence should earn its place. Cut anything that restates what was just said
-- Use "I" naturally, like a person would in conversation, not like a cover letter
+- Mix short punchy sentences with longer ones. Avoid uniform structure
+- Aim for 8th-grade clarity unless the role requires more technical language
 
 Write the answer now. Output ONLY the answer text.`;
-
-  return runQuery(prompt);
 }
 
-export async function refineAnswer(
+export async function generateAnswer(
+  question: string,
+  category: AnswerCategory,
+  tone: string,
+  context: string,
+  profile: Profile,
+  job?: Pick<Job, 'company' | 'role' | 'jdSummary' | 'jd' | 'url'> | null,
+): Promise<string> {
+  return runQuery(buildGenerateAnswerPrompt(question, category, tone, context, profile, job));
+}
+
+export function buildRefineAnswerPrompt(
   question: string,
   existingAnswer: string,
   refineRequest: string,
   profile: Profile,
   job?: Pick<Job, 'company' | 'role' | 'jdSummary' | 'jd' | 'url'> | null,
-): Promise<string> {
+): string {
   const jobContext = buildJobContext(job);
-  const prompt = `You are helping a job candidate refine an existing interview answer. Rewrite it incorporating the refinement request. Output ONLY the revised answer text. No preamble, no labels.
+  const sharedGuidance = buildWritingGuidance('answer');
+  return `You are helping a job candidate refine an existing interview answer. Rewrite it incorporating the refinement request. Output ONLY the revised answer text. No preamble, no labels.
 
 ## Candidate Background
 ${buildProfileSummary(profile)}
@@ -164,18 +172,22 @@ ${existingAnswer}
 ## Refinement Request
 ${refineRequest}
 
-## Writing Rules (follow strictly)
+${sharedGuidance}
+
+## Answer-Specific Rules (follow strictly)
 - Keep the answer to approximately 100 words
-- Sound like a real person talking, not generated text
-- No em-dashes (never use — or –). Use commas, periods, or conjunctions instead
-- No filler openers: do not start with "Absolutely", "Certainly", "Great question", "I am passionate about", "Throughout my career"
-- Vary sentence length. Mix short punchy sentences with longer ones. Avoid uniform structure
-- No repetitive phrasing. Do not reuse the same word or phrase within 2 sentences of each other
-- Plain readable language. Aim for 8th-grade clarity. No jargon unless the role requires it
-- Each sentence should earn its place. Cut anything that restates what was just said
-- Use "I" naturally, like a person would in conversation, not like a cover letter
+- Mix short punchy sentences with longer ones. Avoid uniform structure
+- Aim for 8th-grade clarity unless the role requires more technical language
 
 Write the revised answer now.`;
+}
 
-  return runQuery(prompt);
+export async function refineAnswer(
+  question: string,
+  existingAnswer: string,
+  refineRequest: string,
+  profile: Profile,
+  job?: Pick<Job, 'company' | 'role' | 'jdSummary' | 'jd' | 'url'> | null,
+): Promise<string> {
+  return runQuery(buildRefineAnswerPrompt(question, existingAnswer, refineRequest, profile, job));
 }
