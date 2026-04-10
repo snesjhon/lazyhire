@@ -76,13 +76,32 @@ const OFF_TARGET_ROLE_PATTERNS = [
   /\bdeveloper\s+advocate\b/,
 ];
 
-const ARCHETYPE_KEYWORDS: Record<string, string[]> = {
-  platform:       ['platform', 'infrastructure', 'infra', 'devops', 'dx', 'developer experience', 'observability'],
-  agentic:        ['agent', 'ai', 'llm', 'automation', 'workflow', 'orchestration'],
-  pm:             ['product manager', 'product management', 'roadmap'],
-  architect:      ['architect', 'architecture', 'solutions', 'systems design'],
-  fde:            ['forward deployed', 'field engineer', 'solutions engineer'],
-  transformation: ['transformation', 'enablement', 'change management'],
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  engineering: ['engineer', 'engineering', 'developer', 'software'],
+  product: ['product manager', 'product management', 'roadmap', 'discovery'],
+  design: ['designer', 'design', 'ux', 'ui', 'product design'],
+  data: ['data', 'analytics', 'analyst', 'scientist', 'experimentation'],
+  architecture: ['architect', 'architecture', 'solution design', 'enterprise'],
+  research: ['research', 'researcher', 'applied research', 'user research'],
+  consulting: ['consulting', 'consultant', 'client-facing', 'implementation'],
+  operations: ['operations', 'enablement', 'program management', 'transformation'],
+  leadership: ['director', 'head of', 'vp', 'leadership', 'manager'],
+  go_to_market: ['sales engineer', 'solutions consultant', 'customer success', 'growth'],
+};
+
+const FOCUS_KEYWORDS: Record<string, string[]> = {
+  platform: ['platform', 'infrastructure', 'infra', 'developer experience', 'observability'],
+  frontend: ['frontend', 'front end', 'react', 'ui'],
+  backend: ['backend', 'back end', 'api', 'distributed systems'],
+  full_stack: ['full stack', 'full-stack'],
+  forward_deployed: ['forward deployed', 'field engineer', 'client-facing delivery'],
+  product_design: ['product designer', 'product design', 'interaction design'],
+  technical_pm: ['technical product manager', 'technical pm', 'prd'],
+  ux_research: ['ux research', 'user research'],
+  analytics: ['analytics', 'business intelligence', 'bi'],
+  ai: ['ai', 'llm', 'machine learning', 'agent'],
+  developer_relations: ['devrel', 'developer relations', 'developer advocate'],
+  solutions_architecture: ['solutions architect', 'solution architect', 'systems design'],
 };
 
 export type SourceStatus = {
@@ -336,10 +355,22 @@ function rankJob(job: ScanJob, profile: Profile): number {
   // Seniority boost
   if (SENIORITY_WORDS.some((w) => titleLower.includes(w))) score += 2;
 
-  // Archetype alignment
-  for (const arch of profile.targets.archetypes) {
-    const kws = ARCHETYPE_KEYWORDS[arch] ?? [];
-    if (kws.some((k) => titleLower.includes(k))) { score += 1; break; }
+  // Category alignment
+  for (const category of profile.targets.categories) {
+    const kws = CATEGORY_KEYWORDS[category] ?? [];
+    if (kws.some((k) => titleLower.includes(k) || snippetLower.includes(k))) {
+      score += 1;
+      break;
+    }
+  }
+
+  // Focus alignment
+  for (const focus of profile.targets.focuses) {
+    const kws = FOCUS_KEYWORDS[focus] ?? tokenize(focus).filter((w) => w.length > 2);
+    if (kws.some((k) => titleLower.includes(k) || snippetLower.includes(k))) {
+      score += 2;
+      break;
+    }
   }
 
   // Remote match

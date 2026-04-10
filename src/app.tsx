@@ -1,5 +1,9 @@
 /** @jsxImportSource @opentui/react */
-import { useKeyboard, useRenderer, useTerminalDimensions } from '@opentui/react';
+import {
+  useKeyboard,
+  useRenderer,
+  useTerminalDimensions,
+} from '@opentui/react';
 import { spawn } from 'child_process';
 import { useEffect, useMemo, useState } from 'react';
 import { db } from './db.js';
@@ -11,7 +15,7 @@ import {
   inferFromJdText,
   saveJob,
   summarizeJobDescription,
-} from './services/jobs.js';
+} from './services/jobs/jobs.js';
 import { JOB_STATUSES, type Job, type JobStatus } from './types.js';
 import AnswersScreen from './screens/AnswersScreen.js';
 import DashboardOverlay from './components/DashboardOverlay.js';
@@ -20,13 +24,7 @@ import Header from './components/Header.js';
 import ProfileScreen from './screens/ProfileScreen.js';
 import ScanScreen from './screens/ScanScreen.js';
 import TasksIndicator from './components/TasksIndicator.js';
-import type {
-  Flash,
-  FocusTarget,
-  JobAction,
-  Overlay,
-  Screen,
-} from './ui.js';
+import type { Flash, FocusTarget, JobAction, Overlay, Screen } from './ui.js';
 import { scoreDisplay, type FlashVariant } from './lib/utils.js';
 
 const FILTERS: Array<'All' | JobStatus> = ['All', ...JOB_STATUSES];
@@ -110,6 +108,11 @@ export default function App() {
           name: 'Generate CV',
           description: 'Create a tailored PDF',
           value: 'generate-cv' satisfies JobAction,
+        },
+        {
+          name: 'Edit metadata',
+          description: 'Update company, role, URL, or notes',
+          value: 'edit-metadata' satisfies JobAction,
         },
         {
           name: 'Edit job description',
@@ -357,6 +360,10 @@ export default function App() {
       setOverlay('generate-cv');
       return;
     }
+    if (action === 'edit-metadata') {
+      setOverlay('edit-metadata');
+      return;
+    }
     if (action === 'edit-jd') {
       setOverlay('edit-jd');
       return;
@@ -392,6 +399,25 @@ export default function App() {
     setFlash(`Updated job description for #${jobId}`);
   }
 
+  function handleSaveMetadata(
+    jobId: string,
+    patch: Partial<Pick<Job, 'company' | 'role' | 'url' | 'notes'>>,
+  ) {
+    const cleanPatch = Object.fromEntries(
+      Object.entries(patch).map(([key, value]) => [
+        key,
+        typeof value === 'string' ? value.trim() : value,
+      ]),
+    ) as Partial<Pick<Job, 'company' | 'role' | 'url' | 'notes'>>;
+
+    db.updateJob(jobId, cleanPatch);
+    refreshJobs();
+    setSelectedJobId(jobId);
+    setOverlay('none');
+    setFocus('jobs');
+    setFlash(`Updated metadata for #${jobId}`);
+  }
+
   function handleSaveStatus(jobId: string, status: JobStatus) {
     db.updateJob(jobId, { status });
     refreshJobs();
@@ -422,9 +448,8 @@ export default function App() {
     if (key.ctrl && key.name === 'c') quit();
     if (key.name === 'q') quit();
     if (key.name === '1') setScreen('dashboard');
-    if (key.name === '2') setScreen('scan');
-    if (key.name === '3') setScreen('profile');
-    if (key.name === '4') setScreen('answers');
+    if (key.name === '2') setScreen('profile');
+    if (key.name === '3') setScreen('answers');
 
     if (screen !== 'dashboard') return;
 
@@ -507,6 +532,7 @@ export default function App() {
           onAddJd={handleAddJd}
           onOverlayChange={setOverlay}
           onSaveEditJd={handleSaveEditJd}
+          onSaveMetadata={handleSaveMetadata}
           onSaveStatus={handleSaveStatus}
           onConfirmDelete={handleConfirmDelete}
           onGenerateCv={(guidance) => runGenerate(selectedJob!, guidance)}

@@ -31,16 +31,18 @@ describe('parseGeneratedCV', () => {
 });
 
 describe('buildGeneratePrompt', () => {
-  it('includes archetype in prompt', () => {
+  it('includes category and focus in prompt', () => {
     const prompt = buildGeneratePrompt({
       jd: 'Platform engineering role',
-      archetype: 'platform',
+      category: 'engineering',
+      focus: 'platform',
       cv: '# Jane',
       experienceContext: '--- Acme ---',
       tailoringNotes: 'Use AI platform framing and emphasize reliability.',
       candidate: { name: 'Jane', email: 'j@j.com', location: 'SF', site: 'j.dev' },
       education: [{ institution: 'UC Davis', degree: 'B.A. Psychology' }],
     });
+    expect(prompt).toContain('engineering');
     expect(prompt).toContain('platform');
     expect(prompt).toContain('Platform engineering role');
     expect(prompt).toContain('Jane');

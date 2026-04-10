@@ -5,7 +5,15 @@ import { useEffect, useRef, useState } from 'react';
 import { loadProfile, saveProfile } from '../profile.js';
 import type { Profile } from '../types.js';
 
-type Section = 'none' | 'roles' | 'salary-min' | 'salary-max' | 'remote' | 'deal-breakers';
+type Section =
+  | 'none'
+  | 'roles'
+  | 'categories'
+  | 'focuses'
+  | 'salary-min'
+  | 'salary-max'
+  | 'remote'
+  | 'deal-breakers';
 
 const TRANSPARENT = 'transparent';
 
@@ -17,6 +25,8 @@ const REMOTE_OPTIONS: SelectOption[] = [
 
 const MENU_OPTIONS: SelectOption[] = [
   { name: 'Edit target roles', description: 'Comma-separated list of role titles', value: 'roles' },
+  { name: 'Edit categories', description: 'Broad role families', value: 'categories' },
+  { name: 'Edit focuses', description: 'Narrower specializations', value: 'focuses' },
   { name: 'Edit salary range', description: 'Set minimum and maximum', value: 'salary-min' },
   { name: 'Edit remote preference', description: 'full / hybrid / any', value: 'remote' },
   { name: 'Edit deal-breakers', description: 'Comma-separated list', value: 'deal-breakers' },
@@ -58,6 +68,8 @@ export default function ProfileScreen({ appWidth, appHeight }: Props) {
   function openSection(s: Section) {
     const { targets } = profile;
     if (s === 'roles') setDraft(targets.roles.join(', '));
+    else if (s === 'categories') setDraft(targets.categories.join(', '));
+    else if (s === 'focuses') setDraft(targets.focuses.join(', '));
     else if (s === 'salary-min') setDraft(String(targets.salaryMin));
     else if (s === 'deal-breakers') setDraft(targets.dealBreakers.join(', '));
     setSection(s);
@@ -68,6 +80,24 @@ export default function ProfileScreen({ appWidth, appHeight }: Props) {
     if (section === 'roles') {
       const roles = value.split(',').map((r) => r.trim()).filter(Boolean);
       if (roles.length > 0) persist({ ...profile, targets: { ...targets, roles } });
+      setSection('none');
+    } else if (section === 'categories') {
+      persist({
+        ...profile,
+        targets: {
+          ...targets,
+          categories: value.split(',').map((item) => item.trim().toLowerCase().replace(/[\s-]+/g, '_')).filter(Boolean),
+        },
+      });
+      setSection('none');
+    } else if (section === 'focuses') {
+      persist({
+        ...profile,
+        targets: {
+          ...targets,
+          focuses: value.split(',').map((item) => item.trim().toLowerCase().replace(/[\s-]+/g, '_')).filter(Boolean),
+        },
+      });
       setSection('none');
     } else if (section === 'salary-min') {
       const parsed = parseInt(value.replace(/[^0-9]/g, ''), 10);
@@ -102,6 +132,8 @@ export default function ProfileScreen({ appWidth, appHeight }: Props) {
 
   const infoLines = [
     `Roles:         ${targets.roles.join(', ') || 'none'}`,
+    `Categories:    ${targets.categories.join(', ') || 'none'}`,
+    `Focuses:       ${targets.focuses.join(', ') || 'none'}`,
     `Salary:        $${targets.salaryMin.toLocaleString()} – $${targets.salaryMax.toLocaleString()}`,
     `Remote:        ${targets.remote}`,
     `Deal-breakers: ${targets.dealBreakers.join(', ') || 'none'}`,
@@ -114,6 +146,10 @@ export default function ProfileScreen({ appWidth, appHeight }: Props) {
         ? 'Maximum salary'
         : section === 'roles'
           ? 'Target roles (comma-separated)'
+          : section === 'categories'
+            ? 'Target categories (comma-separated)'
+            : section === 'focuses'
+              ? 'Target focuses (comma-separated)'
           : 'Deal-breakers (comma-separated)';
 
   return (
@@ -230,7 +266,7 @@ export default function ProfileScreen({ appWidth, appHeight }: Props) {
         <text fg="#868e96" content="|" />
         <text fg="#7aa2f7" content="esc=close" />
         <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="1-4=tabs" />
+        <text fg="#7aa2f7" content="1-3=tabs" />
         <text fg="#868e96" content="|" />
         <text fg="#7aa2f7" content="q=quit" />
       </box>

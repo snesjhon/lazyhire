@@ -9,7 +9,8 @@ const GENERATE_PROMPT = readFileSync(join(__dirname, 'prompts', 'generate-cv.md'
 
 export interface GenerateInput {
   jd: string;
-  archetype: string;
+  category: string;
+  focus: string | null;
   cv: string;
   experienceContext: string;
   tailoringNotes?: string;
@@ -33,7 +34,9 @@ ${input.jd}
 
 ---
 
-## Detected Archetype: ${input.archetype}
+## Detected Category: ${input.category}
+
+## Detected Focus: ${input.focus ?? 'none'}
 
 ---
 
@@ -93,13 +96,14 @@ ${e.narrative.trim()}`
 }
 
 export async function generateCV(
-  job: { jd: string; archetype: string | null },
+  job: { jd: string; category: string | null; focus: string | null },
   profile: Profile,
   tailoringNotes = '',
 ): Promise<GeneratedCV> {
   const prompt = buildGeneratePrompt({
     jd: job.jd,
-    archetype: job.archetype ?? 'platform',
+    category: job.category ?? 'engineering',
+    focus: job.focus,
     cv: profile.cv,
     experienceContext: buildExperienceContext(profile.experiences),
     tailoringNotes,

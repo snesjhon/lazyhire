@@ -1,6 +1,11 @@
 /** @jsxImportSource @opentui/react */
 import { useKeyboard } from '@opentui/react';
-import type { InputRenderable, SelectOption, TextareaRenderable } from '@opentui/core';
+import type {
+  InputRenderable,
+  SelectOption,
+  TextareaOptions,
+  TextareaRenderable,
+} from '@opentui/core';
 import { execSync } from 'child_process';
 import { useEffect, useRef, useState } from 'react';
 import { answersDb } from '../db.js';
@@ -27,6 +32,9 @@ type Step =
   | 'refining';
 
 const TRANSPARENT = 'transparent';
+const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<TextareaOptions['keyBindings']> = [
+  { name: 'o', ctrl: true, action: 'submit' },
+];
 
 const CATEGORY_LABEL: Record<AnswerCategory, string> = {
   identity: 'Identity',
@@ -225,7 +233,7 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
     setTone(selected);
     setContextDraft('');
     setStatusLine(
-      'Any context to include? (company values, examples, angle) Ctrl+Enter to skip.',
+      'Any context to include? (company values, examples, angle) Ctrl+O to skip.',
     );
     setStep('ask-context');
   }
@@ -527,7 +535,7 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
                     height={4}
                     initialValue={contextDraft}
                     placeholder="Company values, specific angle, examples to draw from…"
-                    keyBindings={[{ name: 'return', ctrl: true, action: 'submit' }]}
+                    keyBindings={TEXTAREA_SUBMIT_KEY_BINDINGS}
                     onContentChange={() =>
                       setContextDraft(contextInputRef.current?.plainText ?? '')
                     }
@@ -591,7 +599,7 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
             <text fg="#868e96" content="|" />
             <text fg="#7aa2f7" content="esc=back" />
             <text fg="#868e96" content="|" />
-            <text fg="#7aa2f7" content="1-4=tabs" />
+            <text fg="#7aa2f7" content="1-3=tabs" />
             <text fg="#868e96" content="|" />
             <text fg="#7aa2f7" content="q=quit" />
           </>

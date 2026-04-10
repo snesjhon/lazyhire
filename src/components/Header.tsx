@@ -8,13 +8,15 @@ const TRANSPARENT_BACKGROUND = 'transparent';
 
 const TAB_OPTIONS = [
   { name: 'Queue', description: 'Job pipeline', value: 'dashboard' as Screen },
-  { name: 'Scan', description: 'Find roles', value: 'scan' as Screen },
   { name: 'Profile', description: 'Candidate data', value: 'profile' as Screen },
   { name: 'Answers', description: 'Saved replies', value: 'answers' as Screen },
+  { name: 'Scan', description: 'Find roles', value: 'scan' as Screen, hidden: true },
 ];
 
+const VISIBLE_TAB_OPTIONS = TAB_OPTIONS.filter((option) => !option.hidden);
+
 function screenIndex(screen: Screen): number {
-  return Math.max(0, TAB_OPTIONS.findIndex((o) => o.value === screen));
+  return Math.max(0, VISIBLE_TAB_OPTIONS.findIndex((o) => o.value === screen));
 }
 
 interface Props {
@@ -52,7 +54,7 @@ export default function Header({
         width={60}
         height={2}
         tabWidth={10}
-        options={TAB_OPTIONS}
+        options={VISIBLE_TAB_OPTIONS}
         selectedTextColor="#050505"
         selectedBackgroundColor="#4cc9f0"
         backgroundColor={TRANSPARENT_BACKGROUND}

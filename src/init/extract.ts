@@ -9,7 +9,8 @@ export interface ExtractionResult {
   education: Profile['education'];
   skills: string[];
   suggestedRoles: string[];
-  suggestedArchetypes: string[];
+  suggestedCategories: string[];
+  suggestedFocuses: string[];
 }
 
 export interface FinalizeProfileInput {
@@ -50,7 +51,8 @@ Extract the following from the resume text provided and return ONLY valid JSON m
   ],
   "skills": ["string"],
   "suggestedRoles": ["string"],
-  "suggestedArchetypes": ["platform | agentic | pm | architect | fde | transformation"]
+  "suggestedCategories": ["engineering | product | design | data | architecture | research | consulting | operations | leadership | go_to_market"],
+  "suggestedFocuses": ["platform | frontend | backend | full_stack | forward_deployed | product_design | technical_pm | ux_research | analytics | ai | developer_relations | solutions_architecture"]
 }
 
 OUTPUT ONLY VALID JSON. NO EXPLANATION. NO MARKDOWN CODE FENCES.`;
@@ -84,7 +86,8 @@ Return ONLY valid JSON matching this exact schema:
     "salaryMax": 0,
     "remote": "full | hybrid | any",
     "dealBreakers": ["string"],
-    "archetypes": ["platform | agentic | pm | architect | fde | transformation"]
+    "categories": ["engineering | product | design | data | architecture | research | consulting | operations | leadership | go_to_market"],
+    "focuses": ["platform | frontend | backend | full_stack | forward_deployed | product_design | technical_pm | ux_research | analytics | ai | developer_relations | solutions_architecture"]
   },
   "experiences": [
     {
@@ -153,7 +156,8 @@ export function parseExtractionResult(text: string): ExtractionResult {
   if (!Array.isArray(parsed.education)) throw new Error('Missing education in extraction result');
   if (!Array.isArray(parsed.skills)) throw new Error('Missing skills in extraction result');
   if (!Array.isArray(parsed.suggestedRoles)) throw new Error('Missing suggestedRoles in extraction result');
-  if (!Array.isArray(parsed.suggestedArchetypes)) throw new Error('Missing suggestedArchetypes in extraction result');
+  if (!Array.isArray(parsed.suggestedCategories)) throw new Error('Missing suggestedCategories in extraction result');
+  if (!Array.isArray(parsed.suggestedFocuses)) throw new Error('Missing suggestedFocuses in extraction result');
 
   return parsed as ExtractionResult;
 }

@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import type { Profile } from './types.js';
+import { normalizeTargetPreferences } from './taxonomy.js';
 
 export function createProfileStore(profilePath: string) {
   function load(): Profile {
@@ -8,7 +9,23 @@ export function createProfileStore(profilePath: string) {
       throw new Error('Profile not found. Run pnpm init to set up your profile.');
     }
 
-    return JSON.parse(readFileSync(profilePath, 'utf8')) as Profile;
+    const raw = JSON.parse(readFileSync(profilePath, 'utf8')) as Profile & {
+      targets?: Record<string, unknown>;
+    };
+    const targets = raw.targets ?? {};
+    const normalizedTargets = normalizeTargetPreferences(targets);
+
+    return {
+      ...raw,
+      targets: {
+        roles: Array.isArray(targets.roles) ? targets.roles as string[] : [],
+        salaryMin: typeof targets.salaryMin === 'number' ? targets.salaryMin : 0,
+        salaryMax: typeof targets.salaryMax === 'number' ? targets.salaryMax : 0,
+        remote: targets.remote === 'hybrid' || targets.remote === 'any' ? targets.remote : 'full',
+        dealBreakers: Array.isArray(targets.dealBreakers) ? targets.dealBreakers as string[] : [],
+        ...normalizedTargets,
+      },
+    };
   }
 
   function save(profile: Profile): void {

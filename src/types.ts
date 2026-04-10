@@ -26,7 +26,8 @@ export interface Job {
   jdSummary?: string;  // summarized JD markdown for dashboard display
   status: JobStatus;
   score: number | null;
-  archetype: string | null;
+  category: string | null;
+  focus: string | null;
   reportPath: string | null;
   pdfPath: string | null;
   theme: Theme | null;
@@ -35,7 +36,8 @@ export interface Job {
 
 export interface EvaluationResult {
   score: number;
-  archetype: string;
+  category: string;
+  focus: string | null;
   recommendation: 'apply' | 'consider' | 'discard';
   blockA: {
     tldr: string;
@@ -106,7 +108,8 @@ export interface Profile {
     salaryMax: number;
     remote: 'full' | 'hybrid' | 'any';
     dealBreakers: string[];
-    archetypes: string[];
+    categories: string[];
+    focuses: string[];
   };
   experiences: Experience[];
   education: Array<{

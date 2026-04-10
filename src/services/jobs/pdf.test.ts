@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, it, expect } from 'vitest';
 import { injectCV } from './pdf.js';
-import type { GeneratedCV } from './types.js';
+import type { GeneratedCV } from '../../types.js';
 
 const cv: GeneratedCV = {
   name: 'Jane Doe',

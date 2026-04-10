@@ -1,11 +1,44 @@
 /** @jsxImportSource @opentui/react */
-import { type InputRenderable, type SelectOption, type TextareaRenderable } from '@opentui/core';
+import {
+  type KeyEvent,
+  type InputRenderable,
+  type SelectOption,
+  type TextareaRenderable,
+} from '@opentui/core';
+import { useKeyboard } from '@opentui/react';
 import { useEffect, useRef, useState } from 'react';
 import type { Job, JobStatus } from '../types.js';
 import { JOB_STATUSES } from '../types.js';
 import type { JobAction, Overlay } from '../ui.js';
 
 const TRANSPARENT_BACKGROUND = 'transparent';
+type MetadataField = 'company' | 'role' | 'url' | 'notes';
+
+function isTextareaSubmitKey(key: KeyEvent): boolean {
+  return key.ctrl && key.name === 'o';
+}
+
+function overlayTitle(overlay: Overlay): string {
+  if (overlay === 'add-jd') return 'Submit your Job Description (ctrl-o)';
+  if (overlay === 'edit-jd') return 'Save your Job Description (ctrl-o)';
+  if (overlay === 'edit-metadata') return 'Edit Metadata';
+  if (overlay.startsWith('edit-')) return 'Save Metadata';
+  if (overlay === 'generate-cv') return 'Submit CV Guidance (ctrl-o)';
+  return 'Action';
+}
+
+function metadataOverlayToField(overlay: Overlay): MetadataField | null {
+  if (overlay === 'edit-company') return 'company';
+  if (overlay === 'edit-role') return 'role';
+  if (overlay === 'edit-url') return 'url';
+  if (overlay === 'edit-notes') return 'notes';
+  return null;
+}
+
+function metadataFieldLabel(field: MetadataField): string {
+  if (field === 'role') return 'Role / title';
+  return field.charAt(0).toUpperCase() + field.slice(1);
+}
 
 interface Props {
   overlay: Overlay;
@@ -16,6 +49,10 @@ interface Props {
   onAddJd: (jd: string) => Promise<void>;
   onOverlayChange: (overlay: Overlay) => void;
   onSaveEditJd: (jobId: string, jd: string) => void;
+  onSaveMetadata: (
+    jobId: string,
+    patch: Partial<Pick<Job, 'company' | 'role' | 'url' | 'notes'>>,
+  ) => void;
   onSaveStatus: (jobId: string, status: JobStatus) => void;
   onConfirmDelete: (jobId: string) => void;
   onGenerateCv: (guidance: string) => Promise<void>;
@@ -31,6 +68,7 @@ export default function DashboardOverlay({
   onAddJd,
   onOverlayChange,
   onSaveEditJd,
+  onSaveMetadata,
   onSaveStatus,
   onConfirmDelete,
   onGenerateCv,
@@ -39,9 +77,11 @@ export default function DashboardOverlay({
   const [addUrl, setAddUrl] = useState('');
   const [addJd, setAddJd] = useState('');
   const [editJd, setEditJd] = useState('');
+  const [metadataDraft, setMetadataDraft] = useState('');
   const [cvGuidance, setCvGuidance] = useState('');
 
   const urlInput = useRef<InputRenderable>(null);
+  const metadataInput = useRef<InputRenderable>(null);
   const jdInput = useRef<TextareaRenderable>(null);
   const editJdInput = useRef<TextareaRenderable>(null);
   const guidanceInput = useRef<TextareaRenderable>(null);
@@ -53,12 +93,35 @@ export default function DashboardOverlay({
       setEditJd(selectedJob?.jd ?? '');
       editJdInput.current?.focus();
     }
+    const metadataField = metadataOverlayToField(overlay);
+    if (metadataField) {
+      setMetadataDraft(selectedJob?.[metadataField] ?? '');
+      metadataInput.current?.focus();
+    }
     if (overlay === 'generate-cv') { setCvGuidance(''); guidanceInput.current?.focus(); }
-  }, [overlay]);
+  }, [overlay, selectedJob]);
+
+  useKeyboard((key) => {
+    if (!isTextareaSubmitKey(key)) return;
+
+    if (overlay === 'add-jd') {
+      void onAddJd(jdInput.current?.plainText ?? '');
+      return;
+    }
+
+    if (overlay === 'edit-jd' && selectedJob) {
+      onSaveEditJd(selectedJob.id, editJdInput.current?.plainText.trim() ?? '');
+      return;
+    }
+
+    if (overlay === 'generate-cv') {
+      void onGenerateCv(guidanceInput.current?.plainText ?? '');
+    }
+  });
 
   return (
     <box
-      title="Action"
+      title={overlayTitle(overlay)}
       border
       borderColor="#f5c542"
       marginTop={1}
@@ -132,8 +195,7 @@ export default function DashboardOverlay({
           ref={jdInput}
           height={7}
           initialValue={addJd}
-          placeholder="Paste the job description. Ctrl+Enter submits."
-          keyBindings={[{ name: 'return', ctrl: true, action: 'submit' }]}
+          placeholder="Paste the job description."
           onContentChange={() => setAddJd(jdInput.current?.plainText ?? '')}
           onSubmit={() => void onAddJd(jdInput.current?.plainText ?? '')}
           focused
@@ -145,8 +207,7 @@ export default function DashboardOverlay({
           ref={editJdInput}
           height={7}
           initialValue={editJd}
-          placeholder="Edit job description. Ctrl+Enter saves."
-          keyBindings={[{ name: 'return', ctrl: true, action: 'submit' }]}
+          placeholder="Edit job description."
           onContentChange={() => setEditJd(editJdInput.current?.plainText ?? '')}
           onSubmit={() =>
             onSaveEditJd(
@@ -156,6 +217,63 @@ export default function DashboardOverlay({
           }
           focused
         />
+      )}
+
+      {overlay === 'edit-metadata' && selectedJob && (
+        <select
+          height={6}
+          focused
+          options={[
+            {
+              name: 'Company',
+              description: selectedJob.company || 'Unknown Company',
+              value: 'edit-company',
+            },
+            {
+              name: 'Role / title',
+              description: selectedJob.role || 'Untitled Role',
+              value: 'edit-role',
+            },
+            {
+              name: 'URL',
+              description: selectedJob.url || 'No job URL saved',
+              value: 'edit-url',
+            },
+            {
+              name: 'Notes',
+              description: selectedJob.notes || 'No notes saved',
+              value: 'edit-notes',
+            },
+          ]}
+          showDescription
+          backgroundColor={TRANSPARENT_BACKGROUND}
+          focusedBackgroundColor={TRANSPARENT_BACKGROUND}
+          selectedBackgroundColor={TRANSPARENT_BACKGROUND}
+          onSelect={(_, option) =>
+            onOverlayChange((option?.value as Overlay | undefined) ?? 'none')
+          }
+        />
+      )}
+
+      {metadataOverlayToField(overlay) && selectedJob && (
+        <box flexDirection="column">
+          <text
+            fg="#868e96"
+            content={metadataFieldLabel(metadataOverlayToField(overlay)!)}
+          />
+          <input
+            ref={metadataInput}
+            value={metadataDraft}
+            onInput={setMetadataDraft}
+            onSubmit={(value: unknown) => {
+              const field = metadataOverlayToField(overlay);
+              if (field && typeof value === 'string') {
+                onSaveMetadata(selectedJob.id, { [field]: value });
+              }
+            }}
+            focused
+          />
+        </box>
       )}
 
       {overlay === 'status' && selectedJob && (
@@ -205,8 +323,7 @@ export default function DashboardOverlay({
           ref={guidanceInput}
           height={7}
           initialValue={cvGuidance}
-          placeholder="Optional tailoring guidance. Ctrl+Enter submits."
-          keyBindings={[{ name: 'return', ctrl: true, action: 'submit' }]}
+          placeholder="Optional tailoring guidance."
           onContentChange={() => setCvGuidance(guidanceInput.current?.plainText ?? '')}
           onSubmit={() =>
             void onGenerateCv(guidanceInput.current?.plainText ?? '')

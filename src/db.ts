@@ -1,13 +1,19 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import type { AnswerEntry, Job } from './types.js';
+import { normalizeJobClassification } from './taxonomy.js';
 
 const DEFAULT_PATH = join(process.cwd(), 'profile', 'jobs.json');
 
 export function createDb(dbPath = DEFAULT_PATH) {
   function readJobs(): Job[] {
     if (!existsSync(dbPath)) return [];
-    return JSON.parse(readFileSync(dbPath, 'utf8')) as Job[];
+    const rawJobs = JSON.parse(readFileSync(dbPath, 'utf8')) as Array<Job & Record<string, unknown>>;
+    return rawJobs.map((job) => ({
+      ...job,
+      ...normalizeJobClassification(job),
+      notes: typeof job.notes === 'string' ? job.notes : '',
+    }));
   }
 
   function writeJobs(jobs: Job[]): void {

@@ -83,7 +83,8 @@ export default function ScanScreen({ appWidth, onBack }: Props) {
             jd: '',
             status: 'Pending',
             score: job.score,
-            archetype: null,
+            category: null,
+            focus: null,
             reportPath: null,
             pdfPath: null,
             theme: null,
@@ -188,7 +189,7 @@ export default function ScanScreen({ appWidth, onBack }: Props) {
       <box flexDirection="row" columnGap={1} position="absolute" bottom={0}>
         <text fg="#7aa2f7" content="esc=back" />
         <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="1-4=tabs" />
+        <text fg="#7aa2f7" content="1-3=tabs" />
         <text fg="#868e96" content="|" />
         <text fg="#7aa2f7" content="q=quit" />
       </box>

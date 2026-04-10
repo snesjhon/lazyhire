@@ -14,12 +14,13 @@ const syntaxStyle = SyntaxStyle.fromStyles({
 const TRANSPARENT_BACKGROUND = 'transparent';
 
 function jobDetailMarkdown(job: Job): string {
+  const classification = [job.category, job.focus].filter(Boolean).join(' / ');
   const rows = [
     `**Company:** ${job.company || 'Unknown Company'}`,
     `**Role:** ${job.role || 'Untitled Role'}`,
     `**Status:** ${job.status}`,
     `**Score:** ${scoreDisplay(job.score)}`,
-    job.archetype ? `**Archetype:** ${job.archetype}` : '',
+    classification ? `**Category / Focus:** ${classification}` : '',
     job.url ? `**URL:** ${job.url}` : '',
     job.pdfPath ? `**Generated CV:** ${job.pdfPath}` : '',
     job.notes ? `**Notes:** ${job.notes}` : '',
@@ -71,7 +72,7 @@ export default function DashboardScreen({
 
   const jobOptions = filteredJobs.map((job) => ({
     name: `${job.id} ${clip(job.company || 'Unknown', companyWidth).padEnd(companyWidth)} ${clip(job.role || 'Untitled', roleWidth).padEnd(roleWidth)} ${scoreDisplay(job.score).padStart(4)}`,
-    description: `${job.status} · ${job.added}${job.archetype ? ` · ${job.archetype}` : ''}`,
+    description: `${job.status} · ${job.added}${job.category ? ` · ${job.category}` : ''}${job.focus ? ` / ${job.focus}` : ''}`,
     value: job.id,
   }));
 
@@ -171,7 +172,7 @@ export default function DashboardScreen({
         position="absolute"
         bottom={0}
       >
-        <text fg="#7aa2f7" content="1-4=tabs" />
+        <text fg="#7aa2f7" content="1-3=tabs" />
         <text fg="#868e96" content="|" />
         <text fg="#7aa2f7" content="tab=filter" />
         <text fg="#868e96" content="|" />

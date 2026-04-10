@@ -5,7 +5,7 @@ import { query } from '@anthropic-ai/claude-code';
 import type { EvaluationResult, Profile } from '../../types.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const ARCHETYPES_PROMPT = readFileSync(join(__dirname, 'prompts', 'archetypes.md'), 'utf8');
+const CATEGORIES_PROMPT = readFileSync(join(__dirname, 'prompts', 'categories.md'), 'utf8');
 const EVALUATION_PROMPT = readFileSync(join(__dirname, 'prompts', 'evaluation.md'), 'utf8');
 
 export interface EvalInput {
@@ -16,7 +16,7 @@ export interface EvalInput {
 }
 
 export function buildEvalPrompt(input: EvalInput): string {
-  return `${ARCHETYPES_PROMPT}
+  return `${CATEGORIES_PROMPT}
 
 ---
 
@@ -56,7 +56,7 @@ export function parseEvaluationResult(text: string): EvaluationResult {
   const parsed = JSON.parse(jsonMatch[0]) as Partial<EvaluationResult>;
 
   if (typeof parsed.score !== 'number') throw new Error('Missing score in evaluation result');
-  if (!parsed.archetype) throw new Error('Missing archetype in evaluation result');
+  if (!parsed.category) throw new Error('Missing category in evaluation result');
   if (!parsed.recommendation) throw new Error('Missing recommendation in evaluation result');
   if (!parsed.blockA) throw new Error('Missing blockA in evaluation result');
   if (!parsed.blockB) throw new Error('Missing blockB in evaluation result');
@@ -70,7 +70,8 @@ function buildConfigSummary(profile: Profile): string {
     `Target roles: ${profile.targets.roles.join(', ')}`,
     `Salary target: $${profile.targets.salaryMin.toLocaleString()} – $${profile.targets.salaryMax.toLocaleString()}`,
     `Remote preference: ${profile.targets.remote}`,
-    `Preferred archetypes: ${profile.targets.archetypes.join(', ')}`,
+    `Preferred categories: ${profile.targets.categories.join(', ') || 'none'}`,
+    `Preferred focuses: ${profile.targets.focuses.join(', ') || 'none'}`,
     `Deal-breakers: ${profile.targets.dealBreakers.join(', ')}`,
   ].join('\n');
 }

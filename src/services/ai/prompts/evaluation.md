@@ -10,7 +10,8 @@ Respond with ONLY valid JSON — no markdown, no code fences, no explanation.
 Output format:
 {
   "score": <number 1.0-5.0>,
-  "archetype": "<one of: platform | agentic | pm | architect | fde | transformation>",
+  "category": "<one of: engineering | product | design | data | architecture | research | consulting | operations | leadership | go_to_market>",
+  "focus": "<short normalized label such as platform | frontend | backend | full_stack | forward_deployed | product_design | technical_pm | ux_research | analytics | ai | developer_relations | solutions_architecture, or null>",
   "recommendation": "<apply | consider | discard>",
   "blockA": {
     "tldr": "<one sentence summary of the role>",
@@ -50,7 +51,7 @@ Output format:
 
 Weight each dimension:
 - CV match (skills, experience, proof points): 30%
-- North Star alignment (archetype match to candidate targets): 25%
+- North Star alignment (category/focus match to candidate targets): 25%
 - Compensation signal vs target: 15%
 - Cultural / growth signals: 15%
 - Red flag deductions: -15% max
@@ -68,5 +69,5 @@ Weight each dimension:
 You will receive:
 1. The job description (raw text)
 2. The candidate's CV (markdown)
-3. The candidate's config (target roles, salary range, preferred archetypes)
+3. The candidate's config (target roles, salary range, preferred categories and focuses)
 4. The experience database (structured bullet points and narratives)

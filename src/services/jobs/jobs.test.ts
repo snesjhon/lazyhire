@@ -73,6 +73,23 @@ describe('inferRoleAndCompanyFromSignals', () => {
     });
   });
 
+  it('extracts the company from greenhouse board URLs', () => {
+    const result = inferRoleAndCompanyFromSignals({
+      pageTitle: 'Editor, Audience Growth | Careers',
+      metaTitle: '',
+      ogTitle: '',
+      h1: 'Editor, Audience Growth',
+      companyText: '',
+      jsonLdTitle: '',
+      jsonLdCompany: '',
+    }, 'https://job-boards.greenhouse.io/nationalpublicradioinc/jobs/4674408005?gh_src=f74c72d55us');
+
+    expect(result).toEqual({
+      role: 'Editor, Audience Growth',
+      company: 'National Public Radio',
+    });
+  });
+
   it('falls back to the hostname when no company signal exists', () => {
     const result = inferRoleAndCompanyFromSignals({
       pageTitle: 'Engineering Manager',

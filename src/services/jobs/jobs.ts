@@ -37,6 +37,10 @@ function titleCaseWords(value: string): string {
     .join(' ');
 }
 
+const GREENHOUSE_BOARD_COMPANY_HINTS: Record<string, string> = {
+  nationalpublicradioinc: 'National Public Radio',
+};
+
 function hostnameLabel(url: string): string {
   try {
     const { hostname } = new URL(url);
@@ -206,9 +210,27 @@ function companyHintFromUrl(url: string): string | null {
     if (!parsed.hostname.includes('greenhouse.io')) return null;
 
     const companyParam = parsed.searchParams.get('for');
-    if (!companyParam) return null;
+    if (companyParam) {
+      const normalized = cleanText(companyParam).replace(/[-_]+/g, ' ');
+      return normalized ? titleCaseWords(normalized) : null;
+    }
 
-    const normalized = cleanText(companyParam).replace(/[-_]+/g, ' ');
+    const boardSlug = parsed.pathname
+      .split('/')
+      .map((part) => decodeURIComponent(part).trim())
+      .find(
+        (part) =>
+          part && part !== 'embed' && part !== 'job_app' && part !== 'jobs',
+      );
+    if (!boardSlug) return null;
+
+    const knownHint = GREENHOUSE_BOARD_COMPANY_HINTS[boardSlug.toLowerCase()];
+    if (knownHint) return knownHint;
+
+    const normalizedBoardSlug = cleanText(boardSlug).replace(/[-_]+/g, ' ');
+    const normalized = normalizedBoardSlug.includes(' ')
+      ? normalizedBoardSlug.replace(/\b(?:inc|llc|ltd|corp|corporation)\b$/i, '')
+      : normalizedBoardSlug.replace(/(?:inc|llc|ltd|corp|corporation)$/i, '');
     return normalized ? titleCaseWords(normalized) : null;
   } catch {
     return null;
@@ -469,7 +491,8 @@ export function createPendingJob(
     jdSummary: partial.jdSummary ?? summarizeJobDescription(partial.jd),
     status: 'Pending',
     score: null,
-    archetype: null,
+    category: null,
+    focus: null,
     reportPath: null,
     pdfPath: null,
     theme: null,
@@ -491,13 +514,15 @@ export async function evaluateAndPersistJob(job: Job): Promise<Job> {
     ...job,
     status: 'Evaluated',
     score: result.score,
-    archetype: result.archetype,
+    category: result.category,
+    focus: result.focus,
     reportPath: null,
   };
   db.updateJob(job.id, {
     status: updated.status,
     score: updated.score,
-    archetype: updated.archetype,
+    category: updated.category,
+    focus: updated.focus,
     reportPath: null,
   });
   return updated;
@@ -509,7 +534,7 @@ export async function generateAndPersistPdf(
 ): Promise<Job> {
   const profile = loadProfile();
   const cv = await generateCV(
-    { jd: job.jd || `URL: ${job.url}`, archetype: job.archetype },
+    { jd: job.jd || `URL: ${job.url}`, category: job.category, focus: job.focus },
     profile,
     tailoringNotes,
   );

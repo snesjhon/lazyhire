@@ -21,7 +21,8 @@ const profile: Profile = {
     salaryMax: 250000,
     remote: 'full',
     dealBreakers: [],
-    archetypes: ['platform'],
+    categories: ['engineering'],
+    focuses: ['platform'],
   },
   experiences: [
     {

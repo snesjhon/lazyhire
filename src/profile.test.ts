@@ -18,7 +18,8 @@ const sample: Profile = {
     salaryMax: 200000,
     remote: 'full',
     dealBreakers: ['no equity'],
-    archetypes: ['platform'],
+    categories: ['engineering'],
+    focuses: ['platform'],
   },
   experiences: [
     {
@@ -63,6 +64,7 @@ describe('createProfileStore', () => {
     store.save(sample);
     const loaded = store.load();
     expect(loaded.targets.remote).toBe('full');
-    expect(loaded.targets.archetypes).toContain('platform');
+    expect(loaded.targets.categories).toContain('engineering');
+    expect(loaded.targets.focuses).toContain('platform');
   });
 });

@@ -5,7 +5,8 @@ describe('parseEvaluationResult', () => {
   it('parses valid evaluation JSON', () => {
     const json = JSON.stringify({
       score: 4.2,
-      archetype: 'platform',
+      category: 'engineering',
+      focus: 'platform',
       recommendation: 'apply',
       blockA: {
         tldr: 'Senior platform role',
@@ -27,7 +28,8 @@ describe('parseEvaluationResult', () => {
 
     const result = parseEvaluationResult(json);
     expect(result.score).toBe(4.2);
-    expect(result.archetype).toBe('platform');
+    expect(result.category).toBe('engineering');
+    expect(result.focus).toBe('platform');
     expect(result.recommendation).toBe('apply');
     expect(result.blockB.matches).toHaveLength(1);
   });

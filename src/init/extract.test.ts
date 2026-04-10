@@ -36,7 +36,8 @@ const extraction = {
   education,
   skills,
   suggestedRoles: ['Senior Frontend Engineer', 'Platform Engineer'],
-  suggestedArchetypes: ['platform'],
+  suggestedCategories: ['engineering'],
+  suggestedFocuses: ['platform'],
 };
 
 describe('resume extraction helpers', () => {
@@ -64,7 +65,8 @@ describe('final profile generation helpers', () => {
         salaryMax: 220000,
         remote: 'full',
         dealBreakers: ['No relocation'],
-        archetypes: ['platform'],
+        categories: ['engineering'],
+        focuses: ['platform'],
       },
       extraExperience: ['Led a migration across 4 teams'],
     });
@@ -72,7 +74,8 @@ describe('final profile generation helpers', () => {
     expect(prompt).toContain('Location should be Seattle, WA');
     expect(prompt).toContain('Senior Frontend Engineer');
     expect(prompt).toContain('Led a migration across 4 teams');
-    expect(prompt).toContain('"suggestedArchetypes"');
+    expect(prompt).toContain('"suggestedCategories"');
+    expect(prompt).toContain('"suggestedFocuses"');
   });
 
   it('parseProfileResult parses valid profile json', () => {
@@ -87,7 +90,8 @@ describe('final profile generation helpers', () => {
         salaryMax: 220000,
         remote: 'full',
         dealBreakers: ['No relocation'],
-        archetypes: ['platform'],
+        categories: ['engineering'],
+        focuses: ['platform'],
       },
       experiences,
       education,
