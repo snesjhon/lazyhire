@@ -1,9 +1,12 @@
 /** @jsxImportSource @opentui/react */
 import { SyntaxStyle } from '@opentui/core';
-import type { Job } from '../types.js';
+import type { Job, JobStatus } from '../types.js';
 import type { FocusTarget, Overlay } from '../ui.js';
 import { clip, scoreDisplay } from '../lib/utils.js';
 import AnswerWorkspace from '../components/AnswerWorkspace.js';
+import JobActionWorkspace, {
+  type JobActionView,
+} from '../components/JobActionWorkspace.js';
 
 // const syntaxStyle = SyntaxStyle.create();
 const syntaxStyle = SyntaxStyle.fromStyles({
@@ -49,7 +52,7 @@ interface Props {
     | 'Offer'
     | 'Rejected'
     | 'Discarded';
-  filters: Array<
+  filters: ReadonlyArray<
     'Queue' | 'Applied' | 'Interview' | 'Offer' | 'Rejected' | 'Discarded'
   >;
   filteredJobs: Job[];
@@ -58,10 +61,23 @@ interface Props {
   focus: FocusTarget;
   overlay: Overlay;
   isAnswering: boolean;
+  jobActionView: JobActionView | null;
   onJobSelect: (jobId: string) => void;
   onOpenActions: () => void;
   onCloseAnswer: () => void;
   onAnswerSaved: (message: string) => void;
+  onCloseJobActions: () => void;
+  onStartAnswer: () => void;
+  onEvaluateJob: () => void;
+  onOpenJobLink: () => void;
+  onOpenGeneratedCv: () => void;
+  onSaveMetadata: (
+    patch: Partial<Pick<Job, 'company' | 'role' | 'url' | 'notes'>>,
+  ) => void;
+  onSaveEditJd: (jd: string) => void;
+  onSaveStatus: (status: JobStatus) => void;
+  onDeleteJob: () => void;
+  onGenerateCv: (guidance: string) => Promise<void>;
 }
 
 export default function DashboardScreen({
@@ -77,10 +93,21 @@ export default function DashboardScreen({
   focus,
   overlay,
   isAnswering,
+  jobActionView,
   onJobSelect,
   onOpenActions,
   onCloseAnswer,
   onAnswerSaved,
+  onCloseJobActions,
+  onStartAnswer,
+  onEvaluateJob,
+  onOpenJobLink,
+  onOpenGeneratedCv,
+  onSaveMetadata,
+  onSaveEditJd,
+  onSaveStatus,
+  onDeleteJob,
+  onGenerateCv,
 }: Props) {
   const companyWidth = Math.max(10, Math.floor((queueWidth - 14) * 0.38));
   const roleWidth = Math.max(12, queueWidth - companyWidth - 20);
@@ -160,6 +187,23 @@ export default function DashboardScreen({
               onClose={onCloseAnswer}
               onSaved={onAnswerSaved}
             />
+          ) : selectedJob && jobActionView ? (
+            <JobActionWorkspace
+              job={selectedJob}
+              width={Math.max(20, detailWidth - 4)}
+              height={detailHeight + 1}
+              initialView={jobActionView}
+              onClose={onCloseJobActions}
+              onStartAnswer={onStartAnswer}
+              onEvaluate={onEvaluateJob}
+              onOpenLink={onOpenJobLink}
+              onOpenCv={onOpenGeneratedCv}
+              onSaveMetadata={onSaveMetadata}
+              onSaveEditJd={onSaveEditJd}
+              onSaveStatus={onSaveStatus}
+              onDelete={onDeleteJob}
+              onGenerateCv={onGenerateCv}
+            />
           ) : selectedJob ? (
             <scrollbox
               height={detailHeight + 3}
@@ -204,7 +248,7 @@ export default function DashboardScreen({
         <text fg="#868e96" content="|" />
         <text fg="#7aa2f7" content="j/k=move" />
         <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="enter=actions" />
+        <text fg="#7aa2f7" content="enter=job actions" />
         <text fg="#868e96" content="|" />
         <text fg="#7aa2f7" content="a=add" />
         <text fg="#868e96" content="|" />

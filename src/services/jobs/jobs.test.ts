@@ -5,17 +5,33 @@ import {
   summarizeJobDescription,
 } from './jobs.js';
 
+function makeSignals(
+  overrides: Partial<Parameters<typeof inferRoleAndCompanyFromSignals>[0]>,
+): Parameters<typeof inferRoleAndCompanyFromSignals>[0] {
+  return {
+    pageTitle: '',
+    metaTitle: '',
+    ogTitle: '',
+    metaDescription: '',
+    ogDescription: '',
+    h1: '',
+    companyText: '',
+    jsonLdTitle: '',
+    jsonLdCompany: '',
+    jsonLdDescription: '',
+    text: '',
+    ...overrides,
+  };
+}
+
 describe('inferRoleAndCompanyFromSignals', () => {
   it('prefers JSON-LD job metadata when available', () => {
-    const result = inferRoleAndCompanyFromSignals({
+    const result = inferRoleAndCompanyFromSignals(makeSignals({
       pageTitle: 'Apply for Senior Platform Engineer at Acme',
-      metaTitle: '',
-      ogTitle: '',
       h1: 'Apply for Senior Platform Engineer',
-      companyText: '',
       jsonLdTitle: 'Senior Platform Engineer',
       jsonLdCompany: 'Acme',
-    }, 'https://jobs.example.com/roles/123');
+    }), 'https://jobs.example.com/roles/123');
 
     expect(result).toEqual({
       role: 'Senior Platform Engineer',
@@ -24,15 +40,9 @@ describe('inferRoleAndCompanyFromSignals', () => {
   });
 
   it('parses role and company from ATS title separators', () => {
-    const result = inferRoleAndCompanyFromSignals({
+    const result = inferRoleAndCompanyFromSignals(makeSignals({
       pageTitle: 'Senior Product Engineer | Figma',
-      metaTitle: '',
-      ogTitle: '',
-      h1: '',
-      companyText: '',
-      jsonLdTitle: '',
-      jsonLdCompany: '',
-    }, 'https://boards.greenhouse.io/figma/jobs/123');
+    }), 'https://boards.greenhouse.io/figma/jobs/123');
 
     expect(result).toEqual({
       role: 'Senior Product Engineer',
@@ -41,15 +51,11 @@ describe('inferRoleAndCompanyFromSignals', () => {
   });
 
   it('uses heading for role and page company text when title is generic', () => {
-    const result = inferRoleAndCompanyFromSignals({
+    const result = inferRoleAndCompanyFromSignals(makeSignals({
       pageTitle: 'Careers',
-      metaTitle: '',
-      ogTitle: '',
       h1: 'Staff Software Engineer, Platform',
       companyText: 'Notion',
-      jsonLdTitle: '',
-      jsonLdCompany: '',
-    }, 'https://jobs.ashbyhq.com/notion/abcd');
+    }), 'https://jobs.ashbyhq.com/notion/abcd');
 
     expect(result).toEqual({
       role: 'Staff Software Engineer, Platform',
@@ -58,15 +64,10 @@ describe('inferRoleAndCompanyFromSignals', () => {
   });
 
   it('extracts the company from greenhouse embed query params', () => {
-    const result = inferRoleAndCompanyFromSignals({
+    const result = inferRoleAndCompanyFromSignals(makeSignals({
       pageTitle: 'Senior Software Engineer | Careers',
-      metaTitle: '',
-      ogTitle: '',
       h1: 'Senior Software Engineer',
-      companyText: '',
-      jsonLdTitle: '',
-      jsonLdCompany: '',
-    }, 'https://job-boards.greenhouse.io/embed/job_app?for=mixpanel&gh_src=beca423f1&source=LinkedIn&token=7670800');
+    }), 'https://job-boards.greenhouse.io/embed/job_app?for=mixpanel&gh_src=beca423f1&source=LinkedIn&token=7670800');
 
     expect(result).toEqual({
       role: 'Senior Software Engineer',
@@ -75,15 +76,10 @@ describe('inferRoleAndCompanyFromSignals', () => {
   });
 
   it('extracts the company from greenhouse board URLs', () => {
-    const result = inferRoleAndCompanyFromSignals({
+    const result = inferRoleAndCompanyFromSignals(makeSignals({
       pageTitle: 'Editor, Audience Growth | Careers',
-      metaTitle: '',
-      ogTitle: '',
       h1: 'Editor, Audience Growth',
-      companyText: '',
-      jsonLdTitle: '',
-      jsonLdCompany: '',
-    }, 'https://job-boards.greenhouse.io/nationalpublicradioinc/jobs/4674408005?gh_src=f74c72d55us');
+    }), 'https://job-boards.greenhouse.io/nationalpublicradioinc/jobs/4674408005?gh_src=f74c72d55us');
 
     expect(result).toEqual({
       role: 'Editor, Audience Growth',
@@ -92,15 +88,9 @@ describe('inferRoleAndCompanyFromSignals', () => {
   });
 
   it('falls back to the hostname when no company signal exists', () => {
-    const result = inferRoleAndCompanyFromSignals({
+    const result = inferRoleAndCompanyFromSignals(makeSignals({
       pageTitle: 'Engineering Manager',
-      metaTitle: '',
-      ogTitle: '',
-      h1: '',
-      companyText: '',
-      jsonLdTitle: '',
-      jsonLdCompany: '',
-    }, 'https://jobs.example.com/roles/123');
+    }), 'https://jobs.example.com/roles/123');
 
     expect(result).toEqual({
       role: 'Engineering Manager',

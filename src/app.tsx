@@ -24,8 +24,9 @@ import Header from './components/Header.js';
 import ProfileScreen from './screens/ProfileScreen.js';
 import ScanScreen from './screens/ScanScreen.js';
 import TasksIndicator from './components/TasksIndicator.js';
-import type { Flash, FocusTarget, JobAction, Overlay, Screen } from './ui.js';
+import type { Flash, FocusTarget, Overlay, Screen } from './ui.js';
 import { scoreDisplay, type FlashVariant } from './lib/utils.js';
+import type { JobActionView } from './components/JobActionWorkspace.js';
 
 const JOB_FILTERS = [
   'Queue',
@@ -64,6 +65,10 @@ export default function App() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<Overlay>('none');
   const [answerJobId, setAnswerJobId] = useState<string | null>(null);
+  const [jobActionState, setJobActionState] = useState<{
+    jobId: string;
+    view: JobActionView;
+  } | null>(null);
   const [flash, setFlashState] = useState<Flash | null>(null);
   const [tasks, setTasks] = useState<string[]>([]);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -106,74 +111,6 @@ export default function App() {
   );
   const detailHeight = Math.max(8, contentHeight - 5);
 
-  const actionOptions = selectedJob
-    ? [
-        {
-          name: 'View detail',
-          description: 'Move focus to the detail pane',
-          value: 'detail' satisfies JobAction,
-        },
-        {
-          name: 'Answer question',
-          description: 'Open the answer workspace for this job',
-          value: 'answer-question' satisfies JobAction,
-        },
-        {
-          name: selectedJob.score === null ? 'Evaluate job' : 'Re-evaluate job',
-          description: 'Score the role against your profile',
-          value: 'evaluate' satisfies JobAction,
-        },
-        {
-          name: 'Generate CV',
-          description: 'Create a tailored PDF',
-          value: 'generate-cv' satisfies JobAction,
-        },
-        {
-          name: 'Edit metadata',
-          description: 'Update company, role, URL, or notes',
-          value: 'edit-metadata' satisfies JobAction,
-        },
-        {
-          name: 'Edit job description',
-          description: 'Update the saved JD text',
-          value: 'edit-jd' satisfies JobAction,
-        },
-        {
-          name: 'Update status',
-          description: 'Change pipeline state',
-          value: 'status' satisfies JobAction,
-        },
-        ...(selectedJob.pdfPath
-          ? [
-              {
-                name: 'Open generated CV',
-                description: selectedJob.pdfPath,
-                value: 'open-cv' satisfies JobAction,
-              },
-            ]
-          : []),
-        ...(selectedJob.url
-          ? [
-              {
-                name: 'Open job link',
-                description: selectedJob.url,
-                value: 'open-link' satisfies JobAction,
-              },
-            ]
-          : []),
-        {
-          name: 'Delete job',
-          description: 'Remove this job from the queue',
-          value: 'delete' satisfies JobAction,
-        },
-        {
-          name: 'Cancel',
-          description: 'Close this menu',
-          value: 'cancel' satisfies JobAction,
-        },
-      ]
-    : [];
-
   useEffect(() => {
     if (!flash) return;
     const timeout = setTimeout(() => setFlashState(null), 2500);
@@ -204,6 +141,18 @@ export default function App() {
       setAnswerJobId(null);
     }
   }, [answerJobId, selectedJobId]);
+
+  useEffect(() => {
+    if (jobActionState && !jobs.some((job) => job.id === jobActionState.jobId)) {
+      setJobActionState(null);
+    }
+  }, [jobActionState, jobs]);
+
+  useEffect(() => {
+    if (jobActionState && selectedJobId !== jobActionState.jobId) {
+      setJobActionState(null);
+    }
+  }, [jobActionState, selectedJobId]);
 
   function refreshJobs() {
     setRefreshToken((v) => v + 1);
@@ -341,6 +290,7 @@ export default function App() {
   async function runEvaluate(job: Job) {
     const finishTask = startTask(`Evaluating #${job.id}`);
     setOverlay('none');
+    setJobActionState(null);
     setFocus('jobs');
     try {
       const updated = await evaluateAndPersistJob(job);
@@ -359,7 +309,8 @@ export default function App() {
   async function runGenerate(job: Job, guidance: string) {
     const finishTask = startTask(`Generating CV for #${job.id}`);
     setOverlay('none');
-    setFocus('jobs');
+    setJobActionState({ jobId: job.id, view: 'menu' });
+    setFocus('detail');
     try {
       const updated = await generateAndPersistPdf(job, guidance);
       refreshJobs();
@@ -372,59 +323,6 @@ export default function App() {
     }
   }
 
-  function handleAction(action: JobAction) {
-    if (!selectedJob) return;
-    if (action === 'cancel') {
-      setOverlay('none');
-      return;
-    }
-    if (action === 'detail') {
-      setAnswerJobId(null);
-      setOverlay('none');
-      setFocus('detail');
-      return;
-    }
-    if (action === 'answer-question') {
-      setOverlay('none');
-      setFocus('detail');
-      setAnswerJobId(selectedJob.id);
-      return;
-    }
-    if (action === 'evaluate') {
-      void runEvaluate(selectedJob);
-      return;
-    }
-    if (action === 'generate-cv') {
-      setOverlay('generate-cv');
-      return;
-    }
-    if (action === 'edit-metadata') {
-      setOverlay('edit-metadata');
-      return;
-    }
-    if (action === 'edit-jd') {
-      setOverlay('edit-jd');
-      return;
-    }
-    if (action === 'status') {
-      setOverlay('status');
-      return;
-    }
-    if (action === 'open-cv')
-      openTarget(
-        selectedJob.pdfPath,
-        `Opened generated CV for #${selectedJob.id}.`,
-        'No generated CV available.',
-      );
-    if (action === 'open-link')
-      openTarget(
-        selectedJob.url,
-        `Opened job link for #${selectedJob.id}.`,
-        'No job URL available.',
-      );
-    if (action === 'delete') setOverlay('delete');
-  }
-
   function handleSaveEditJd(jobId: string, jd: string) {
     const trimmedJd = jd.trim();
     db.updateJob(jobId, {
@@ -433,7 +331,8 @@ export default function App() {
     });
     refreshJobs();
     setOverlay('none');
-    setFocus('jobs');
+    setJobActionState({ jobId, view: 'menu' });
+    setFocus('detail');
     setFlash(`Updated job description for #${jobId}`);
   }
 
@@ -452,7 +351,8 @@ export default function App() {
     refreshJobs();
     setSelectedJobId(jobId);
     setOverlay('none');
-    setFocus('jobs');
+    setJobActionState({ jobId, view: 'menu' });
+    setFocus('detail');
     setFlash(`Updated metadata for #${jobId}`);
   }
 
@@ -460,7 +360,8 @@ export default function App() {
     db.updateJob(jobId, { status });
     refreshJobs();
     setOverlay('none');
-    setFocus('jobs');
+    setJobActionState({ jobId, view: 'menu' });
+    setFocus('detail');
     setFlash(`Updated #${jobId} to ${status}`);
   }
 
@@ -468,6 +369,7 @@ export default function App() {
     db.removeJob(jobId);
     refreshJobs();
     setOverlay('none');
+    setJobActionState(null);
     setFocus('jobs');
     setFlash(`Deleted #${jobId}`);
   }
@@ -479,6 +381,26 @@ export default function App() {
 
   function closeAnswerWorkspace() {
     setAnswerJobId(null);
+    setFocus('detail');
+  }
+
+  function openJobActions(view: JobActionView = 'menu') {
+    if (!selectedJob) return;
+    setOverlay('none');
+    setAnswerJobId(null);
+    setJobActionState({ jobId: selectedJob.id, view });
+    setFocus('detail');
+  }
+
+  function closeJobActionWorkspace() {
+    setJobActionState(null);
+    setFocus('detail');
+  }
+
+  function startAnswerWorkspace() {
+    if (!selectedJob) return;
+    setJobActionState(null);
+    setAnswerJobId(selectedJob.id);
     setFocus('detail');
   }
 
@@ -500,7 +422,7 @@ export default function App() {
       if (key.name === 'escape') closeOverlay();
       return;
     }
-    if (answerJobId) return;
+    if (answerJobId || jobActionState) return;
     if (key.name === 'tab')
       setFilter(
         JOB_FILTERS[(JOB_FILTERS.indexOf(filter) + 1) % JOB_FILTERS.length]!,
@@ -509,15 +431,12 @@ export default function App() {
     if (key.name === 'l' && selectedJob) setFocus('detail');
     if (key.name === 'a') setOverlay('add');
     if (key.name === 'return' && selectedJob && focus === 'jobs')
-      setOverlay('actions');
+      openJobActions('menu');
     if (key.name === 'e' && selectedJob) void runEvaluate(selectedJob);
-    if (key.name === 'g' && selectedJob) setOverlay('generate-cv');
-    if (key.name === 'w' && selectedJob) {
-      setFocus('detail');
-      setAnswerJobId(selectedJob.id);
-    }
-    if (key.name === 's' && selectedJob) setOverlay('status');
-    if (key.name === 'd' && selectedJob) setOverlay('delete');
+    if (key.name === 'g' && selectedJob) openJobActions('generate-cv');
+    if (key.name === 'w' && selectedJob) startAnswerWorkspace();
+    if (key.name === 's' && selectedJob) openJobActions('status');
+    if (key.name === 'd' && selectedJob) openJobActions('delete');
     if (key.name === 'o' && selectedJob)
       openTarget(
         selectedJob.url,
@@ -558,13 +477,40 @@ export default function App() {
           focus={focus}
           overlay={overlay}
           isAnswering={selectedJob?.id === answerJobId}
+          jobActionView={
+            selectedJob?.id === jobActionState?.jobId ? jobActionState.view : null
+          }
           onJobSelect={setSelectedJobId}
-          onOpenActions={() => setOverlay('actions')}
+          onOpenActions={() => openJobActions('menu')}
           onCloseAnswer={closeAnswerWorkspace}
           onAnswerSaved={(message) => {
             closeAnswerWorkspace();
             setFlash(message);
           }}
+          onCloseJobActions={closeJobActionWorkspace}
+          onStartAnswer={startAnswerWorkspace}
+          onEvaluateJob={() => selectedJob && void runEvaluate(selectedJob)}
+          onOpenJobLink={() =>
+            selectedJob &&
+            openTarget(
+              selectedJob.url,
+              `Opened job link for #${selectedJob.id}.`,
+              'No job URL available.',
+            )}
+          onOpenGeneratedCv={() =>
+            selectedJob &&
+            openTarget(
+              selectedJob.pdfPath,
+              `Opened generated CV for #${selectedJob.id}.`,
+              'No generated CV available.',
+            )}
+          onSaveMetadata={(patch) => selectedJob && handleSaveMetadata(selectedJob.id, patch)}
+          onSaveEditJd={(jd) => selectedJob && handleSaveEditJd(selectedJob.id, jd)}
+          onSaveStatus={(status) => selectedJob && handleSaveStatus(selectedJob.id, status)}
+          onDeleteJob={() => selectedJob && handleConfirmDelete(selectedJob.id)}
+          onGenerateCv={(guidance) =>
+            selectedJob ? runGenerate(selectedJob, guidance) : Promise.resolve()
+          }
         />
       ) : screen === 'scan' ? (
         <ScanScreen
@@ -581,17 +527,9 @@ export default function App() {
       {screen === 'dashboard' && overlay !== 'none' && (
         <DashboardOverlay
           overlay={overlay}
-          selectedJob={selectedJob}
-          actionOptions={actionOptions}
-          onAction={handleAction}
           onAddUrl={handleAddUrl}
           onAddJd={handleAddJd}
           onOverlayChange={setOverlay}
-          onSaveEditJd={handleSaveEditJd}
-          onSaveMetadata={handleSaveMetadata}
-          onSaveStatus={handleSaveStatus}
-          onConfirmDelete={handleConfirmDelete}
-          onGenerateCv={(guidance) => runGenerate(selectedJob!, guidance)}
           onClose={closeOverlay}
         />
       )}
