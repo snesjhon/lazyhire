@@ -4,14 +4,16 @@
   "packageManager": "pnpm@10.32.1",
   "type": "module",
   "scripts": {
-    "start": "tsx src/index.tsx",
+    "start": "bun src/index.tsx",
     "init": "tsx src/init.tsx",
-    "scan": "tsx src/index.tsx --scan",
+    "scan": "bun src/index.tsx --scan",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^1.0.0",
+    "@opentui/core": "^0.1.97",
+    "@opentui/react": "^0.1.97",
     "@types/pdf-parse": "^1.1.5",
     "giggles": "^0.7.3",
     "ink": "^6.8.0",
