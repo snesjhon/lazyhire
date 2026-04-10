@@ -1,9 +1,11 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { fileURLToPath } from 'url';
 import { query } from '@anthropic-ai/claude-code';
-import type { GeneratedCV, Experience, Profile } from '../types.js';
+import type { GeneratedCV, Experience, Profile } from '../../types.js';
 
-const GENERATE_PROMPT = readFileSync(join(process.cwd(), 'prompts', 'generate-cv.md'), 'utf8');
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const GENERATE_PROMPT = readFileSync(join(__dirname, 'prompts', 'generate-cv.md'), 'utf8');
 
 export interface GenerateInput {
   jd: string;

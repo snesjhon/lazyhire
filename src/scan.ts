@@ -1,11 +1,11 @@
 import { PORTALS } from './portals.js';
-import { fetchGreenhouse } from './sources/greenhouse.js';
-import { fetchLever } from './sources/lever.js';
-import { fetchAshby } from './sources/ashby.js';
-import { fetchRemoteOK } from './sources/remoteok.js';
-import { fetchRemotive } from './sources/remotive.js';
-import { fetchHNHiring } from './sources/hnhiring.js';
-import { fetchWebSearch } from './sources/websearch.js';
+import { fetchGreenhouse } from './services/sources/greenhouse.js';
+import { fetchLever } from './services/sources/lever.js';
+import { fetchAshby } from './services/sources/ashby.js';
+import { fetchRemoteOK } from './services/sources/remoteok.js';
+import { fetchRemotive } from './services/sources/remotive.js';
+import { fetchHNHiring } from './services/sources/hnhiring.js';
+import { fetchWebSearch } from './services/sources/websearch.js';
 import puppeteer from 'puppeteer';
 import type { Portal } from './portals.js';
 import type { ScanJob, Profile } from './types.js';

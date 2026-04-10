@@ -1,4 +1,4 @@
-import type { ScanJob } from '../types.js';
+import type { ScanJob } from '../../types.js';
 
 interface RemoteOKJob {
   id?: string;

@@ -1,11 +1,11 @@
 import { join } from 'path';
 import puppeteer from 'puppeteer';
-import { db } from './db.js';
-import { loadProfile } from './profile.js';
-import { evaluateJob } from './claude/evaluation.js';
-import { generateCV } from './claude/generate.js';
+import { db } from '../../db.js';
+import { loadProfile } from '../../profile.js';
+import { evaluateJob } from '../ai/evaluation.js';
+import { generateCV } from '../ai/generate.js';
 import { renderPDF } from './pdf.js';
-import type { Job } from './types.js';
+import type { Job } from '../../types.js';
 
 type JobSignals = {
   pageTitle: string;
@@ -22,7 +22,10 @@ function today(): string {
 }
 
 function slugify(value: string): string {
-  const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
   return slug || 'job';
 }
 
@@ -37,13 +40,15 @@ function titleCaseWords(value: string): string {
 function hostnameLabel(url: string): string {
   try {
     const { hostname } = new URL(url);
-    return hostname
-      .replace(/^www\./, '')
-      .split('.')
-      .slice(0, -1)
-      .join(' ')
-      .replace(/[-_]+/g, ' ')
-      .replace(/\b\w/g, (char) => char.toUpperCase()) || hostname;
+    return (
+      hostname
+        .replace(/^www\./, '')
+        .split('.')
+        .slice(0, -1)
+        .join(' ')
+        .replace(/[-_]+/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase()) || hostname
+    );
   } catch {
     return 'Unknown Company';
   }
@@ -64,8 +69,13 @@ function normalizeMarkdown(value: string): string {
     .trim();
 }
 
-function sectionBodyFromHeading(lines: string[], headingPattern: RegExp): string | null {
-  const start = lines.findIndex((line) => headingPattern.test(line.replace(/^#+\s*/, '').trim()));
+function sectionBodyFromHeading(
+  lines: string[],
+  headingPattern: RegExp,
+): string | null {
+  const start = lines.findIndex((line) =>
+    headingPattern.test(line.replace(/^#+\s*/, '').trim()),
+  );
   if (start === -1) return null;
 
   const body: string[] = [];
@@ -80,7 +90,11 @@ function sectionBodyFromHeading(lines: string[], headingPattern: RegExp): string
   return body.length > 0 ? body.join('\n') : null;
 }
 
-function firstMatchingLines(lines: string[], patterns: RegExp[], limit: number): string[] {
+function firstMatchingLines(
+  lines: string[],
+  patterns: RegExp[],
+  limit: number,
+): string[] {
   const matches: string[] = [];
   for (const line of lines) {
     const normalized = line.replace(/^[-*]\s+/, '').trim();
@@ -100,7 +114,9 @@ function firstMatchingLines(lines: string[], patterns: RegExp[], limit: number):
 function excerptLines(value: string, limit: number): string[] {
   return value
     .split(/\n+/)
-    .map((line) => cleanText(line.replace(/^#+\s*/, '').replace(/^[-*]\s+/, '')))
+    .map((line) =>
+      cleanText(line.replace(/^#+\s*/, '').replace(/^[-*]\s+/, '')),
+    )
     .filter((line) => line.length >= 24 && line.length <= 180)
     .slice(0, limit);
 }
@@ -115,23 +131,60 @@ export function summarizeJobDescription(jd: string): string {
     .filter(Boolean);
 
   const overview =
-    sectionBodyFromHeading(lines, /^(about|overview|the role|role summary|job summary|what you'll do)$/i) ??
-    excerptLines(markdown, 2).join('\n');
-  const responsibilities = sectionBodyFromHeading(lines, /^(responsibilities|what you'll do|you will|in this role|the work)$/i);
-  const requirements = sectionBodyFromHeading(lines, /^(requirements|qualifications|what we're looking for|you have|about you|skills)$/i);
-  const benefits = sectionBodyFromHeading(lines, /^(benefits|compensation|salary|perks|what we offer)$/i);
+    sectionBodyFromHeading(
+      lines,
+      /^(about|overview|the role|role summary|job summary|what you'll do)$/i,
+    ) ?? excerptLines(markdown, 2).join('\n');
+  const responsibilities = sectionBodyFromHeading(
+    lines,
+    /^(responsibilities|what you'll do|you will|in this role|the work)$/i,
+  );
+  const requirements = sectionBodyFromHeading(
+    lines,
+    /^(requirements|qualifications|what we're looking for|you have|about you|skills)$/i,
+  );
+  const benefits = sectionBodyFromHeading(
+    lines,
+    /^(benefits|compensation|salary|perks|what we offer)$/i,
+  );
 
-  const seniority = firstMatchingLines(lines, [/\b(senior|staff|principal|lead|manager|director|architect)\b/i], 2);
-  const stack = firstMatchingLines(lines, [/\b(typescript|javascript|react|node|python|ruby|go|rust|java|kubernetes|aws|gcp|azure|postgres|sql|graphql|ai|ml|llm)\b/i], 4);
-  const workModel = firstMatchingLines(lines, [/\b(remote|hybrid|onsite|office|timezone|distributed)\b/i], 3);
+  const seniority = firstMatchingLines(
+    lines,
+    [/\b(senior|staff|principal|lead|manager|director|architect)\b/i],
+    2,
+  );
+  const stack = firstMatchingLines(
+    lines,
+    [
+      /\b(typescript|javascript|react|node|python|ruby|go|rust|java|kubernetes|aws|gcp|azure|postgres|sql|graphql|ai|ml|llm)\b/i,
+    ],
+    4,
+  );
+  const workModel = firstMatchingLines(
+    lines,
+    [/\b(remote|hybrid|onsite|office|timezone|distributed)\b/i],
+    3,
+  );
 
   const summary: string[] = ['## Job Description Summary'];
   if (overview) summary.push('', '**Overview**', overview);
-  if (responsibilities) summary.push('', '**Responsibilities**', responsibilities);
+  if (responsibilities)
+    summary.push('', '**Responsibilities**', responsibilities);
   if (requirements) summary.push('', '**Requirements**', requirements);
-  if (stack.length > 0) summary.push('', '**Likely Stack / Domain**', ...stack.map((line) => `- ${line}`));
-  if (seniority.length > 0) summary.push('', '**Seniority Signals**', ...seniority.map((line) => `- ${line}`));
-  if (workModel.length > 0) summary.push('', '**Work Model**', ...workModel.map((line) => `- ${line}`));
+  if (stack.length > 0)
+    summary.push(
+      '',
+      '**Likely Stack / Domain**',
+      ...stack.map((line) => `- ${line}`),
+    );
+  if (seniority.length > 0)
+    summary.push(
+      '',
+      '**Seniority Signals**',
+      ...seniority.map((line) => `- ${line}`),
+    );
+  if (workModel.length > 0)
+    summary.push('', '**Work Model**', ...workModel.map((line) => `- ${line}`));
   if (benefits) summary.push('', '**Compensation / Benefits**', benefits);
 
   return normalizeMarkdown(summary.join('\n')).slice(0, 5000);
@@ -139,7 +192,10 @@ export function summarizeJobDescription(jd: string): string {
 
 function normalizeSegment(value: string): string {
   return cleanText(value)
-    .replace(/\b(job application for|apply for|job posting|careers?|career site|greenhouse|lever|ashby)\b/gi, '')
+    .replace(
+      /\b(job application for|apply for|job posting|careers?|career site|greenhouse|lever|ashby)\b/gi,
+      '',
+    )
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -167,12 +223,15 @@ function splitTitleParts(title: string): string[] {
 }
 
 function looksLikeRole(value: string): boolean {
-  return /\b(engineer|developer|manager|designer|architect|analyst|scientist|lead|director|head|specialist|recruiter|consultant|intern|principal|staff|senior|sr\.?|junior|jr\.?|frontend|backend|full[- ]stack|platform|product|software|data|devops|sre|security|mobile|ios|android)\b/i
-    .test(value);
+  return /\b(engineer|developer|manager|designer|architect|analyst|scientist|lead|director|head|specialist|recruiter|consultant|intern|principal|staff|senior|sr\.?|junior|jr\.?|frontend|backend|full[- ]stack|platform|product|software|data|devops|sre|security|mobile|ios|android)\b/i.test(
+    value,
+  );
 }
 
 function isGenericSegment(value: string): boolean {
-  return /^(careers?|jobs?|job board|open positions|job application|apply now|apply)$/i.test(cleanText(value));
+  return /^(careers?|jobs?|job board|open positions|job application|apply now|apply)$/i.test(
+    cleanText(value),
+  );
 }
 
 function pickRole(candidates: string[]): string | null {
@@ -186,42 +245,57 @@ function pickRole(candidates: string[]): string | null {
 function pickCompany(candidates: string[]): string | null {
   const normalized = candidates
     .map(normalizeSegment)
-    .filter((candidate) => candidate && !looksLikeRole(candidate) && !isGenericSegment(candidate));
+    .filter(
+      (candidate) =>
+        candidate && !looksLikeRole(candidate) && !isGenericSegment(candidate),
+    );
 
   return normalized[0] ?? null;
 }
 
-export function inferRoleAndCompanyFromSignals(signals: JobSignals, url: string): { role: string; company: string } {
-  const parsedTitleParts = [signals.pageTitle, signals.metaTitle, signals.ogTitle]
+export function inferRoleAndCompanyFromSignals(
+  signals: JobSignals,
+  url: string,
+): { role: string; company: string } {
+  const parsedTitleParts = [
+    signals.pageTitle,
+    signals.metaTitle,
+    signals.ogTitle,
+  ]
     .flatMap(splitTitleParts)
     .map(normalizeSegment)
     .filter(Boolean);
   const companyHint = companyHintFromUrl(url);
 
-  const role = pickRole([
-    signals.jsonLdTitle,
-    signals.h1,
-    ...parsedTitleParts,
-    signals.ogTitle,
-    signals.metaTitle,
-    signals.pageTitle,
-  ]) ?? 'Career Page';
-  const company = pickCompany([
-    signals.jsonLdCompany,
-    companyHint ?? '',
-    signals.companyText,
-    ...parsedTitleParts,
-    signals.ogTitle,
-    signals.metaTitle,
-    signals.pageTitle,
-  ]) ?? hostnameLabel(url);
+  const role =
+    pickRole([
+      signals.jsonLdTitle,
+      signals.h1,
+      ...parsedTitleParts,
+      signals.ogTitle,
+      signals.metaTitle,
+      signals.pageTitle,
+    ]) ?? 'Career Page';
+  const company =
+    pickCompany([
+      signals.jsonLdCompany,
+      companyHint ?? '',
+      signals.companyText,
+      ...parsedTitleParts,
+      signals.ogTitle,
+      signals.metaTitle,
+      signals.pageTitle,
+    ]) ?? hostnameLabel(url);
 
   return { role, company };
 }
 
 export function inferFromJdText(jd: string): { company: string; role: string } {
   const text = jd.trim();
-  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
 
   let company = '';
   let role = '';
@@ -241,13 +315,17 @@ export function inferFromJdText(jd: string): { company: string; role: string } {
 
   // "About CompanyName" pattern
   if (!company) {
-    const m = text.match(/\bAbout\s+([A-Z][A-Za-z0-9&.,'\-\s]{1,50}?)(?:\n|\.|,|:)/);
+    const m = text.match(
+      /\bAbout\s+([A-Z][A-Za-z0-9&.,'\-\s]{1,50}?)(?:\n|\.|,|:)/,
+    );
     if (m) company = m[1]!.trim();
   }
 
   // "CompanyName is hiring / is looking for / is seeking"
   if (!company) {
-    const m = text.match(/\b([A-Z][A-Za-z0-9&.\s]{1,40}?)\s+is\s+(?:hiring|looking for|seeking)/);
+    const m = text.match(
+      /\b([A-Z][A-Za-z0-9&.\s]{1,40}?)\s+is\s+(?:hiring|looking for|seeking)/,
+    );
     if (m) company = m[1]!.trim();
   }
 
@@ -268,7 +346,9 @@ export function inferFromJdText(jd: string): { company: string; role: string } {
   };
 }
 
-export async function hydrateJobFromUrl(url: string): Promise<Pick<Job, 'company' | 'role' | 'url' | 'jd' | 'jdSummary'>> {
+export async function hydrateJobFromUrl(
+  url: string,
+): Promise<Pick<Job, 'company' | 'role' | 'url' | 'jd' | 'jdSummary'>> {
   const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
 
@@ -277,9 +357,11 @@ export async function hydrateJobFromUrl(url: string): Promise<Pick<Job, 'company
     await page.setJavaScriptEnabled(false);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
     await page.waitForSelector('body', { timeout: 8000 }).catch(() => null);
-    await page.waitForNetworkIdle({ idleTime: 500, timeout: 1500 }).catch(() => null);
+    await page
+      .waitForNetworkIdle({ idleTime: 500, timeout: 1500 })
+      .catch(() => null);
 
-    const signals = await page.evaluate(`(() => {
+    const signals = (await page.evaluate(`(() => {
       const readMeta = (selector) =>
         (document.querySelector(selector)?.getAttribute('content') ?? '').trim();
 
@@ -354,8 +436,11 @@ export async function hydrateJobFromUrl(url: string): Promise<Pick<Job, 'company
         jsonLdCompany: jsonLd.company,
         text: markdown,
       };
-    })()`) as JobSignals & { text: string };
-    const { role, company } = inferRoleAndCompanyFromSignals(signals, page.url());
+    })()`)) as JobSignals & { text: string };
+    const { role, company } = inferRoleAndCompanyFromSignals(
+      signals,
+      page.url(),
+    );
 
     return {
       company,
@@ -418,7 +503,10 @@ export async function evaluateAndPersistJob(job: Job): Promise<Job> {
   return updated;
 }
 
-export async function generateAndPersistPdf(job: Job, tailoringNotes = ''): Promise<Job> {
+export async function generateAndPersistPdf(
+  job: Job,
+  tailoringNotes = '',
+): Promise<Job> {
   const profile = loadProfile();
   const cv = await generateCV(
     { jd: job.jd || `URL: ${job.url}`, archetype: job.archetype },

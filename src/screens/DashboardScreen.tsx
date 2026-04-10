@@ -1,8 +1,8 @@
 /** @jsxImportSource @opentui/react */
 import { SyntaxStyle } from '@opentui/core';
 import type { Job, JobStatus } from '../types.js';
-import type { FocusTarget, Overlay } from './types.js';
-import { clip, scoreDisplay } from './utils.js';
+import type { FocusTarget, Overlay } from '../ui.js';
+import { clip, scoreDisplay } from '../lib/utils.js';
 
 // const syntaxStyle = SyntaxStyle.create();
 const syntaxStyle = SyntaxStyle.fromStyles({

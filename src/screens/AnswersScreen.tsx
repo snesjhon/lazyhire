@@ -11,8 +11,8 @@ import {
   detectCategory,
   generateAnswer,
   refineAnswer,
-} from '../claude/answers.js';
-import { clip } from './utils.js';
+} from '../services/ai/answers.js';
+import { clip } from '../lib/utils.js';
 
 type Step =
   | 'idle'

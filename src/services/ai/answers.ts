@@ -1,5 +1,5 @@
 import { query } from '@anthropic-ai/claude-code';
-import type { AnswerCategory, Profile } from '../types.js';
+import type { AnswerCategory, Profile } from '../../types.js';
 
 export const TONE_OPTIONS = [
   'Professional',

@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import puppeteer from 'puppeteer';
-import type { GeneratedCV } from './types.js';
+import type { GeneratedCV } from '../../types.js';
 
 function escapeHtml(value: string): string {
   return value
@@ -20,8 +20,27 @@ function formatPeriod(period: { start: string; end: string }): string {
   const formatMonth = (ym: string): string => {
     const [year, month] = ym.split('-');
     const monthNumber = Number.parseInt(month ?? '', 10);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    if (!year || Number.isNaN(monthNumber) || monthNumber < 1 || monthNumber > 12) return ym;
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    if (
+      !year ||
+      Number.isNaN(monthNumber) ||
+      monthNumber < 1 ||
+      monthNumber > 12
+    )
+      return ym;
     return `${months[monthNumber - 1]} ${year}`;
   };
 
@@ -30,19 +49,27 @@ function formatPeriod(period: { start: string; end: string }): string {
 
 export function injectCV(template: string, cv: GeneratedCV): string {
   const skillsHtml = renderInlineMarkup(cv.skills.join(', '));
-  const rolesHtml = cv.roles.map((role) => `
+  const rolesHtml = cv.roles
+    .map(
+      (role) => `
     <div class="role">
       <h3>${renderInlineMarkup(role.company)}</h3>
       <p class="role-meta"><em>${renderInlineMarkup(role.role)} | ${formatPeriod(role.period)}</em></p>
       <ul>${role.bullets.map((bullet) => `<li>${renderInlineMarkup(bullet)}</li>`).join('')}</ul>
     </div>
-  `).join('');
-  const educationHtml = cv.education.map((entry) => `
+  `,
+    )
+    .join('');
+  const educationHtml = cv.education
+    .map(
+      (entry) => `
     <div class="edu">
       <p><strong>${renderInlineMarkup(entry.institution)}</strong></p>
       <p>${renderInlineMarkup(entry.degree)}</p>
     </div>
-  `).join('');
+  `,
+    )
+    .join('');
 
   return template
     .replace(/\{\{NAME\}\}/g, renderInlineMarkup(cv.name))
@@ -55,7 +82,10 @@ export function injectCV(template: string, cv: GeneratedCV): string {
     .replace(/\{\{EDUCATION\}\}/g, educationHtml);
 }
 
-export async function renderPDF(cv: GeneratedCV, outputPath: string): Promise<void> {
+export async function renderPDF(
+  cv: GeneratedCV,
+  outputPath: string,
+): Promise<void> {
   const templatePath = join(process.cwd(), 'themes', 'resume.html');
   const template = readFileSync(templatePath, 'utf8');
   const html = injectCV(template, cv);
@@ -78,6 +108,10 @@ export async function renderPDF(cv: GeneratedCV, outputPath: string): Promise<vo
   await browser.close();
 
   import('fs').then(({ unlinkSync }) => {
-    try { unlinkSync(tmpHtml); } catch { /* ignore */ }
+    try {
+      unlinkSync(tmpHtml);
+    } catch {
+      /* ignore */
+    }
   });
 }

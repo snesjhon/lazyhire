@@ -1,8 +1,8 @@
 /** @jsxImportSource @opentui/react */
 import { type TabSelectRenderable } from '@opentui/core';
 import { useEffect, useRef } from 'react';
-import type { Flash, FocusTarget, Overlay, Screen } from './types.js';
-import { clip, flashColor } from './utils.js';
+import type { Flash, FocusTarget, Overlay, Screen } from '../ui.js';
+import { clip, flashColor } from '../lib/utils.js';
 
 const TRANSPARENT_BACKGROUND = 'transparent';
 

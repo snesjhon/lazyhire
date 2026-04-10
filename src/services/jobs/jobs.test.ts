@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   inferRoleAndCompanyFromSignals,
   summarizeJobDescription,
-} from './job-actions.js';
+} from './jobs.js';
 
 describe('inferRoleAndCompanyFromSignals', () => {
   it('prefers JSON-LD job metadata when available', () => {

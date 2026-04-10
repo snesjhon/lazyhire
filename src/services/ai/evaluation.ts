@@ -1,10 +1,12 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { fileURLToPath } from 'url';
 import { query } from '@anthropic-ai/claude-code';
-import type { EvaluationResult, Profile } from '../types.js';
+import type { EvaluationResult, Profile } from '../../types.js';
 
-const ARCHETYPES_PROMPT = readFileSync(join(process.cwd(), 'prompts', 'archetypes.md'), 'utf8');
-const EVALUATION_PROMPT = readFileSync(join(process.cwd(), 'prompts', 'evaluation.md'), 'utf8');
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const ARCHETYPES_PROMPT = readFileSync(join(__dirname, 'prompts', 'archetypes.md'), 'utf8');
+const EVALUATION_PROMPT = readFileSync(join(__dirname, 'prompts', 'evaluation.md'), 'utf8');
 
 export interface EvalInput {
   jd: string;

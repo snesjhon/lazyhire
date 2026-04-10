@@ -1,5 +1,5 @@
 import { query } from '@anthropic-ai/claude-code';
-import type { ScanJob, Profile } from '../types.js';
+import type { ScanJob, Profile } from '../../types.js';
 
 function buildQueries(profile: Profile): string[] {
   const role = profile.targets.roles[0] ?? 'Software Engineer';

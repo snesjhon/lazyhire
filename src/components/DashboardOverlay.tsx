@@ -3,7 +3,7 @@ import { type InputRenderable, type SelectOption, type TextareaRenderable } from
 import { useEffect, useRef, useState } from 'react';
 import type { Job, JobStatus } from '../types.js';
 import { JOB_STATUSES } from '../types.js';
-import type { JobAction, Overlay } from './types.js';
+import type { JobAction, Overlay } from '../ui.js';
 
 const TRANSPARENT_BACKGROUND = 'transparent';
 
