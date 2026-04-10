@@ -54,6 +54,7 @@ export default function App() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<Overlay>('none');
+  const [answerJobId, setAnswerJobId] = useState<string | null>(null);
   const [flash, setFlashState] = useState<Flash | null>(null);
   const [tasks, setTasks] = useState<string[]>([]);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -98,6 +99,11 @@ export default function App() {
           name: 'View detail',
           description: 'Move focus to the detail pane',
           value: 'detail' satisfies JobAction,
+        },
+        {
+          name: 'Answer question',
+          description: 'Open the answer workspace for this job',
+          value: 'answer-question' satisfies JobAction,
         },
         {
           name: selectedJob.score === null ? 'Evaluate job' : 'Re-evaluate job',
@@ -173,6 +179,18 @@ export default function App() {
       setSelectedJobId(filteredJobs[0]!.id);
     }
   }, [filteredJobs, selectedJobId]);
+
+  useEffect(() => {
+    if (answerJobId && !jobs.some((job) => job.id === answerJobId)) {
+      setAnswerJobId(null);
+    }
+  }, [answerJobId, jobs]);
+
+  useEffect(() => {
+    if (answerJobId && selectedJobId !== answerJobId) {
+      setAnswerJobId(null);
+    }
+  }, [answerJobId, selectedJobId]);
 
   function refreshJobs() {
     setRefreshToken((v) => v + 1);
@@ -348,8 +366,15 @@ export default function App() {
       return;
     }
     if (action === 'detail') {
+      setAnswerJobId(null);
       setOverlay('none');
       setFocus('detail');
+      return;
+    }
+    if (action === 'answer-question') {
+      setOverlay('none');
+      setFocus('detail');
+      setAnswerJobId(selectedJob.id);
       return;
     }
     if (action === 'evaluate') {
@@ -439,6 +464,11 @@ export default function App() {
     setFocus('jobs');
   }
 
+  function closeAnswerWorkspace() {
+    setAnswerJobId(null);
+    setFocus('detail');
+  }
+
   function quit() {
     activeRenderer.destroy();
     process.exit(0);
@@ -457,6 +487,7 @@ export default function App() {
       if (key.name === 'escape') closeOverlay();
       return;
     }
+    if (answerJobId) return;
     if (key.name === 'tab')
       setFilter(FILTERS[(FILTERS.indexOf(filter) + 1) % FILTERS.length]!);
     if (key.name === 'h') setFocus('jobs');
@@ -466,6 +497,10 @@ export default function App() {
       setOverlay('actions');
     if (key.name === 'e' && selectedJob) void runEvaluate(selectedJob);
     if (key.name === 'g' && selectedJob) setOverlay('generate-cv');
+    if (key.name === 'w' && selectedJob) {
+      setFocus('detail');
+      setAnswerJobId(selectedJob.id);
+    }
     if (key.name === 's' && selectedJob) setOverlay('status');
     if (key.name === 'd' && selectedJob) setOverlay('delete');
     if (key.name === 'o' && selectedJob)
@@ -507,8 +542,14 @@ export default function App() {
           selectedIndex={selectedIndex}
           focus={focus}
           overlay={overlay}
+          isAnswering={selectedJob?.id === answerJobId}
           onJobSelect={setSelectedJobId}
           onOpenActions={() => setOverlay('actions')}
+          onCloseAnswer={closeAnswerWorkspace}
+          onAnswerSaved={(message) => {
+            closeAnswerWorkspace();
+            setFlash(message);
+          }}
         />
       ) : screen === 'scan' ? (
         <ScanScreen

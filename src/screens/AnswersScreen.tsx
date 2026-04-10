@@ -189,6 +189,9 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
       answer: generatedAnswer,
       tone,
       context: contextDraft,
+      originJobId: null,
+      company: null,
+      role: null,
       added: today(),
       revised: today(),
     });
@@ -336,7 +339,7 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
 
   const answerListOptions: SelectOption[] = answers.map((a) => ({
     name: clip(a.question, listWidth - 4),
-    description: `${CATEGORY_LABEL[a.category]} · ${a.revised}`,
+    description: `${CATEGORY_LABEL[a.category]} · ${a.company || 'General'} · ${a.revised}`,
     value: a.id,
   }));
 
@@ -424,7 +427,7 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
             <box flexDirection="column" overflow="hidden">
               <text
                 fg={CATEGORY_COLOR[selectedAnswer.category]}
-                content={`${CATEGORY_LABEL[selectedAnswer.category]}  ·  ${selectedAnswer.tone}  ·  ${selectedAnswer.revised}`}
+                content={`${CATEGORY_LABEL[selectedAnswer.category]}  ·  ${selectedAnswer.company || 'General'}  ·  ${selectedAnswer.tone}  ·  ${selectedAnswer.revised}`}
               />
               <text fg="#ffffff" content={selectedAnswer.question} />
               <scrollbox

@@ -23,7 +23,7 @@ You may also receive application-specific guidance from the candidate. Use it wh
 - Prefer richer bullets over generic ones. Show what was built, how it worked, what technologies mattered, what constraints were handled, and why it was valuable
 - Actively mine the narrative context, not just the existing bullet list, to recover the most relevant implementation detail for this JD
 - Optimize for high relevant information density while still fitting comfortably on one page
-- Bullets should usually be medium-length, not terse and not sprawling: prefer 28-44 words when the experience database supports that level of specificity
+- Bullets should usually be medium-length, not terse and not sprawling: prefer 26-42 words when the experience database supports that level of specificity
 - Each bullet should usually contain at least 2 of these 4 elements: technical system detail, implementation approach, business/user impact, scale or constraint
 - Avoid vague summaries. If a bullet can be made more specific by naming the architecture, workflow, system boundary, scale, or concrete responsibility, do that
 - For each selected role, prioritize bullets that together cover impact, technical depth, and ownership instead of repeating similar points

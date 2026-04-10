@@ -60,7 +60,16 @@ const DEFAULT_ANSWERS_PATH = join(process.cwd(), 'profile', 'answers.json');
 export function createAnswersDb(dbPath = DEFAULT_ANSWERS_PATH) {
   function readAnswers(): AnswerEntry[] {
     if (!existsSync(dbPath)) return [];
-    return JSON.parse(readFileSync(dbPath, 'utf8')) as AnswerEntry[];
+    const rawAnswers = JSON.parse(readFileSync(dbPath, 'utf8')) as Array<
+      AnswerEntry & Record<string, unknown>
+    >;
+    return rawAnswers.map((answer) => ({
+      ...answer,
+      originJobId:
+        typeof answer.originJobId === 'string' ? answer.originJobId : null,
+      company: typeof answer.company === 'string' ? answer.company : null,
+      role: typeof answer.role === 'string' ? answer.role : null,
+    }));
   }
 
   function writeAnswers(answers: AnswerEntry[]): void {

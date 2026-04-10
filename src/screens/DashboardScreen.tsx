@@ -3,6 +3,7 @@ import { SyntaxStyle } from '@opentui/core';
 import type { Job, JobStatus } from '../types.js';
 import type { FocusTarget, Overlay } from '../ui.js';
 import { clip, scoreDisplay } from '../lib/utils.js';
+import AnswerWorkspace from '../components/AnswerWorkspace.js';
 
 // const syntaxStyle = SyntaxStyle.create();
 const syntaxStyle = SyntaxStyle.fromStyles({
@@ -48,8 +49,11 @@ interface Props {
   selectedIndex: number;
   focus: FocusTarget;
   overlay: Overlay;
+  isAnswering: boolean;
   onJobSelect: (jobId: string) => void;
   onOpenActions: () => void;
+  onCloseAnswer: () => void;
+  onAnswerSaved: (message: string) => void;
 }
 
 export default function DashboardScreen({
@@ -64,8 +68,11 @@ export default function DashboardScreen({
   selectedIndex,
   focus,
   overlay,
+  isAnswering,
   onJobSelect,
   onOpenActions,
+  onCloseAnswer,
+  onAnswerSaved,
 }: Props) {
   const companyWidth = Math.max(10, Math.floor((queueWidth - 14) * 0.38));
   const roleWidth = Math.max(12, queueWidth - companyWidth - 20);
@@ -136,7 +143,15 @@ export default function DashboardScreen({
           flexDirection="column"
           overflow="hidden"
         >
-          {selectedJob ? (
+          {selectedJob && isAnswering ? (
+            <AnswerWorkspace
+              job={selectedJob}
+              width={Math.max(20, detailWidth - 4)}
+              height={detailHeight + 1}
+              onClose={onCloseAnswer}
+              onSaved={onAnswerSaved}
+            />
+          ) : selectedJob ? (
             <scrollbox
               height={detailHeight + 3}
               width="100%"
@@ -187,6 +202,8 @@ export default function DashboardScreen({
         <text fg="#7aa2f7" content="e=evaluate" />
         <text fg="#868e96" content="|" />
         <text fg="#7aa2f7" content="g=cv" />
+        <text fg="#868e96" content="|" />
+        <text fg="#7aa2f7" content="w=answer" />
         <text fg="#868e96" content="|" />
         <text fg="#7aa2f7" content="esc=close" />
         <text fg="#868e96" content="|" />

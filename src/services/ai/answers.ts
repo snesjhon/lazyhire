@@ -1,5 +1,5 @@
 import { query } from '@anthropic-ai/claude-code';
-import type { AnswerCategory, Profile } from '../../types.js';
+import type { AnswerCategory, Job, Profile } from '../../types.js';
 
 export const TONE_OPTIONS = [
   'Professional',
@@ -51,6 +51,22 @@ function buildProfileSummary(profile: Profile): string {
     .join('\n');
 }
 
+function buildJobContext(
+  job: Pick<Job, 'company' | 'role' | 'jdSummary' | 'jd' | 'url'> | null | undefined,
+): string {
+  if (!job) return '';
+
+  const summary = (job.jdSummary || job.jd || '').trim();
+  return [
+    `Company: ${job.company || 'Unknown Company'}`,
+    `Role: ${job.role || 'Unknown Role'}`,
+    job.url ? `URL: ${job.url}` : '',
+    summary ? `Job Description Summary:\n${summary.slice(0, 1800)}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 async function runQuery(prompt: string): Promise<string> {
   let result = '';
   for await (const message of query({ prompt, options: { maxTurns: 1 } })) {
@@ -90,16 +106,18 @@ export async function generateAnswer(
   tone: string,
   context: string,
   profile: Profile,
+  job?: Pick<Job, 'company' | 'role' | 'jdSummary' | 'jd' | 'url'> | null,
 ): Promise<string> {
   const toneDesc = TONE_DESCRIPTIONS[tone] ?? tone;
   const categoryDesc = CATEGORY_DESCRIPTIONS[category];
+  const jobContext = buildJobContext(job);
 
   const prompt = `You are helping a job candidate craft a compelling interview answer. Write a single polished response. No preamble, no labels, no meta-commentary. Just the answer itself.
 
 ## Candidate Background
 ${buildProfileSummary(profile)}
 
-## Question
+${jobContext ? `## Company and Role Context\n${jobContext}\n\n` : ''}## Question
 ${question}
 
 ## Question Type
@@ -129,13 +147,15 @@ export async function refineAnswer(
   existingAnswer: string,
   refineRequest: string,
   profile: Profile,
+  job?: Pick<Job, 'company' | 'role' | 'jdSummary' | 'jd' | 'url'> | null,
 ): Promise<string> {
+  const jobContext = buildJobContext(job);
   const prompt = `You are helping a job candidate refine an existing interview answer. Rewrite it incorporating the refinement request. Output ONLY the revised answer text. No preamble, no labels.
 
 ## Candidate Background
 ${buildProfileSummary(profile)}
 
-## Question
+${jobContext ? `## Company and Role Context\n${jobContext}\n\n` : ''}## Question
 ${question}
 
 ## Current Answer

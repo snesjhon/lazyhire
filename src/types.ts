@@ -136,6 +136,9 @@ export interface AnswerEntry {
   answer: string;
   tone: string;
   context: string;
+  originJobId: string | null;
+  company: string | null;
+  role: string | null;
   added: string;   // YYYY-MM-DD
   revised: string; // YYYY-MM-DD
 }

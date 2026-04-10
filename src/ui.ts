@@ -20,6 +20,7 @@ export type Overlay =
 export type Flash = { message: string; variant: FlashVariant };
 export type JobAction =
   | 'detail'
+  | 'answer-question'
   | 'evaluate'
   | 'generate-cv'
   | 'edit-metadata'
