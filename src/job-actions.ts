@@ -56,6 +56,87 @@ function cleanText(value: string): string {
     .trim();
 }
 
+function normalizeMarkdown(value: string): string {
+  return value
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function sectionBodyFromHeading(lines: string[], headingPattern: RegExp): string | null {
+  const start = lines.findIndex((line) => headingPattern.test(line.replace(/^#+\s*/, '').trim()));
+  if (start === -1) return null;
+
+  const body: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    const trimmed = line.trim();
+    if (/^#{1,4}\s+\S/.test(trimmed) && body.length > 0) break;
+    if (/^[A-Z][A-Za-z /&-]{2,60}:$/.test(trimmed) && body.length > 0) break;
+    if (trimmed) body.push(trimmed);
+    if (body.length >= 10) break;
+  }
+
+  return body.length > 0 ? body.join('\n') : null;
+}
+
+function firstMatchingLines(lines: string[], patterns: RegExp[], limit: number): string[] {
+  const matches: string[] = [];
+  for (const line of lines) {
+    const normalized = line.replace(/^[-*]\s+/, '').trim();
+    if (
+      normalized.length >= 18 &&
+      normalized.length <= 180 &&
+      patterns.some((pattern) => pattern.test(normalized)) &&
+      !matches.includes(normalized)
+    ) {
+      matches.push(normalized);
+    }
+    if (matches.length >= limit) break;
+  }
+  return matches;
+}
+
+function excerptLines(value: string, limit: number): string[] {
+  return value
+    .split(/\n+/)
+    .map((line) => cleanText(line.replace(/^#+\s*/, '').replace(/^[-*]\s+/, '')))
+    .filter((line) => line.length >= 24 && line.length <= 180)
+    .slice(0, limit);
+}
+
+export function summarizeJobDescription(jd: string): string {
+  const markdown = normalizeMarkdown(jd);
+  if (!markdown) return '';
+
+  const lines = markdown
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const overview =
+    sectionBodyFromHeading(lines, /^(about|overview|the role|role summary|job summary|what you'll do)$/i) ??
+    excerptLines(markdown, 2).join('\n');
+  const responsibilities = sectionBodyFromHeading(lines, /^(responsibilities|what you'll do|you will|in this role|the work)$/i);
+  const requirements = sectionBodyFromHeading(lines, /^(requirements|qualifications|what we're looking for|you have|about you|skills)$/i);
+  const benefits = sectionBodyFromHeading(lines, /^(benefits|compensation|salary|perks|what we offer)$/i);
+
+  const seniority = firstMatchingLines(lines, [/\b(senior|staff|principal|lead|manager|director|architect)\b/i], 2);
+  const stack = firstMatchingLines(lines, [/\b(typescript|javascript|react|node|python|ruby|go|rust|java|kubernetes|aws|gcp|azure|postgres|sql|graphql|ai|ml|llm)\b/i], 4);
+  const workModel = firstMatchingLines(lines, [/\b(remote|hybrid|onsite|office|timezone|distributed)\b/i], 3);
+
+  const summary: string[] = ['## Job Description Summary'];
+  if (overview) summary.push('', '**Overview**', overview);
+  if (responsibilities) summary.push('', '**Responsibilities**', responsibilities);
+  if (requirements) summary.push('', '**Requirements**', requirements);
+  if (stack.length > 0) summary.push('', '**Likely Stack / Domain**', ...stack.map((line) => `- ${line}`));
+  if (seniority.length > 0) summary.push('', '**Seniority Signals**', ...seniority.map((line) => `- ${line}`));
+  if (workModel.length > 0) summary.push('', '**Work Model**', ...workModel.map((line) => `- ${line}`));
+  if (benefits) summary.push('', '**Compensation / Benefits**', benefits);
+
+  return normalizeMarkdown(summary.join('\n')).slice(0, 5000);
+}
+
 function normalizeSegment(value: string): string {
   return cleanText(value)
     .replace(/\b(job application for|apply for|job posting|careers?|career site|greenhouse|lever|ashby)\b/gi, '')
@@ -138,16 +219,53 @@ export function inferRoleAndCompanyFromSignals(signals: JobSignals, url: string)
   return { role, company };
 }
 
-function inferRoleAndCompany(title: string, url: string): { role: string; company: string } {
-  return inferRoleAndCompanyFromSignals({
-    pageTitle: title,
-    metaTitle: '',
-    ogTitle: '',
-    h1: '',
-    companyText: '',
-    jsonLdTitle: '',
-    jsonLdCompany: '',
-  }, url);
+export function inferFromJdText(jd: string): { company: string; role: string } {
+  const text = jd.trim();
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+
+  let company = '';
+  let role = '';
+
+  // Look for explicit field labels in the first 40 lines
+  for (const line of lines.slice(0, 40)) {
+    if (!company) {
+      const m = line.match(/^(?:company|employer|organization)[\s:]+(.+)$/i);
+      if (m) company = m[1]!.trim();
+    }
+    if (!role) {
+      const m = line.match(/^(?:job title|position|role|title)[\s:]+(.+)$/i);
+      if (m) role = m[1]!.trim();
+    }
+    if (company && role) break;
+  }
+
+  // "About CompanyName" pattern
+  if (!company) {
+    const m = text.match(/\bAbout\s+([A-Z][A-Za-z0-9&.,'\-\s]{1,50}?)(?:\n|\.|,|:)/);
+    if (m) company = m[1]!.trim();
+  }
+
+  // "CompanyName is hiring / is looking for / is seeking"
+  if (!company) {
+    const m = text.match(/\b([A-Z][A-Za-z0-9&.\s]{1,40}?)\s+is\s+(?:hiring|looking for|seeking)/);
+    if (m) company = m[1]!.trim();
+  }
+
+  // Role from first line that looks like a job title (headers stripped)
+  if (!role) {
+    for (const line of lines.slice(0, 15)) {
+      const clean = line.replace(/^#+\s*/, '').trim();
+      if (looksLikeRole(clean) && clean.length < 100) {
+        role = clean;
+        break;
+      }
+    }
+  }
+
+  return {
+    company: company || 'Unknown Company',
+    role: role || 'Pasted Job Description',
+  };
 }
 
 export async function hydrateJobFromUrl(url: string): Promise<Pick<Job, 'company' | 'role' | 'url' | 'jd'>> {
@@ -197,7 +315,35 @@ export async function hydrateJobFromUrl(url: string): Promise<Pick<Job, 'company
         return { title: '', company: '' };
       };
 
+      const htmlToMarkdown = (node) => {
+        let out = '';
+        for (const child of node.childNodes) {
+          if (child.nodeType === 3) {
+            out += child.textContent;
+          } else if (child.nodeType === 1) {
+            const tag = child.tagName.toLowerCase();
+            if (['script','style','nav','footer','noscript','aside'].includes(tag)) continue;
+            const inner = htmlToMarkdown(child);
+            if (tag === 'h1') out += '\\n# ' + inner.trim() + '\\n';
+            else if (tag === 'h2') out += '\\n## ' + inner.trim() + '\\n';
+            else if (tag === 'h3') out += '\\n### ' + inner.trim() + '\\n';
+            else if (['h4','h5','h6'].includes(tag)) out += '\\n#### ' + inner.trim() + '\\n';
+            else if (tag === 'li') out += '\\n- ' + inner.trim();
+            else if (['p','div','section','article','main','blockquote'].includes(tag)) out += '\\n' + inner + '\\n';
+            else if (tag === 'br') out += '\\n';
+            else if (['strong','b'].includes(tag)) out += '**' + inner.trim() + '**';
+            else if (['em','i'].includes(tag)) out += '*' + inner.trim() + '*';
+            else out += inner;
+          }
+        }
+        return out;
+      };
+
       const jsonLd = getJsonLd();
+      const markdown = htmlToMarkdown(document.body ?? document.documentElement)
+        .replace(/\\n{3,}/g, '\\n\\n')
+        .trim();
+
       return {
         pageTitle: document.title.trim(),
         metaTitle: readMeta('meta[name="title"]'),
@@ -206,7 +352,7 @@ export async function hydrateJobFromUrl(url: string): Promise<Pick<Job, 'company
         companyText: readText('[data-company], [data-testid*="company"], .company, .company-name, [class*="company"]'),
         jsonLdTitle: jsonLd.title,
         jsonLdCompany: jsonLd.company,
-        text: document.body?.innerText ?? '',
+        text: markdown,
       };
     })()`) as JobSignals & { text: string };
     const { role, company } = inferRoleAndCompanyFromSignals(signals, page.url());
@@ -215,7 +361,7 @@ export async function hydrateJobFromUrl(url: string): Promise<Pick<Job, 'company
       company,
       role,
       url: page.url(),
-      jd: signals.text.trim(),
+      jd: summarizeJobDescription(signals.text),
     };
   } finally {
     await page.close().catch(() => null);

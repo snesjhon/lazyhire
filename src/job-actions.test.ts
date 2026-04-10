@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { inferRoleAndCompanyFromSignals } from './job-actions.js';
+import {
+  inferRoleAndCompanyFromSignals,
+  summarizeJobDescription,
+} from './job-actions.js';
 
 describe('inferRoleAndCompanyFromSignals', () => {
   it('prefers JSON-LD job metadata when available', () => {
@@ -85,5 +88,35 @@ describe('inferRoleAndCompanyFromSignals', () => {
       role: 'Engineering Manager',
       company: 'Jobs Example',
     });
+  });
+});
+
+describe('summarizeJobDescription', () => {
+  it('keeps a compact markdown summary with rich labels', () => {
+    const result = summarizeJobDescription(`
+# Senior Product Engineer
+
+## About
+Acme builds workflow software for distributed teams.
+
+## Responsibilities
+- Own React and TypeScript product surfaces.
+- Partner with design and data teams.
+
+## Requirements
+- 6+ years building production web apps.
+- Experience with Node, Postgres, and AWS.
+
+## Benefits
+Remote-friendly team with competitive compensation.
+`);
+
+    expect(result).toContain('## Job Description Summary');
+    expect(result).toContain('**Overview**');
+    expect(result).toContain('**Responsibilities**');
+    expect(result).toContain('**Requirements**');
+    expect(result).toContain('**Likely Stack / Domain**');
+    expect(result).toContain('React and TypeScript');
+    expect(result.length).toBeLessThan(5000);
   });
 });

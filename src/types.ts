@@ -22,7 +22,7 @@ export interface Job {
   company: string;
   role: string;
   url: string;
-  jd: string;          // raw JD text
+  jd: string;          // summarized JD markdown
   status: JobStatus;
   score: number | null;
   archetype: string | null;
