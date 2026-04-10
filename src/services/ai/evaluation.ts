@@ -65,6 +65,16 @@ export function parseEvaluationResult(text: string): EvaluationResult {
   return parsed as EvaluationResult;
 }
 
+async function runEvaluationQuery(prompt: string): Promise<string> {
+  let responseText = '';
+  for await (const message of query({ prompt, options: { maxTurns: 1 } })) {
+    if (message.type === 'result' && message.subtype === 'success') {
+      responseText = message.result;
+    }
+  }
+  return responseText;
+}
+
 function buildConfigSummary(profile: Profile): string {
   return [
     `Target roles: ${profile.targets.roles.join(', ')}`,
@@ -94,13 +104,25 @@ export async function evaluateJob(jd: string, profile: Profile): Promise<Evaluat
     configSummary: buildConfigSummary(profile),
     experienceContext: buildExperienceContext(profile),
   });
+  const responseText = await runEvaluationQuery(prompt);
 
-  let responseText = '';
-  for await (const message of query({ prompt, options: { maxTurns: 1 } })) {
-    if (message.type === 'result' && message.subtype === 'success') {
-      responseText = message.result;
+  try {
+    return parseEvaluationResult(responseText);
+  } catch (error) {
+    const repairPrompt = `${prompt}
+
+Your previous reply was not valid JSON for the required schema.
+Return exactly one valid JSON object and nothing else.
+
+Previous reply:
+${responseText}`;
+
+    const repaired = await runEvaluationQuery(repairPrompt);
+
+    try {
+      return parseEvaluationResult(repaired);
+    } catch {
+      throw error;
     }
   }
-
-  return parseEvaluationResult(responseText);
 }

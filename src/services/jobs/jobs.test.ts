@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   inferRoleAndCompanyFromSignals,
+  resolveJobDescriptionText,
   summarizeJobDescription,
 } from './jobs.js';
 
@@ -135,5 +136,54 @@ Remote-friendly team with competitive compensation.
     expect(result).toContain('**Likely Stack / Domain**');
     expect(result).toContain('React and TypeScript');
     expect(result.length).toBeLessThan(5000);
+  });
+});
+
+describe('resolveJobDescriptionText', () => {
+  it('prefers structured descriptions over Ashby app-shell body text', () => {
+    const result = resolveJobDescriptionText({
+      pageTitle: 'Web Engineer, Marketing @ EvenUp',
+      metaTitle: 'Web Engineer, Marketing @ EvenUp',
+      ogTitle: 'Web Engineer, Marketing',
+      metaDescription: 'Short meta description',
+      ogDescription: '',
+      h1: '',
+      companyText: 'EvenUp',
+      jsonLdTitle: 'Web Engineer, Marketing',
+      jsonLdCompany: 'EvenUp',
+      jsonLdDescription: `
+# Web Engineer, Marketing
+
+## What You'll Do
+- Build scalable WordPress components.
+- Work in React and JavaScript.
+
+## What You Bring
+- 3+ years of frontend experience.
+      `,
+      text: 'You need to enable JavaScript to run this app.',
+    });
+
+    expect(result).toContain('Web Engineer, Marketing');
+    expect(result).toContain('Build scalable WordPress components');
+    expect(result).not.toContain('enable JavaScript');
+  });
+
+  it('falls back to the longest available candidate when all signals are thin', () => {
+    const result = resolveJobDescriptionText({
+      pageTitle: '',
+      metaTitle: '',
+      ogTitle: '',
+      metaDescription: 'Short fallback description with more detail than body text.',
+      ogDescription: '',
+      h1: '',
+      companyText: '',
+      jsonLdTitle: '',
+      jsonLdCompany: '',
+      jsonLdDescription: '',
+      text: 'Apply for this job',
+    });
+
+    expect(result).toBe('Short fallback description with more detail than body text.');
   });
 });

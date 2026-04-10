@@ -11,10 +11,14 @@ type JobSignals = {
   pageTitle: string;
   metaTitle: string;
   ogTitle: string;
+  metaDescription: string;
+  ogDescription: string;
   h1: string;
   companyText: string;
   jsonLdTitle: string;
   jsonLdCompany: string;
+  jsonLdDescription: string;
+  text: string;
 };
 
 function today(): string {
@@ -123,6 +127,32 @@ function excerptLines(value: string, limit: number): string[] {
     )
     .filter((line) => line.length >= 24 && line.length <= 180)
     .slice(0, limit);
+}
+
+function looksLikeShellText(value: string): boolean {
+  const normalized = cleanText(value).toLowerCase();
+  return (
+    !normalized ||
+    normalized.length < 120 ||
+    normalized.includes('enable javascript to run this app') ||
+    normalized === 'apply for this job'
+  );
+}
+
+export function resolveJobDescriptionText(signals: JobSignals): string {
+  const candidates = [
+    signals.text,
+    signals.jsonLdDescription,
+    signals.metaDescription,
+    signals.ogDescription,
+  ]
+    .map((value) => normalizeMarkdown(value))
+    .filter(Boolean);
+
+  const primary = candidates.find((value) => !looksLikeShellText(value));
+  if (primary) return primary;
+
+  return candidates.sort((a, b) => b.length - a.length)[0] ?? '';
 }
 
 export function summarizeJobDescription(jd: string): string {
@@ -408,6 +438,13 @@ export async function hydrateJobFromUrl(
                 return {
                   title: String(entry.title ?? '').trim(),
                   company: String(company ?? '').trim(),
+                  description: htmlToMarkdown({
+                    childNodes: Array.from((() => {
+                      const wrapper = document.createElement('div');
+                      wrapper.innerHTML = String(entry.description ?? '');
+                      return wrapper.childNodes;
+                    })()),
+                  }).trim(),
                 };
               }
             }
@@ -416,7 +453,7 @@ export async function hydrateJobFromUrl(
           }
         }
 
-        return { title: '', company: '' };
+        return { title: '', company: '', description: '' };
       };
 
       const htmlToMarkdown = (node) => {
@@ -452,10 +489,13 @@ export async function hydrateJobFromUrl(
         pageTitle: document.title.trim(),
         metaTitle: readMeta('meta[name="title"]'),
         ogTitle: readMeta('meta[property="og:title"]'),
+        metaDescription: readMeta('meta[name="description"]'),
+        ogDescription: readMeta('meta[property="og:description"]'),
         h1: readText('h1'),
         companyText: readText('[data-company], [data-testid*="company"], .company, .company-name, [class*="company"]'),
         jsonLdTitle: jsonLd.title,
         jsonLdCompany: jsonLd.company,
+        jsonLdDescription: jsonLd.description,
         text: markdown,
       };
     })()`)) as JobSignals & { text: string };
@@ -463,13 +503,14 @@ export async function hydrateJobFromUrl(
       signals,
       page.url(),
     );
+    const jd = resolveJobDescriptionText(signals);
 
     return {
       company,
       role,
       url: page.url(),
-      jd: signals.text.trim(),
-      jdSummary: summarizeJobDescription(signals.text),
+      jd,
+      jdSummary: summarizeJobDescription(jd),
     };
   } finally {
     await page.close().catch(() => null);
