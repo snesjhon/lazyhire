@@ -307,20 +307,12 @@ export default function App() {
   }
 
   async function runGenerate(job: Job, guidance: string) {
-    const finishTask = startTask(`Generating CV for #${job.id}`);
     setOverlay('none');
-    setJobActionState({ jobId: job.id, view: 'menu' });
     setFocus('detail');
-    try {
-      const updated = await generateAndPersistPdf(job, guidance);
-      refreshJobs();
-      setSelectedJobId(updated.id);
-      setFlash(`Generated CV for #${updated.id}: ${updated.pdfPath}`);
-    } catch (error) {
-      setFlash(`CV generation failed: ${String(error)}`, 'error');
-    } finally {
-      finishTask();
-    }
+    const updated = await generateAndPersistPdf(job, guidance);
+    refreshJobs();
+    setSelectedJobId(updated.id);
+    return updated;
   }
 
   function handleSaveEditJd(jobId: string, jd: string) {
@@ -509,7 +501,7 @@ export default function App() {
           onSaveStatus={(status) => selectedJob && handleSaveStatus(selectedJob.id, status)}
           onDeleteJob={() => selectedJob && handleConfirmDelete(selectedJob.id)}
           onGenerateCv={(guidance) =>
-            selectedJob ? runGenerate(selectedJob, guidance) : Promise.resolve()
+            selectedJob ? runGenerate(selectedJob, guidance) : Promise.reject(new Error('No job selected'))
           }
         />
       ) : screen === 'scan' ? (

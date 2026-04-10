@@ -24,6 +24,11 @@ const TRANSPARENT = 'transparent';
 const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<TextareaOptions['keyBindings']> = [
   { name: 'o', ctrl: true, action: 'submit' },
 ];
+type GenerateCvState =
+  | { step: 'editing' }
+  | { step: 'submitting' }
+  | { step: 'success'; pdfPath: string | null }
+  | { step: 'error'; message: string };
 
 interface Props {
   job: Job;
@@ -41,7 +46,7 @@ interface Props {
   onSaveEditJd: (jd: string) => void;
   onSaveStatus: (status: JobStatus) => void;
   onDelete: () => void;
-  onGenerateCv: (guidance: string) => Promise<void>;
+  onGenerateCv: (guidance: string) => Promise<Job>;
 }
 
 export default function JobActionWorkspace({
@@ -64,6 +69,9 @@ export default function JobActionWorkspace({
   const [metadataDraft, setMetadataDraft] = useState('');
   const [editJdDraft, setEditJdDraft] = useState(job.jd);
   const [cvGuidance, setCvGuidance] = useState('');
+  const [generateCvState, setGenerateCvState] = useState<GenerateCvState>({
+    step: 'editing',
+  });
 
   const metadataInputRef = useRef<InputRenderable>(null);
   const editJdInputRef = useRef<TextareaRenderable>(null);
@@ -80,6 +88,7 @@ export default function JobActionWorkspace({
     setView(initialView);
     setEditJdDraft(job.jd);
     setCvGuidance('');
+    setGenerateCvState({ step: 'editing' });
     if (initialView === 'edit-company') setMetadataDraft(job.company);
     if (initialView === 'edit-role') setMetadataDraft(job.role);
     if (initialView === 'edit-url') setMetadataDraft(job.url);
@@ -108,10 +117,12 @@ export default function JobActionWorkspace({
       editJdInputRef.current?.focus();
     }
     if (view === 'generate-cv') {
-      setCvGuidance('');
-      guidanceInputRef.current?.focus();
+      if (generateCvState.step === 'editing') {
+        setCvGuidance('');
+        guidanceInputRef.current?.focus();
+      }
     }
-  }, [job.company, job.jd, job.notes, job.role, job.url, view]);
+  }, [generateCvState.step, job.company, job.jd, job.notes, job.role, job.url, view]);
 
   function saveMetadata() {
     const value = metadataDraft.trim();
@@ -196,8 +207,12 @@ export default function JobActionWorkspace({
 
   useKeyboard((key) => {
     if (key.name !== 'escape') return;
+    if (view === 'generate-cv' && generateCvState.step === 'submitting') return;
     if (view === 'menu') onClose();
-    else setView('menu');
+    else {
+      setGenerateCvState({ step: 'editing' });
+      setView('menu');
+    }
   });
 
   return (
@@ -207,7 +222,11 @@ export default function JobActionWorkspace({
         content={
           view === 'menu'
             ? `Actions for #${job.id}. Enter to run, esc to return.`
-            : 'esc=back'
+            : view === 'generate-cv' && generateCvState.step === 'editing'
+              ? 'ctrl-o=generate · esc=back'
+              : generateCvState.step === 'submitting'
+                ? 'Generating CV...'
+                : 'esc=back'
         }
       />
 
@@ -285,19 +304,100 @@ export default function JobActionWorkspace({
         ) : null}
 
         {view === 'generate-cv' ? (
-          <textarea
-            ref={guidanceInputRef}
-            height={Math.max(6, height - 5)}
-            initialValue={cvGuidance}
-            placeholder="Optional tailoring guidance."
-            keyBindings={TEXTAREA_SUBMIT_KEY_BINDINGS}
-            onContentChange={() => setCvGuidance(guidanceInputRef.current?.plainText ?? '')}
-            onSubmit={async () => {
-              await onGenerateCv(guidanceInputRef.current?.plainText ?? '');
-              setView('menu');
-            }}
-            focused
-          />
+          generateCvState.step === 'editing' ? (
+            <textarea
+              ref={guidanceInputRef}
+              height={Math.max(6, height - 5)}
+              initialValue={cvGuidance}
+              placeholder="Optional tailoring guidance."
+              keyBindings={TEXTAREA_SUBMIT_KEY_BINDINGS}
+              onContentChange={() => setCvGuidance(guidanceInputRef.current?.plainText ?? '')}
+              onSubmit={async () => {
+                setGenerateCvState({ step: 'submitting' });
+                try {
+                  const updated = await onGenerateCv(
+                    guidanceInputRef.current?.plainText ?? '',
+                  );
+                  setGenerateCvState({
+                    step: 'success',
+                    pdfPath: updated.pdfPath,
+                  });
+                } catch (error) {
+                  setGenerateCvState({
+                    step: 'error',
+                    message: `CV generation failed: ${String(error)}`,
+                  });
+                }
+              }}
+              focused
+            />
+          ) : generateCvState.step === 'submitting' ? (
+            <box
+              flexDirection="column"
+              justifyContent="center"
+              height={Math.max(6, height - 5)}
+            >
+              <text fg="#f5c542" content={`Generating CV for #${job.id}...`} />
+              <text
+                fg="#868e96"
+                content="Stay on this screen. This will return with actions when it finishes."
+              />
+            </box>
+          ) : generateCvState.step === 'success' ? (
+            <select
+              height={Math.max(6, height - 4)}
+              width={Math.max(20, width)}
+              focused
+              options={[
+                {
+                  name: 'Open CV',
+                  description:
+                    generateCvState.pdfPath ?? 'Generated CV is ready to open',
+                  value: 'open-cv',
+                },
+                {
+                  name: 'Back to detail',
+                  description: 'Close actions and return to the job detail view',
+                  value: 'back',
+                },
+              ]}
+              backgroundColor={TRANSPARENT}
+              focusedBackgroundColor={TRANSPARENT}
+              selectedBackgroundColor={TRANSPARENT}
+              onSelect={(_, option) => {
+                if (option?.value === 'open-cv') onOpenCv();
+                if (option?.value === 'back') onClose();
+              }}
+            />
+          ) : (
+            <select
+              height={Math.max(6, height - 4)}
+              width={Math.max(20, width)}
+              focused
+              options={[
+                {
+                  name: 'Try again',
+                  description: generateCvState.message,
+                  value: 'retry',
+                },
+                {
+                  name: 'Back to actions',
+                  description: 'Return without generating a CV',
+                  value: 'back',
+                },
+              ]}
+              backgroundColor={TRANSPARENT}
+              focusedBackgroundColor={TRANSPARENT}
+              selectedBackgroundColor={TRANSPARENT}
+              onSelect={(_, option) => {
+                if (option?.value === 'retry') setGenerateCvState({ step: 'editing' });
+                if (option?.value === 'back') {
+                  setGenerateCvState({ step: 'editing' });
+                  setView('menu');
+                }
+              }}
+            />
+          )
         ) : null}
 
         {view === 'status' ? (

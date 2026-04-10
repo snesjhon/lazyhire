@@ -77,7 +77,7 @@ interface Props {
   onSaveEditJd: (jd: string) => void;
   onSaveStatus: (status: JobStatus) => void;
   onDeleteJob: () => void;
-  onGenerateCv: (guidance: string) => Promise<void>;
+  onGenerateCv: (guidance: string) => Promise<Job>;
 }
 
 export default function DashboardScreen({
