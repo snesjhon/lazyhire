@@ -268,7 +268,7 @@ export function inferFromJdText(jd: string): { company: string; role: string } {
   };
 }
 
-export async function hydrateJobFromUrl(url: string): Promise<Pick<Job, 'company' | 'role' | 'url' | 'jd'>> {
+export async function hydrateJobFromUrl(url: string): Promise<Pick<Job, 'company' | 'role' | 'url' | 'jd' | 'jdSummary'>> {
   const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
 
@@ -361,7 +361,8 @@ export async function hydrateJobFromUrl(url: string): Promise<Pick<Job, 'company
       company,
       role,
       url: page.url(),
-      jd: summarizeJobDescription(signals.text),
+      jd: signals.text.trim(),
+      jdSummary: summarizeJobDescription(signals.text),
     };
   } finally {
     await page.close().catch(() => null);
@@ -369,7 +370,10 @@ export async function hydrateJobFromUrl(url: string): Promise<Pick<Job, 'company
   }
 }
 
-export function createPendingJob(partial: Pick<Job, 'company' | 'role' | 'url' | 'jd'>): Job {
+export function createPendingJob(
+  partial: Pick<Job, 'company' | 'role' | 'url' | 'jd'> &
+    Partial<Pick<Job, 'jdSummary'>>,
+): Job {
   return {
     id: db.nextId(),
     added: today(),
@@ -377,6 +381,7 @@ export function createPendingJob(partial: Pick<Job, 'company' | 'role' | 'url' |
     role: partial.role,
     url: partial.url,
     jd: partial.jd,
+    jdSummary: partial.jdSummary ?? summarizeJobDescription(partial.jd),
     status: 'Pending',
     score: null,
     archetype: null,

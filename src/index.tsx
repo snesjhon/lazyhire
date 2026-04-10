@@ -293,7 +293,8 @@ function App() {
           company,
           role,
           url: '',
-          jd: summarizeJobDescription(jd),
+          jd,
+          jdSummary: summarizeJobDescription(jd),
         }),
       );
       const updated = await evaluateAndPersistJob(saved);
@@ -388,9 +389,8 @@ function App() {
   function handleSaveEditJd(jobId: string, jd: string) {
     const trimmedJd = jd.trim();
     db.updateJob(jobId, {
-      jd: trimmedJd.startsWith('## Job Description Summary')
-        ? trimmedJd
-        : summarizeJobDescription(trimmedJd),
+      jd: trimmedJd,
+      jdSummary: summarizeJobDescription(trimmedJd),
     });
     refreshJobs();
     setOverlay('none');

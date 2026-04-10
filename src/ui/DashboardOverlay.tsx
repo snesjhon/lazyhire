@@ -93,7 +93,7 @@ export default function DashboardOverlay({
             },
             {
               name: 'Paste job description',
-              description: 'Save a summary and evaluate it',
+              description: 'Save full text, summarize, and evaluate',
               value: 'add-jd',
             },
             {

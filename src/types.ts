@@ -22,7 +22,8 @@ export interface Job {
   company: string;
   role: string;
   url: string;
-  jd: string;          // summarized JD markdown
+  jd: string;          // full JD markdown/text
+  jdSummary?: string;  // summarized JD markdown for dashboard display
   status: JobStatus;
   score: number | null;
   archetype: string | null;

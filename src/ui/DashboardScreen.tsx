@@ -4,7 +4,13 @@ import type { Job, JobStatus } from '../types.js';
 import type { FocusTarget, Overlay } from './types.js';
 import { clip, scoreDisplay } from './utils.js';
 
-const syntaxStyle = SyntaxStyle.create();
+// const syntaxStyle = SyntaxStyle.create();
+const syntaxStyle = SyntaxStyle.fromStyles({
+  'markup.heading.1': { bold: true },
+  'markup.heading.2': { bold: true },
+  'markup.strong': { bold: true },
+});
+
 const TRANSPARENT_BACKGROUND = 'transparent';
 
 function jobDetailMarkdown(job: Job): string {
@@ -20,9 +26,10 @@ function jobDetailMarkdown(job: Job): string {
   ].filter(Boolean);
 
   return [
-    `# #${job.id} ${job.role || 'Untitled Role'}`,
     rows.join('\n'),
-    job.jd || '## Job Description Summary\nNo job description saved.',
+    job.jdSummary ||
+      job.jd ||
+      '## Job Description Summary\nNo job description saved.',
   ]
     .filter(Boolean)
     .join('\n\n');
