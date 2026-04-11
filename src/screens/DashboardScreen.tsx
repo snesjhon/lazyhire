@@ -6,6 +6,7 @@ import { clip, scoreDisplay } from '../lib/utils.js';
 import type { UiTheme } from '../theme.js';
 import type { AnswerEntry, Job, JobStatus, Profile } from '../types.js';
 import AnswerWorkspace from '../components/AnswerWorkspace.js';
+import DashboardOverlay from '../components/DashboardOverlay.js';
 import JobActionWorkspace, {
   type JobActionView,
 } from '../components/JobActionWorkspace.js';
@@ -121,7 +122,7 @@ function statusDetailMarkdown(
     '### Keys',
     '- `1-4`: jump to left panels',
     '- `h` / `l`: move between the left stack and the detail view',
-    '- `Enter` on Jobs or Profile: open actions below the detail pane',
+    '- `Enter` on Jobs or Profile: open an action workspace in the detail pane',
   ].join('\n');
 }
 
@@ -282,6 +283,10 @@ interface Props {
   onOpenProfileActions: (view: ProfileActionView) => void;
   onCloseProfileActions: () => void;
   onSaveProfile: (profile: Profile, message: string) => void;
+  onAddUrl: (url: string) => Promise<void>;
+  onAddJd: (jd: string) => Promise<void>;
+  onOverlayChange: (overlay: Overlay) => void;
+  onCloseOverlay: () => void;
 }
 
 export default function DashboardScreen({
@@ -324,20 +329,19 @@ export default function DashboardScreen({
   onOpenProfileActions,
   onCloseProfileActions,
   onSaveProfile,
+  onAddUrl,
+  onAddJd,
+  onOverlayChange,
+  onCloseOverlay,
 }: Props) {
   const [profileIndex, setProfileIndex] = useState(0);
   const [answerIndex, setAnswerIndex] = useState(0);
 
-  const modalVisible =
+  const workspaceVisible =
+    overlay !== 'none' ||
     Boolean(selectedJob && (isAnswering || jobActionView)) ||
     Boolean(profileActionView);
-  const modalHeight = modalVisible
-    ? Math.min(14, Math.max(8, Math.floor(contentHeight * 0.42)))
-    : 0;
-  const detailHeight = Math.max(
-    8,
-    contentHeight - (modalVisible ? modalHeight + 1 : 0),
-  );
+  const detailHeight = Math.max(8, contentHeight);
   const statusHeight = 5;
   const profileHeight = 6;
   const answersHeight = 6;
@@ -378,15 +382,27 @@ export default function DashboardScreen({
   const activePanel = LEFT_PANEL_ORDER.includes(focus) ? focus : detailSource;
 
   const detailTitle =
-    activePanel === 'status'
-      ? 'Status Detail'
-      : activePanel === 'profile'
-        ? 'Profile Detail'
-        : activePanel === 'answers'
-          ? 'Answer Detail'
-          : selectedJob
-            ? `Job #${selectedJob.id}`
-            : 'Detail';
+    overlay !== 'none'
+      ? overlay === 'add'
+        ? 'Add Job'
+        : overlay === 'add-url'
+          ? 'Paste Job Link'
+          : 'Paste Job Description'
+      : selectedJob && isAnswering
+        ? `Answer #${selectedJob.id}`
+        : selectedJob && jobActionView
+          ? `Job Actions #${selectedJob.id}`
+          : profileActionView
+            ? 'Profile Actions'
+            : activePanel === 'status'
+              ? 'Status Detail'
+              : activePanel === 'profile'
+                ? 'Profile Detail'
+                : activePanel === 'answers'
+                  ? 'Answer Detail'
+                  : selectedJob
+                    ? `Job #${selectedJob.id}`
+                    : 'Detail';
 
   const detailContent =
     activePanel === 'status'
@@ -452,7 +468,7 @@ export default function DashboardScreen({
                 selectedTextColor={theme.brand}
                 selectedDescriptionColor={theme.muted}
                 focused={
-                  focus === 'jobs' && overlay === 'none' && !modalVisible
+              focus === 'jobs' && overlay === 'none' && !workspaceVisible
                 }
                 onChange={(_, option) => {
                   if (option?.value) onJobSelect(String(option.value));
@@ -492,7 +508,7 @@ export default function DashboardScreen({
               selectedTextColor={theme.brand}
               selectedDescriptionColor={theme.muted}
               focused={
-                focus === 'profile' && overlay === 'none' && !modalVisible
+                focus === 'profile' && overlay === 'none' && !workspaceVisible
               }
               onChange={(_, option) => {
                 const nextIndex = PROFILE_OPTIONS.findIndex(
@@ -535,7 +551,7 @@ export default function DashboardScreen({
                 selectedTextColor={theme.brand}
                 selectedDescriptionColor={theme.muted}
                 focused={
-                  focus === 'answers' && overlay === 'none' && !modalVisible
+                  focus === 'answers' && overlay === 'none' && !workspaceVisible
                 }
                 onChange={(_, option) => {
                   const nextIndex = answerOptions.findIndex(
@@ -561,7 +577,7 @@ export default function DashboardScreen({
             title={detailTitle}
             border
             borderColor={
-              focus === 'detail' || modalVisible
+              focus === 'detail' || workspaceVisible
                 ? theme.borderActive
                 : theme.border
             }
@@ -574,96 +590,75 @@ export default function DashboardScreen({
               width="100%"
               scrollX={false}
               scrollY
-              focused={
-                focus === 'detail' && overlay === 'none' && !modalVisible
-              }
+              focused={focus === 'detail' && !workspaceVisible}
               rootOptions={{ overflow: 'hidden' }}
               wrapperOptions={{ overflow: 'hidden' }}
               viewportOptions={{ overflow: 'hidden' }}
               contentOptions={{ overflow: 'hidden' }}
               scrollbarOptions={{ showArrows: true }}
             >
-              <box flexDirection="column" width={Math.max(20, detailWidth - 6)}>
-                <markdown
+              {overlay !== 'none' ? (
+                <DashboardOverlay
+                  theme={theme}
+                  overlay={overlay}
                   width={Math.max(20, detailWidth - 6)}
-                  content={detailContent}
-                  syntaxStyle={syntaxStyle}
-                  conceal
+                  height={detailHeight - 2}
+                  onAddUrl={onAddUrl}
+                  onAddJd={onAddJd}
+                  onOverlayChange={onOverlayChange}
+                  onClose={onCloseOverlay}
                 />
-              </box>
+              ) : selectedJob && isAnswering ? (
+                <AnswerWorkspace
+                  theme={theme}
+                  job={selectedJob}
+                  width={Math.max(20, detailWidth - 6)}
+                  height={detailHeight - 2}
+                  onClose={onCloseAnswer}
+                  onSaved={onAnswerSaved}
+                />
+              ) : selectedJob && jobActionView ? (
+                <JobActionWorkspace
+                  theme={theme}
+                  job={selectedJob}
+                  width={Math.max(20, detailWidth - 6)}
+                  height={detailHeight - 2}
+                  initialView={jobActionView}
+                  onClose={onCloseJobActions}
+                  onStartAnswer={onStartAnswer}
+                  onEvaluate={onEvaluateJob}
+                  onOpenLink={onOpenJobLink}
+                  onOpenCv={onOpenGeneratedCv}
+                  onOpenCoverLetter={onOpenGeneratedCoverLetter}
+                  onSaveMetadata={onSaveMetadata}
+                  onSaveEditJd={onSaveEditJd}
+                  onSaveStatus={onSaveStatus}
+                  onDelete={onDeleteJob}
+                  onGenerateCv={onGenerateCv}
+                  onGenerateCoverLetter={onGenerateCoverLetter}
+                />
+              ) : profileActionView ? (
+                <ProfileActionWorkspace
+                  theme={theme}
+                  profile={profile}
+                  width={Math.max(20, detailWidth - 6)}
+                  height={detailHeight - 2}
+                  initialView={profileActionView}
+                  onClose={onCloseProfileActions}
+                  onSave={onSaveProfile}
+                />
+              ) : (
+                <box flexDirection="column" width={Math.max(20, detailWidth - 6)}>
+                  <markdown
+                    width={Math.max(20, detailWidth - 6)}
+                    content={detailContent}
+                    syntaxStyle={syntaxStyle}
+                    conceal
+                  />
+                </box>
+              )}
             </scrollbox>
           </box>
-
-          {selectedJob && isAnswering ? (
-            <box
-              title="Answer Actions"
-              border
-              borderColor={theme.warning}
-              paddingX={1}
-              marginTop={1}
-              height={modalHeight}
-              overflow="hidden"
-            >
-              <AnswerWorkspace
-                theme={theme}
-                job={selectedJob}
-                width={Math.max(20, detailWidth - 6)}
-                height={modalHeight - 2}
-                onClose={onCloseAnswer}
-                onSaved={onAnswerSaved}
-              />
-            </box>
-          ) : selectedJob && jobActionView ? (
-            <box
-              title="Job Actions"
-              border
-              borderColor={theme.warning}
-              paddingX={1}
-              marginTop={1}
-              height={modalHeight}
-              overflow="hidden"
-            >
-              <JobActionWorkspace
-                theme={theme}
-                job={selectedJob}
-                width={Math.max(20, detailWidth - 6)}
-                height={modalHeight - 2}
-                initialView={jobActionView}
-                onClose={onCloseJobActions}
-                onStartAnswer={onStartAnswer}
-                onEvaluate={onEvaluateJob}
-                onOpenLink={onOpenJobLink}
-                onOpenCv={onOpenGeneratedCv}
-                onOpenCoverLetter={onOpenGeneratedCoverLetter}
-                onSaveMetadata={onSaveMetadata}
-                onSaveEditJd={onSaveEditJd}
-                onSaveStatus={onSaveStatus}
-                onDelete={onDeleteJob}
-                onGenerateCv={onGenerateCv}
-                onGenerateCoverLetter={onGenerateCoverLetter}
-              />
-            </box>
-          ) : profileActionView ? (
-            <box
-              title="Profile Actions"
-              border
-              borderColor={theme.warning}
-              paddingX={1}
-              marginTop={1}
-              height={modalHeight}
-              overflow="hidden"
-            >
-              <ProfileActionWorkspace
-                theme={theme}
-                profile={profile}
-                width={Math.max(20, detailWidth - 6)}
-                height={modalHeight - 2}
-                initialView={profileActionView}
-                onClose={onCloseProfileActions}
-                onSave={onSaveProfile}
-              />
-            </box>
-          ) : null}
         </box>
       </box>
 

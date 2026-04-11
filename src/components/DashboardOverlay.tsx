@@ -14,13 +14,16 @@ function isTextareaSubmitKey(key: KeyEvent): boolean {
 }
 
 function overlayTitle(overlay: Overlay): string {
+  if (overlay === 'add-url') return 'Submit a Job Link';
   if (overlay === 'add-jd') return 'Submit your Job Description (ctrl-o)';
-  return 'Action';
+  return 'Choose an Intake Mode';
 }
 
 interface Props {
   theme: UiTheme;
   overlay: Overlay;
+  width: number;
+  height: number;
   onAddUrl: (url: string) => Promise<void>;
   onAddJd: (jd: string) => Promise<void>;
   onOverlayChange: (overlay: Overlay) => void;
@@ -30,6 +33,8 @@ interface Props {
 export default function DashboardOverlay({
   theme,
   overlay,
+  width,
+  height,
   onAddUrl,
   onAddJd,
   onOverlayChange,
@@ -55,18 +60,21 @@ export default function DashboardOverlay({
   });
 
   return (
-    <box
-      title={overlayTitle(overlay)}
-      border
-      borderColor={theme.warning}
-      marginTop={1}
-      padding={1}
-      height={9}
-      flexDirection="column"
-    >
+    <box flexDirection="column" height={height} width={width} overflow="hidden">
+      <text
+        fg={theme.muted}
+        content={
+          overlay === 'add'
+            ? 'Choose an intake mode. esc=back'
+            : overlay === 'add-url'
+              ? 'Paste a job URL and press Enter. esc=back'
+              : 'Paste a job description. ctrl-o=submit, esc=back'
+        }
+      />
       {overlay === 'add' && (
         <select
-          height={5}
+          height={Math.max(5, height - 2)}
+          width={Math.max(20, width)}
           focused
           options={[
             {
@@ -95,8 +103,9 @@ export default function DashboardOverlay({
       )}
 
       {overlay === 'add-url' && (
-        <box flexDirection="column">
-          <text fg={theme.muted} content="Job URL" />
+        <box flexDirection="column" marginTop={1} width={Math.max(20, width)}>
+          <text fg={theme.heading} content="Job URL" />
+          <text fg={theme.muted} content={overlayTitle(overlay)} />
           <input
             ref={urlInput}
             value={addUrl}
@@ -111,15 +120,19 @@ export default function DashboardOverlay({
       )}
 
       {overlay === 'add-jd' && (
-        <textarea
-          ref={jdInput}
-          height={7}
-          initialValue={addJd}
-          placeholder="Paste the job description."
-          onContentChange={() => setAddJd(jdInput.current?.plainText ?? '')}
-          onSubmit={() => void onAddJd(jdInput.current?.plainText ?? '')}
-          focused
-        />
+        <box flexDirection="column" marginTop={1} overflow="hidden">
+          <text fg={theme.heading} content="Job Description" />
+          <text fg={theme.muted} content={overlayTitle(overlay)} />
+          <textarea
+            ref={jdInput}
+            height={Math.max(6, height - 4)}
+            initialValue={addJd}
+            placeholder="Paste the job description."
+            onContentChange={() => setAddJd(jdInput.current?.plainText ?? '')}
+            onSubmit={() => void onAddJd(jdInput.current?.plainText ?? '')}
+            focused
+          />
+        </box>
       )}
     </box>
   );

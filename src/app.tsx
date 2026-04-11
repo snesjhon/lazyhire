@@ -20,7 +20,6 @@ import {
 } from './services/jobs/jobs.js';
 import type { Job, JobStatus } from './types.js';
 import { answersDb } from './db.js';
-import DashboardOverlay from './components/DashboardOverlay.js';
 import DashboardScreen from './screens/DashboardScreen.js';
 import TasksIndicator from './components/TasksIndicator.js';
 import type { Flash, FocusTarget, Overlay } from './ui.js';
@@ -104,7 +103,7 @@ export default function App() {
 
   const queueWidth = Math.max(42, Math.floor(appWidth * 0.47));
   const detailWidth = Math.max(34, appWidth - queueWidth - 5);
-  const contentHeight = Math.max(12, appHeight - (overlay === 'none' ? 1 : 11));
+  const contentHeight = Math.max(12, appHeight - 1);
 
   useEffect(() => {
     const handleThemeMode = (nextMode: ThemeMode) => setThemeMode(nextMode);
@@ -571,18 +570,11 @@ export default function App() {
         onOpenProfileActions={openProfileActions}
         onCloseProfileActions={closeProfileActionWorkspace}
         onSaveProfile={handleSaveProfile}
+        onAddUrl={handleAddUrl}
+        onAddJd={handleAddJd}
+        onOverlayChange={setOverlay}
+        onCloseOverlay={closeOverlay}
       />
-
-      {overlay !== 'none' && (
-        <DashboardOverlay
-          theme={theme}
-          overlay={overlay}
-          onAddUrl={handleAddUrl}
-          onAddJd={handleAddJd}
-          onOverlayChange={setOverlay}
-          onClose={closeOverlay}
-        />
-      )}
 
       <TasksIndicator tasks={tasks} theme={theme} />
     </box>
