@@ -265,15 +265,15 @@ export default function JobActionWorkspace({
         }
       />
 
-      <box marginTop={1} height={Math.max(6, height - 4)} overflow="hidden">
+      <box height={Math.max(6, height - 2)} overflow="hidden">
         {view === 'menu' ? (
           <select
-            height={Math.max(6, height - 4)}
+            height={Math.max(6, height - 2)}
             width={Math.max(20, width)}
             focused
             options={menuOptions}
             showDescription
-            itemSpacing={1}
+            itemSpacing={0}
             backgroundColor={theme.transparent}
             focusedBackgroundColor={theme.transparent}
             selectedBackgroundColor={theme.transparent}
@@ -399,7 +399,7 @@ export default function JobActionWorkspace({
             </box>
           ) : generateCvState.step === 'success' ? (
             <select
-              height={Math.max(6, height - 4)}
+              height={Math.max(6, height - 2)}
               width={Math.max(20, width)}
               focused
               options={[
@@ -429,7 +429,7 @@ export default function JobActionWorkspace({
             />
           ) : (
             <select
-              height={Math.max(6, height - 4)}
+              height={Math.max(6, height - 2)}
               width={Math.max(20, width)}
               focused
               options={[
@@ -463,7 +463,7 @@ export default function JobActionWorkspace({
 
         {view === 'status' ? (
           <select
-            height={Math.max(6, height - 4)}
+            height={Math.max(6, height - 2)}
             width={Math.max(20, width)}
             focused
             options={JOB_STATUSES.map((status) => ({

@@ -18,32 +18,21 @@ import {
   saveJob,
   summarizeJobDescription,
 } from './services/jobs/jobs.js';
-import { JOB_STATUSES, type Job, type JobStatus } from './types.js';
-import AnswersScreen from './screens/AnswersScreen.js';
+import type { Job, JobStatus } from './types.js';
+import { answersDb } from './db.js';
 import DashboardOverlay from './components/DashboardOverlay.js';
 import DashboardScreen from './screens/DashboardScreen.js';
-import Header from './components/Header.js';
-import ProfileScreen from './screens/ProfileScreen.js';
-import ScanScreen from './screens/ScanScreen.js';
 import TasksIndicator from './components/TasksIndicator.js';
-import type { Flash, FocusTarget, Overlay, Screen } from './ui.js';
+import type { Flash, FocusTarget, Overlay } from './ui.js';
 import { scoreDisplay, type FlashVariant } from './lib/utils.js';
 import type { JobActionView } from './components/JobActionWorkspace.js';
+import type { ProfileActionView } from './components/ProfileActionWorkspace.js';
 import { resolveUiTheme } from './theme.js';
+import { loadProfile, saveProfile } from './profile.js';
 
-const JOB_FILTERS = [
-  'Queue',
-  'Applied',
-  'Interview',
-  'Offer',
-  'Rejected',
-  'Discarded',
-] as const;
+const JOB_FILTERS = ['Queue', 'Applied', 'Interview', 'Offer', 'Rejected', 'Discarded'] as const;
 
 type JobFilter = (typeof JOB_FILTERS)[number];
-export const initialScreen: Screen = process.argv.includes('--scan')
-  ? 'scan'
-  : 'dashboard';
 
 function browserCommand(
   target: string,
@@ -62,8 +51,8 @@ export default function App() {
   const { width, height } = useTerminalDimensions();
   const appWidth = Math.max(width, 80);
   const appHeight = Math.max(height, 24);
-  const [screen, setScreen] = useState<Screen>(initialScreen);
   const [focus, setFocus] = useState<FocusTarget>('jobs');
+  const [detailSource, setDetailSource] = useState<'status' | 'jobs' | 'profile' | 'answers'>('jobs');
   const [filter, setFilter] = useState<JobFilter>('Queue');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<Overlay>('none');
@@ -72,14 +61,17 @@ export default function App() {
     jobId: string;
     view: JobActionView;
   } | null>(null);
+  const [profileActionView, setProfileActionView] = useState<ProfileActionView | null>(null);
   const [flash, setFlashState] = useState<Flash | null>(null);
   const [tasks, setTasks] = useState<string[]>([]);
   const [refreshToken, setRefreshToken] = useState(0);
   const [themeMode, setThemeMode] = useState<ThemeMode | null>(
     activeRenderer.themeMode,
   );
+  const [profile, setProfileState] = useState(() => loadProfile());
 
   const jobs = useMemo(() => db.readJobs(), [refreshToken]);
+  const answers = useMemo(() => answersDb.readAnswers(), [refreshToken]);
   const theme = useMemo(() => resolveUiTheme(themeMode), [themeMode]);
 
   const filteredJobs = useMemo(() => {
@@ -112,11 +104,7 @@ export default function App() {
 
   const queueWidth = Math.max(42, Math.floor(appWidth * 0.47));
   const detailWidth = Math.max(34, appWidth - queueWidth - 5);
-  const contentHeight = Math.max(
-    10,
-    appHeight - (overlay === 'none' ? 10 : 20),
-  );
-  const detailHeight = Math.max(8, contentHeight - 5);
+  const contentHeight = Math.max(12, appHeight - (overlay === 'none' ? 1 : 11));
 
   useEffect(() => {
     const handleThemeMode = (nextMode: ThemeMode) => setThemeMode(nextMode);
@@ -324,7 +312,7 @@ export default function App() {
 
   async function runGenerate(job: Job, guidance: string) {
     setOverlay('none');
-    setFocus('detail');
+    setFocus('jobs');
     const updated = await generateAndPersistPdf(job, guidance);
     refreshJobs();
     setSelectedJobId(updated.id);
@@ -333,7 +321,7 @@ export default function App() {
 
   async function runGenerateCoverLetter(job: Job, guidance: string) {
     setOverlay('none');
-    setFocus('detail');
+    setFocus('jobs');
     const updated = await generateAndPersistCoverLetterPdf(job, guidance);
     refreshJobs();
     setSelectedJobId(updated.id);
@@ -349,7 +337,7 @@ export default function App() {
     refreshJobs();
     setOverlay('none');
     setJobActionState({ jobId, view: 'menu' });
-    setFocus('detail');
+    setFocus('jobs');
     setFlash(`Updated job description for #${jobId}`);
   }
 
@@ -369,7 +357,7 @@ export default function App() {
     setSelectedJobId(jobId);
     setOverlay('none');
     setJobActionState({ jobId, view: 'menu' });
-    setFocus('detail');
+    setFocus('jobs');
     setFlash(`Updated metadata for #${jobId}`);
   }
 
@@ -378,7 +366,7 @@ export default function App() {
     refreshJobs();
     setOverlay('none');
     setJobActionState({ jobId, view: 'menu' });
-    setFocus('detail');
+    setFocus('jobs');
     setFlash(`Updated #${jobId} to ${status}`);
   }
 
@@ -394,11 +382,12 @@ export default function App() {
   function closeOverlay() {
     setOverlay('none');
     setFocus('jobs');
+    setDetailSource('jobs');
   }
 
   function closeAnswerWorkspace() {
     setAnswerJobId(null);
-    setFocus('detail');
+    setFocus('jobs');
   }
 
   function openJobActions(view: JobActionView = 'menu') {
@@ -406,19 +395,44 @@ export default function App() {
     setOverlay('none');
     setAnswerJobId(null);
     setJobActionState({ jobId: selectedJob.id, view });
-    setFocus('detail');
+    setDetailSource('jobs');
+    setFocus('jobs');
   }
 
   function closeJobActionWorkspace() {
     setJobActionState(null);
-    setFocus('detail');
+    setFocus('jobs');
+  }
+
+  function openProfileActions(view: ProfileActionView) {
+    setOverlay('none');
+    setAnswerJobId(null);
+    setJobActionState(null);
+    setProfileActionView(view);
+    setDetailSource('profile');
+    setFocus('profile');
+  }
+
+  function closeProfileActionWorkspace() {
+    setProfileActionView(null);
+    setFocus('profile');
+  }
+
+  function handleSaveProfile(nextProfile: typeof profile, message: string) {
+    saveProfile(nextProfile);
+    setProfileState(nextProfile);
+    setProfileActionView(null);
+    setDetailSource('profile');
+    setFocus('profile');
+    setFlash(message);
   }
 
   function startAnswerWorkspace() {
     if (!selectedJob) return;
     setJobActionState(null);
     setAnswerJobId(selectedJob.id);
-    setFocus('detail');
+    setDetailSource('jobs');
+    setFocus('jobs');
   }
 
   function quit() {
@@ -427,28 +441,40 @@ export default function App() {
   }
 
   useKeyboard((key) => {
+    const LEFT_PANELS: FocusTarget[] = ['status', 'jobs', 'profile', 'answers'];
+    const filterIndex = JOB_FILTERS.indexOf(filter);
+
     if (key.ctrl && key.name === 'c') quit();
     if (key.name === 'q') quit();
-    if (key.name === '1') setScreen('dashboard');
-    if (key.name === '2') setScreen('profile');
-    if (key.name === '3') setScreen('answers');
-
-    if (screen !== 'dashboard') return;
 
     if (overlay !== 'none') {
       if (key.name === 'escape') closeOverlay();
       return;
     }
-    if (answerJobId || jobActionState) return;
-    if (key.name === 'tab')
-      setFilter(
-        JOB_FILTERS[(JOB_FILTERS.indexOf(filter) + 1) % JOB_FILTERS.length]!,
-      );
-    if (key.name === 'h') setFocus('jobs');
-    if (key.name === 'l' && selectedJob) setFocus('detail');
+    if (answerJobId || jobActionState || profileActionView) return;
+    if (key.name === '1') {
+      setFocus('status');
+      setDetailSource('status');
+    }
+    if (key.name === '2') {
+      setFocus('jobs');
+      setDetailSource('jobs');
+    }
+    if (key.name === '3') {
+      setFocus('profile');
+      setDetailSource('profile');
+    }
+    if (key.name === '4') {
+      setFocus('answers');
+      setDetailSource('answers');
+    }
+    if (key.sequence === '[')
+      setFilter(JOB_FILTERS[(filterIndex - 1 + JOB_FILTERS.length) % JOB_FILTERS.length]!);
+    if (key.sequence === ']')
+      setFilter(JOB_FILTERS[(filterIndex + 1) % JOB_FILTERS.length]!);
+    if (key.name === 'h') setFocus(detailSource);
+    if (key.name === 'l') setFocus('detail');
     if (key.name === 'a') setOverlay('add');
-    if (key.name === 'return' && selectedJob && focus === 'jobs')
-      openJobActions('menu');
     if (key.name === 'e' && selectedJob) void runEvaluate(selectedJob);
     if (key.name === 'g' && selectedJob) openJobActions('generate-cv');
     if (key.name === 'c' && selectedJob) openJobActions('generate-cover-letter');
@@ -470,94 +496,84 @@ export default function App() {
       height={appHeight}
       paddingX={1}
     >
-      <Header
-        appWidth={appWidth}
+      <DashboardScreen
         theme={theme}
-        screen={screen}
+        contentHeight={contentHeight}
+        queueWidth={queueWidth}
+        detailWidth={detailWidth}
+        filter={filter}
+        filters={JOB_FILTERS}
+        jobs={jobs}
+        filteredJobs={filteredJobs}
+        answers={answers}
+        profile={profile}
+        selectedJob={selectedJob}
+        selectedIndex={selectedIndex}
         focus={focus}
+        detailSource={detailSource}
         overlay={overlay}
-        flash={flash}
-        jobCount={jobs.length}
-        onScreenChange={setScreen}
-        onFocusChange={setFocus}
+        onFilterChange={setFilter}
+        isAnswering={selectedJob?.id === answerJobId}
+        jobActionView={
+          selectedJob?.id === jobActionState?.jobId ? jobActionState?.view ?? null : null
+        }
+        profileActionView={profileActionView}
+        onJobSelect={setSelectedJobId}
+        onCycleFilter={(direction) =>
+          setFilter(
+            JOB_FILTERS[
+              (JOB_FILTERS.indexOf(filter) + direction + JOB_FILTERS.length) % JOB_FILTERS.length
+            ]!,
+          )}
+        onOpenActions={() => openJobActions('menu')}
+        onCloseAnswer={closeAnswerWorkspace}
+        onAnswerSaved={(message) => {
+          refreshJobs();
+          closeAnswerWorkspace();
+          setFlash(message);
+        }}
+        onCloseJobActions={closeJobActionWorkspace}
+        onStartAnswer={startAnswerWorkspace}
+        onEvaluateJob={() => selectedJob && void runEvaluate(selectedJob)}
+        onOpenJobLink={() =>
+          selectedJob &&
+          openTarget(
+            selectedJob.url,
+            `Opened job link for #${selectedJob.id}.`,
+            'No job URL available.',
+          )}
+        onOpenGeneratedCv={() =>
+          selectedJob &&
+          openTarget(
+            selectedJob.pdfPath,
+            `Opened generated CV for #${selectedJob.id}.`,
+            'No generated CV available.',
+          )}
+        onOpenGeneratedCoverLetter={() =>
+          selectedJob &&
+          openTarget(
+            selectedJob.coverLetterPdfPath,
+            `Opened generated cover letter for #${selectedJob.id}.`,
+            'No generated cover letter available.',
+          )}
+        onSaveMetadata={(patch) => selectedJob && handleSaveMetadata(selectedJob.id, patch)}
+        onSaveEditJd={(jd) => selectedJob && handleSaveEditJd(selectedJob.id, jd)}
+        onSaveStatus={(status) => selectedJob && handleSaveStatus(selectedJob.id, status)}
+        onDeleteJob={() => selectedJob && handleConfirmDelete(selectedJob.id)}
+        onGenerateCv={(guidance) =>
+          selectedJob ? runGenerate(selectedJob, guidance) : Promise.reject(new Error('No job selected'))
+        }
+        onGenerateCoverLetter={(guidance) =>
+          selectedJob
+            ? runGenerateCoverLetter(selectedJob, guidance)
+            : Promise.reject(new Error('No job selected'))
+        }
+        onOpenProfileActions={openProfileActions}
+        onCloseProfileActions={closeProfileActionWorkspace}
+        onSaveProfile={handleSaveProfile}
       />
 
-      {screen === 'dashboard' ? (
-        <DashboardScreen
-          theme={theme}
-          contentHeight={contentHeight}
-          queueWidth={queueWidth}
-          detailWidth={detailWidth}
-          detailHeight={detailHeight}
-          filter={filter}
-          filters={JOB_FILTERS}
-          filteredJobs={filteredJobs}
-          selectedJob={selectedJob}
-          selectedIndex={selectedIndex}
-          focus={focus}
-          overlay={overlay}
-          isAnswering={selectedJob?.id === answerJobId}
-          jobActionView={
-            selectedJob?.id === jobActionState?.jobId ? jobActionState?.view ?? null : null
-          }
-          onJobSelect={setSelectedJobId}
-          onOpenActions={() => openJobActions('menu')}
-          onCloseAnswer={closeAnswerWorkspace}
-          onAnswerSaved={(message) => {
-            closeAnswerWorkspace();
-            setFlash(message);
-          }}
-          onCloseJobActions={closeJobActionWorkspace}
-          onStartAnswer={startAnswerWorkspace}
-          onEvaluateJob={() => selectedJob && void runEvaluate(selectedJob)}
-          onOpenJobLink={() =>
-            selectedJob &&
-            openTarget(
-              selectedJob.url,
-              `Opened job link for #${selectedJob.id}.`,
-              'No job URL available.',
-            )}
-          onOpenGeneratedCv={() =>
-            selectedJob &&
-            openTarget(
-              selectedJob.pdfPath,
-              `Opened generated CV for #${selectedJob.id}.`,
-              'No generated CV available.',
-            )}
-          onOpenGeneratedCoverLetter={() =>
-            selectedJob &&
-            openTarget(
-              selectedJob.coverLetterPdfPath,
-              `Opened generated cover letter for #${selectedJob.id}.`,
-              'No generated cover letter available.',
-            )}
-          onSaveMetadata={(patch) => selectedJob && handleSaveMetadata(selectedJob.id, patch)}
-          onSaveEditJd={(jd) => selectedJob && handleSaveEditJd(selectedJob.id, jd)}
-          onSaveStatus={(status) => selectedJob && handleSaveStatus(selectedJob.id, status)}
-          onDeleteJob={() => selectedJob && handleConfirmDelete(selectedJob.id)}
-          onGenerateCv={(guidance) =>
-            selectedJob ? runGenerate(selectedJob, guidance) : Promise.reject(new Error('No job selected'))
-          }
-          onGenerateCoverLetter={(guidance) =>
-            selectedJob
-              ? runGenerateCoverLetter(selectedJob, guidance)
-              : Promise.reject(new Error('No job selected'))
-          }
-        />
-      ) : screen === 'scan' ? (
-        <ScanScreen
-          appWidth={appWidth}
-          appHeight={appHeight}
-          theme={theme}
-          onBack={() => setScreen('dashboard')}
-        />
-      ) : screen === 'profile' ? (
-        <ProfileScreen appWidth={appWidth} appHeight={appHeight} theme={theme} />
-      ) : (
-        <AnswersScreen appWidth={appWidth} appHeight={appHeight} theme={theme} />
-      )}
-
-      {screen === 'dashboard' && overlay !== 'none' && (
+      {overlay !== 'none' && (
         <DashboardOverlay
           theme={theme}
           overlay={overlay}

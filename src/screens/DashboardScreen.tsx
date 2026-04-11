@@ -1,24 +1,72 @@
 /** @jsxImportSource @opentui/react */
 import { SyntaxStyle } from '@opentui/core';
-import type { Job, JobStatus } from '../types.js';
+import { useEffect, useMemo, useState } from 'react';
 import type { FocusTarget, Overlay } from '../ui.js';
 import { clip, scoreDisplay } from '../lib/utils.js';
 import type { UiTheme } from '../theme.js';
+import type { AnswerEntry, Job, JobStatus, Profile } from '../types.js';
 import AnswerWorkspace from '../components/AnswerWorkspace.js';
 import JobActionWorkspace, {
   type JobActionView,
 } from '../components/JobActionWorkspace.js';
+import ProfileActionWorkspace, {
+  type ProfileActionView,
+} from '../components/ProfileActionWorkspace.js';
 
-// const syntaxStyle = SyntaxStyle.create();
 const syntaxStyle = SyntaxStyle.fromStyles({
   'markup.heading.1': { bold: true },
   'markup.heading.2': { bold: true },
   'markup.strong': { bold: true },
 });
 
+const LEFT_PANEL_ORDER: FocusTarget[] = ['status', 'jobs', 'profile', 'answers'];
+
+const PROFILE_OPTIONS: Array<{
+  name: string;
+  description: string;
+  value: ProfileActionView;
+}> = [
+  {
+    name: 'Candidate',
+    description: 'Identity and contact details',
+    value: 'candidate',
+  },
+  {
+    name: 'Target Roles',
+    description: 'Comma-separated role titles',
+    value: 'roles',
+  },
+  {
+    name: 'Categories',
+    description: 'Broad role families',
+    value: 'categories',
+  },
+  {
+    name: 'Focuses',
+    description: 'Narrower specializations',
+    value: 'focuses',
+  },
+  {
+    name: 'Salary Range',
+    description: 'Minimum and maximum target comp',
+    value: 'salary-min',
+  },
+  {
+    name: 'Remote Preference',
+    description: 'Full remote, hybrid, or any',
+    value: 'remote',
+  },
+  {
+    name: 'Deal-Breakers',
+    description: 'Things to avoid',
+    value: 'deal-breakers',
+  },
+];
+
 function jobDetailMarkdown(job: Job): string {
   const classification = [job.category, job.focus].filter(Boolean).join(' / ');
   const rows = [
+    `**Job:** #${job.id}`,
     `**Company:** ${job.company || 'Unknown Company'}`,
     `**Role:** ${job.role || 'Untitled Role'}`,
     `**Status:** ${job.status}`,
@@ -40,12 +88,148 @@ function jobDetailMarkdown(job: Job): string {
     .join('\n\n');
 }
 
+function statusDetailMarkdown(
+  filter: Props['filter'],
+  filters: Props['filters'],
+  jobs: Job[],
+): string {
+  const counts = filters.map((item) => {
+    const count = jobs.filter((job) => {
+      if (item === 'Queue') {
+        return job.status === 'Pending' || job.status === 'Evaluated';
+      }
+      return job.status === item;
+    }).length;
+    return `- ${item}: ${count}`;
+  });
+
+  return [
+    '## Pipeline Status',
+    `**Active filter:** ${filter}`,
+    `**Total jobs:** ${jobs.length}`,
+    '',
+    '### Buckets',
+    counts.join('\n'),
+    '',
+    '### Keys',
+    '- `1-4`: jump to left panels',
+    '- `h` / `l`: move between the left stack and the detail view',
+    '- `Enter` on Jobs or Profile: open actions below the detail pane',
+  ].join('\n');
+}
+
+function profileDetailMarkdown(
+  profile: Profile,
+  activeOption: (typeof PROFILE_OPTIONS)[number] | null,
+): string {
+  if (!activeOption) return '## Profile\nSelect a profile item.';
+
+  if (activeOption.value === 'candidate') {
+    return [
+      '## Candidate',
+      `**Name:** ${profile.candidate.name}`,
+      `**Headline:** ${profile.headline}`,
+      `**Email:** ${profile.candidate.email}`,
+      `**Location:** ${profile.candidate.location}`,
+      profile.candidate.site ? `**Site:** ${profile.candidate.site}` : '',
+      '',
+      'This section controls the candidate identity used across generated answers and application materials.',
+      '',
+      'Press `Enter` in the Profile panel to edit name, email, location, site, or headline.',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+  }
+
+  if (activeOption.value === 'roles') {
+    return [
+      '## Target Roles',
+      `**Current Value:** ${profile.targets.roles.join(', ') || 'none'}`,
+      '',
+      'These titles define the roles you want to be matched against during discovery and evaluation.',
+      '',
+      'Press `Enter` to update the comma-separated role list.',
+    ].join('\n\n');
+  }
+
+  if (activeOption.value === 'categories') {
+    return [
+      '## Categories',
+      `**Current Value:** ${profile.targets.categories.join(', ') || 'none'}`,
+      '',
+      'Broad job families used to classify roles and improve ranking.',
+      '',
+      'Press `Enter` to update the preferred categories.',
+    ].join('\n\n');
+  }
+
+  if (activeOption.value === 'focuses') {
+    return [
+      '## Focuses',
+      `**Current Value:** ${profile.targets.focuses.join(', ') || 'none'}`,
+      '',
+      'Narrower specialties that indicate the strongest fit areas within a category.',
+      '',
+      'Press `Enter` to update the preferred focuses.',
+    ].join('\n\n');
+  }
+
+  if (activeOption.value === 'salary-min') {
+    return [
+      '## Salary Range',
+      `**Current Value:** $${profile.targets.salaryMin.toLocaleString()} - $${profile.targets.salaryMax.toLocaleString()}`,
+      '',
+      'This compensation band is used when evaluating whether a role meets your expectations.',
+      '',
+      'Press `Enter` to update the minimum and maximum range.',
+    ].join('\n\n');
+  }
+
+  if (activeOption.value === 'remote') {
+    return [
+      '## Remote Preference',
+      `**Current Value:** ${profile.targets.remote}`,
+      '',
+      'This setting influences search relevance and job evaluation.',
+      '',
+      'Press `Enter` to switch between full remote, hybrid, or any.',
+    ].join('\n\n');
+  }
+
+  return [
+    '## Deal-Breakers',
+    `**Current Value:** ${profile.targets.dealBreakers.join(', ') || 'none'}`,
+    '',
+    'These constraints should lower confidence in roles that do not match your requirements.',
+    '',
+    'Press `Enter` to update the deal-breaker list.',
+  ].join('\n\n');
+}
+
+function answerDetailMarkdown(answer: AnswerEntry | null): string {
+  if (!answer) return '## Answers\nNo saved answers yet.';
+
+  return [
+    `## ${answer.question}`,
+    `**Category:** ${answer.category}`,
+    `**Company:** ${answer.company || 'General'}`,
+    `**Role:** ${answer.role || 'General'}`,
+    `**Tone:** ${answer.tone || 'none'}`,
+    `**Added:** ${answer.added}`,
+    `**Revised:** ${answer.revised}`,
+    answer.context ? `**Context:** ${answer.context}` : '',
+    '',
+    answer.answer,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 interface Props {
   theme: UiTheme;
   contentHeight: number;
   queueWidth: number;
   detailWidth: number;
-  detailHeight: number;
   filter:
     | 'Queue'
     | 'Applied'
@@ -56,13 +240,20 @@ interface Props {
   filters: ReadonlyArray<
     'Queue' | 'Applied' | 'Interview' | 'Offer' | 'Rejected' | 'Discarded'
   >;
+  jobs: Job[];
   filteredJobs: Job[];
+  answers: AnswerEntry[];
+  profile: Profile;
   selectedJob: Job | null;
   selectedIndex: number;
   focus: FocusTarget;
+  detailSource: 'status' | 'jobs' | 'profile' | 'answers';
   overlay: Overlay;
   isAnswering: boolean;
   jobActionView: JobActionView | null;
+  profileActionView: ProfileActionView | null;
+  onFilterChange: (filter: Props['filter']) => void;
+  onCycleFilter: (direction: -1 | 1) => void;
   onJobSelect: (jobId: string) => void;
   onOpenActions: () => void;
   onCloseAnswer: () => void;
@@ -81,6 +272,9 @@ interface Props {
   onDeleteJob: () => void;
   onGenerateCv: (guidance: string) => Promise<Job>;
   onGenerateCoverLetter: (guidance: string) => Promise<Job>;
+  onOpenProfileActions: (view: ProfileActionView) => void;
+  onCloseProfileActions: () => void;
+  onSaveProfile: (profile: Profile, message: string) => void;
 }
 
 export default function DashboardScreen({
@@ -88,16 +282,22 @@ export default function DashboardScreen({
   contentHeight,
   queueWidth,
   detailWidth,
-  detailHeight,
   filter,
   filters,
+  jobs,
   filteredJobs,
+  answers,
+  profile,
   selectedJob,
   selectedIndex,
   focus,
+  detailSource,
   overlay,
   isAnswering,
   jobActionView,
+  profileActionView,
+  onFilterChange,
+  onCycleFilter,
   onJobSelect,
   onOpenActions,
   onCloseAnswer,
@@ -114,113 +314,223 @@ export default function DashboardScreen({
   onDeleteJob,
   onGenerateCv,
   onGenerateCoverLetter,
+  onOpenProfileActions,
+  onCloseProfileActions,
+  onSaveProfile,
 }: Props) {
-  const companyWidth = Math.max(10, Math.floor((queueWidth - 14) * 0.38));
-  const roleWidth = Math.max(12, queueWidth - companyWidth - 20);
+  const [profileIndex, setProfileIndex] = useState(0);
+  const [answerIndex, setAnswerIndex] = useState(0);
+
+  const modalVisible = Boolean(selectedJob && (isAnswering || jobActionView)) || Boolean(profileActionView);
+  const modalHeight = modalVisible ? Math.min(14, Math.max(8, Math.floor(contentHeight * 0.42))) : 0;
+  const detailHeight = Math.max(8, contentHeight - (modalVisible ? modalHeight + 1 : 0));
+  const statusHeight = 5;
+  const profileHeight = 6;
+  const answersHeight = 6;
+  const jobsHeight = Math.max(12, contentHeight - statusHeight - profileHeight - answersHeight);
+
+  const companyWidth = Math.max(10, Math.floor((queueWidth - 12) * 0.34));
+  const roleWidth = Math.max(12, queueWidth - companyWidth - 18);
 
   const jobOptions = filteredJobs.map((job) => ({
     name: `${clip(job.company || 'Unknown', companyWidth).padEnd(companyWidth)} ${clip(job.role || 'Untitled', roleWidth).padEnd(roleWidth)} ${scoreDisplay(job.score).padStart(4)}`,
-    description: `${clip(job.status || 'Unknown', companyWidth).padEnd(companyWidth)} ${job.category ? job.category : ''} ${job.focus ? ` / ${job.focus}` : ''} · ${job.added}`,
+    description: `${job.status} · ${job.category ?? 'uncategorized'}${job.focus ? ` / ${job.focus}` : ''}`,
     value: job.id,
   }));
 
+  const answerOptions = answers
+    .slice()
+    .reverse()
+    .map((answer) => ({
+      name: clip(answer.question, Math.max(14, queueWidth - 12)),
+      description: `${answer.category} · ${answer.company || 'General'} · ${answer.revised}`,
+      value: answer.id,
+    }));
+
+  useEffect(() => {
+    if (profileIndex >= PROFILE_OPTIONS.length) setProfileIndex(0);
+  }, [profileIndex]);
+
+  useEffect(() => {
+    if (answerIndex >= answerOptions.length) setAnswerIndex(0);
+  }, [answerIndex, answerOptions.length]);
+
+  const selectedProfileOption = PROFILE_OPTIONS[profileIndex] ?? PROFILE_OPTIONS[0] ?? null;
+  const selectedAnswer = answers.slice().reverse()[answerIndex] ?? null;
+  const activePanel = LEFT_PANEL_ORDER.includes(focus) ? focus : detailSource;
+
+  const detailTitle =
+    activePanel === 'status'
+      ? 'Status Detail'
+      : activePanel === 'profile'
+        ? 'Profile Detail'
+        : activePanel === 'answers'
+          ? 'Answer Detail'
+          : selectedJob
+            ? `Job #${selectedJob.id}`
+            : 'Detail';
+
+  const detailContent =
+    activePanel === 'status'
+      ? statusDetailMarkdown(filter, filters, jobs)
+      : activePanel === 'profile'
+        ? profileDetailMarkdown(profile, selectedProfileOption)
+        : activePanel === 'answers'
+          ? answerDetailMarkdown(selectedAnswer)
+          : selectedJob
+            ? jobDetailMarkdown(selectedJob)
+            : '## Job Detail\nSelect a job to inspect it.';
+
   return (
     <>
-      {/* Filter bar */}
-      <box flexDirection="row" marginY={1} columnGap={1}>
-        {filters.map((item) => (
-          <text
-            key={item}
-            fg={item === filter ? theme.brandContrast : theme.muted}
-            bg={item === filter ? theme.brand : undefined}
-            content={item === filter ? ` ${item} ` : item}
-          />
-        ))}
-      </box>
-
-      {/* Queue + Detail */}
       <box flexDirection="row" columnGap={1} height={contentHeight}>
-        <box
-          title={filter}
-          border
-          borderColor={focus === 'jobs' ? theme.borderActive : theme.border}
-          width={queueWidth}
-          padding={1}
-          overflow="hidden"
-        >
-          {jobOptions.length > 0 ? (
+        <box width={queueWidth} flexDirection="column" overflow="hidden">
+          <box
+            title="lazyhire"
+            border
+            borderColor={focus === 'status' ? theme.borderActive : theme.border}
+            padding={1}
+            height={statusHeight}
+            overflow="hidden"
+          >
+            <box flexDirection="column">
+              <text fg={theme.heading} content={`${jobs.length} jobs`} />
+              <text fg={theme.muted} content="Job tracker" />
+            </box>
+          </box>
+
+          <box
+            title={filter === 'Queue' ? 'Jobs' : `${filter} Jobs`}
+            border
+            borderColor={focus === 'jobs' ? theme.borderActive : theme.border}
+            padding={1}
+            height={jobsHeight}
+            overflow="hidden"
+            flexDirection="column"
+          >
+            <box flexDirection="row" columnGap={1} marginBottom={1}>
+              {filters.map((item) => (
+                <text
+                  key={item}
+                  fg={item === filter ? theme.brandContrast : theme.muted}
+                  bg={item === filter ? theme.brand : undefined}
+                  content={item === filter ? ` ${item} ` : item}
+                />
+              ))}
+            </box>
+            {jobOptions.length > 0 ? (
+              <select
+                height={jobsHeight - 4}
+                width="100%"
+                options={jobOptions}
+                selectedIndex={selectedIndex}
+                showDescription
+                showScrollIndicator
+                itemSpacing={1}
+                backgroundColor={theme.transparent}
+                focusedBackgroundColor={theme.transparent}
+                selectedBackgroundColor={theme.transparent}
+                selectedTextColor={theme.brand}
+                selectedDescriptionColor={theme.muted}
+                focused={focus === 'jobs' && overlay === 'none' && !modalVisible}
+                onChange={(_, option) => {
+                  if (option?.value) onJobSelect(String(option.value));
+                }}
+                onSelect={(_, option) => {
+                  if (option?.value) onJobSelect(String(option.value));
+                  onOpenActions();
+                }}
+              />
+            ) : (
+              <text fg={theme.muted} content="No jobs yet. Press a to add one." />
+            )}
+          </box>
+
+          <box
+            title="Profile"
+            border
+            borderColor={focus === 'profile' ? theme.borderActive : theme.border}
+            padding={1}
+            height={profileHeight}
+            overflow="hidden"
+          >
             <select
-              height={contentHeight - 2}
+              height={profileHeight - 2}
               width="100%"
-              options={jobOptions}
-              selectedIndex={selectedIndex}
+              options={PROFILE_OPTIONS}
+              selectedIndex={profileIndex}
               showDescription
-              showScrollIndicator
-              itemSpacing={1}
               backgroundColor={theme.transparent}
               focusedBackgroundColor={theme.transparent}
               selectedBackgroundColor={theme.transparent}
               selectedTextColor={theme.brand}
               selectedDescriptionColor={theme.muted}
-              focused={focus === 'jobs' && overlay === 'none'}
+              focused={focus === 'profile' && overlay === 'none' && !modalVisible}
               onChange={(_, option) => {
-                if (option?.value) onJobSelect(String(option.value));
+                const nextIndex = PROFILE_OPTIONS.findIndex((item) => item.value === option?.value);
+                if (nextIndex >= 0) setProfileIndex(nextIndex);
               }}
               onSelect={(_, option) => {
-                if (option?.value) onJobSelect(String(option.value));
-                onOpenActions();
+                const nextIndex = PROFILE_OPTIONS.findIndex((item) => item.value === option?.value);
+                if (nextIndex >= 0) {
+                  setProfileIndex(nextIndex);
+                  onOpenProfileActions(PROFILE_OPTIONS[nextIndex]!.value);
+                }
               }}
             />
-          ) : (
-            <text fg={theme.muted} content="No jobs yet. Press a to add one." />
-          )}
+          </box>
+
+          <box
+            title="Answers"
+            border
+            borderColor={focus === 'answers' ? theme.borderActive : theme.border}
+            padding={1}
+            height={answersHeight}
+            overflow="hidden"
+          >
+            {answerOptions.length > 0 ? (
+              <select
+                height={answersHeight - 2}
+                width="100%"
+                options={answerOptions}
+                selectedIndex={answerIndex}
+                showDescription
+                backgroundColor={theme.transparent}
+                focusedBackgroundColor={theme.transparent}
+                selectedBackgroundColor={theme.transparent}
+                selectedTextColor={theme.brand}
+                selectedDescriptionColor={theme.muted}
+                focused={focus === 'answers' && overlay === 'none' && !modalVisible}
+                onChange={(_, option) => {
+                  const nextIndex = answerOptions.findIndex((item) => item.value === option?.value);
+                  if (nextIndex >= 0) setAnswerIndex(nextIndex);
+                }}
+                onSelect={(_, option) => {
+                  const nextIndex = answerOptions.findIndex((item) => item.value === option?.value);
+                  if (nextIndex >= 0) setAnswerIndex(nextIndex);
+                }}
+              />
+            ) : (
+              <text fg={theme.muted} content="No saved answers yet." />
+            )}
+          </box>
         </box>
 
-        <box
-          title="Detail"
-          border
-          borderColor={focus === 'detail' ? theme.borderActive : theme.border}
-          width={detailWidth}
-          padding={1}
-          flexDirection="column"
-          overflow="hidden"
-        >
-          {selectedJob && isAnswering ? (
-            <AnswerWorkspace
-              theme={theme}
-              job={selectedJob}
-              width={Math.max(20, detailWidth - 4)}
-              height={detailHeight + 1}
-              onClose={onCloseAnswer}
-              onSaved={onAnswerSaved}
-            />
-          ) : selectedJob && jobActionView ? (
-            <JobActionWorkspace
-              theme={theme}
-              job={selectedJob}
-              width={Math.max(20, detailWidth - 4)}
-              height={detailHeight + 1}
-              initialView={jobActionView}
-              onClose={onCloseJobActions}
-              onStartAnswer={onStartAnswer}
-              onEvaluate={onEvaluateJob}
-              onOpenLink={onOpenJobLink}
-              onOpenCv={onOpenGeneratedCv}
-              onOpenCoverLetter={onOpenGeneratedCoverLetter}
-              onSaveMetadata={onSaveMetadata}
-              onSaveEditJd={onSaveEditJd}
-              onSaveStatus={onSaveStatus}
-              onDelete={onDeleteJob}
-              onGenerateCv={onGenerateCv}
-              onGenerateCoverLetter={onGenerateCoverLetter}
-            />
-          ) : selectedJob ? (
+        <box width={detailWidth} flexDirection="column" overflow="hidden">
+          <box
+            title={detailTitle}
+            border
+            borderColor={focus === 'detail' || modalVisible ? theme.borderActive : theme.border}
+            padding={1}
+            height={detailHeight}
+            overflow="hidden"
+          >
             <scrollbox
-              height={detailHeight + 3}
+              height={detailHeight - 2}
               width="100%"
               scrollX={false}
               scrollY
-              focused={focus === 'detail' && overlay === 'none'}
+              focused={focus === 'detail' && overlay === 'none' && !modalVisible}
               rootOptions={{ overflow: 'hidden' }}
               wrapperOptions={{ overflow: 'hidden' }}
               viewportOptions={{ overflow: 'hidden' }}
@@ -230,19 +540,87 @@ export default function DashboardScreen({
               <box flexDirection="column" width={Math.max(20, detailWidth - 6)}>
                 <markdown
                   width={Math.max(20, detailWidth - 6)}
-                  content={jobDetailMarkdown(selectedJob)}
+                  content={detailContent}
                   syntaxStyle={syntaxStyle}
                   conceal
                 />
               </box>
             </scrollbox>
-          ) : (
-            <text fg={theme.muted} content="Select a job to inspect it." />
-          )}
+          </box>
+
+          {selectedJob && isAnswering ? (
+            <box
+              title="Answer Actions"
+              border
+              borderColor={theme.warning}
+              paddingX={1}
+              marginTop={1}
+              height={modalHeight}
+              overflow="hidden"
+            >
+              <AnswerWorkspace
+                theme={theme}
+                job={selectedJob}
+                width={Math.max(20, detailWidth - 6)}
+                height={modalHeight - 2}
+                onClose={onCloseAnswer}
+                onSaved={onAnswerSaved}
+              />
+            </box>
+          ) : selectedJob && jobActionView ? (
+            <box
+              title="Job Actions"
+              border
+              borderColor={theme.warning}
+              paddingX={1}
+              marginTop={1}
+              height={modalHeight}
+              overflow="hidden"
+            >
+              <JobActionWorkspace
+                theme={theme}
+                job={selectedJob}
+                width={Math.max(20, detailWidth - 6)}
+                height={modalHeight - 2}
+                initialView={jobActionView}
+                onClose={onCloseJobActions}
+                onStartAnswer={onStartAnswer}
+                onEvaluate={onEvaluateJob}
+                onOpenLink={onOpenJobLink}
+                onOpenCv={onOpenGeneratedCv}
+                onOpenCoverLetter={onOpenGeneratedCoverLetter}
+                onSaveMetadata={onSaveMetadata}
+                onSaveEditJd={onSaveEditJd}
+                onSaveStatus={onSaveStatus}
+                onDelete={onDeleteJob}
+                onGenerateCv={onGenerateCv}
+                onGenerateCoverLetter={onGenerateCoverLetter}
+              />
+            </box>
+          ) : profileActionView ? (
+            <box
+              title="Profile Actions"
+              border
+              borderColor={theme.warning}
+              paddingX={1}
+              marginTop={1}
+              height={modalHeight}
+              overflow="hidden"
+            >
+              <ProfileActionWorkspace
+                theme={theme}
+                profile={profile}
+                width={Math.max(20, detailWidth - 6)}
+                height={modalHeight - 2}
+                initialView={profileActionView}
+                onClose={onCloseProfileActions}
+                onSave={onSaveProfile}
+              />
+            </box>
+          ) : null}
         </box>
       </box>
 
-      {/* Footer */}
       <box
         flexDirection="row"
         columnGap={1}
@@ -250,29 +628,23 @@ export default function DashboardScreen({
         position="absolute"
         bottom={0}
       >
-        <text fg={theme.footer} content="1-3=tabs" />
+        <text fg={theme.footer} content="1=status" />
         <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="tab=filter" />
+        <text fg={theme.footer} content="2=jobs" />
         <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="h/l=panes" />
+        <text fg={theme.footer} content="3=profile" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="4=answers" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="h/l=left-detail" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="[/]=filter" />
         <text fg={theme.muted} content="|" />
         <text fg={theme.footer} content="j/k=move" />
         <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="enter=job actions" />
+        <text fg={theme.footer} content="enter=open" />
         <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="a=add" />
-        <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="e=evaluate" />
-        <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="g=cv" />
-        <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="c=cover" />
-        <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="w=answer" />
-        <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="esc=close" />
-        <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="q=quit" />
+        <text fg={theme.footer} content="a=add job" />
       </box>
     </>
   );
