@@ -27,6 +27,8 @@ const LEFT_PANEL_ORDER: FocusTarget[] = [
   'answers',
 ];
 
+type LibraryTab = 'profile' | 'answers';
+
 const PROFILE_OPTIONS: Array<{
   name: string;
   description: string;
@@ -120,9 +122,11 @@ function statusDetailMarkdown(
     counts.join('\n'),
     '',
     '### Keys',
-    '- `1-4`: jump to left panels',
-    '- `h` / `l`: move between the left stack and the detail view',
-    '- `Enter` on Jobs or Profile: open an action workspace in the detail pane',
+    '- `0`: focus the main detail view',
+    '- `1-3`: jump to left panels',
+    '- `Tab` / `Shift+Tab`: cycle status, jobs, and config',
+    '- `[` / `]`: cycle the active panel filter or config tab',
+    '- `Enter` on Jobs or Config > Profile: open an action workspace in the detail pane',
   ].join('\n');
 }
 
@@ -343,12 +347,8 @@ export default function DashboardScreen({
     Boolean(profileActionView);
   const detailHeight = Math.max(8, contentHeight);
   const statusHeight = 5;
-  const profileHeight = 6;
-  const answersHeight = 6;
-  const jobsHeight = Math.max(
-    12,
-    contentHeight - statusHeight - profileHeight - answersHeight,
-  );
+  const libraryHeight = 12;
+  const jobsHeight = Math.max(12, contentHeight - statusHeight - libraryHeight);
 
   const companyWidth = Math.max(10, Math.floor((queueWidth - 12) * 0.34));
   const roleWidth = Math.max(12, queueWidth - companyWidth - 18);
@@ -380,6 +380,13 @@ export default function DashboardScreen({
     PROFILE_OPTIONS[profileIndex] ?? PROFILE_OPTIONS[0] ?? null;
   const selectedAnswer = answers.slice().reverse()[answerIndex] ?? null;
   const activePanel = LEFT_PANEL_ORDER.includes(focus) ? focus : detailSource;
+  const activeLibraryTab: LibraryTab =
+    activePanel === 'answers' ? 'answers' : 'profile';
+  const libraryOptions =
+    activeLibraryTab === 'profile' ? PROFILE_OPTIONS : answerOptions;
+  const librarySelectedIndex =
+    activeLibraryTab === 'profile' ? profileIndex : answerIndex;
+  const libraryListHeight = Math.max(3, libraryHeight - 5);
 
   const detailTitle =
     overlay !== 'none'
@@ -395,11 +402,11 @@ export default function DashboardScreen({
           : profileActionView
             ? 'Profile Actions'
             : activePanel === 'status'
-              ? 'Status Detail'
+              ? 'Status'
               : activePanel === 'profile'
-                ? 'Profile Detail'
+                ? 'Profile'
                 : activePanel === 'answers'
-                  ? 'Answer Detail'
+                  ? 'Answer'
                   : selectedJob
                     ? `Job #${selectedJob.id}`
                     : 'Detail';
@@ -420,22 +427,19 @@ export default function DashboardScreen({
       <box flexDirection="row" columnGap={1} height={contentHeight}>
         <box width={queueWidth} flexDirection="column" overflow="hidden">
           <box
-            title="[1]Status"
+            title="[1] Status"
             border
             borderColor={focus === 'status' ? theme.borderActive : theme.border}
             paddingX={1}
-            // height={statusHeight}
-            // overflow="hidden"
+            overflow="hidden"
           >
             <box flexDirection="column">
               <text fg={theme.heading} content={`${jobs.length} jobs`} />
-              <text fg={theme.muted} content="Job tracker" />
             </box>
           </box>
 
           <box
-            title="[2]Jobs"
-            // title={filter === 'Queue' ? 'Jobs' : `${filter} Jobs`}
+            title="[2] Jobs"
             border
             borderColor={focus === 'jobs' ? theme.borderActive : theme.border}
             paddingX={1}
@@ -443,14 +447,19 @@ export default function DashboardScreen({
             overflow="hidden"
             flexDirection="column"
           >
-            <box flexDirection="row" columnGap={1} marginBottom={1}>
+            <box
+              flexDirection="row"
+              columnGap={1}
+              paddingX={1}
+              marginBottom={2}
+            >
               {filters.map((item) => (
                 <text
                   key={item}
                   fg={item === filter ? theme.brand : theme.muted}
-                  // bg={item === filter ? theme.brand : undefined}
-                  content={item === filter ? `${item}` : `${item}`}
-                />
+                >
+                  {item === filter ? <u>{item}</u> : item}
+                </text>
               ))}
             </box>
             {jobOptions.length > 0 ? (
@@ -468,7 +477,7 @@ export default function DashboardScreen({
                 selectedTextColor={theme.brand}
                 selectedDescriptionColor={theme.muted}
                 focused={
-              focus === 'jobs' && overlay === 'none' && !workspaceVisible
+                  focus === 'jobs' && overlay === 'none' && !workspaceVisible
                 }
                 onChange={(_, option) => {
                   if (option?.value) onJobSelect(String(option.value));
@@ -487,94 +496,93 @@ export default function DashboardScreen({
           </box>
 
           <box
-            title="[3]Profile"
+            title="[3] User"
             border
             borderColor={
-              focus === 'profile' ? theme.borderActive : theme.border
+              focus === 'profile' || focus === 'answers'
+                ? theme.borderActive
+                : theme.border
             }
-            padding={1}
-            height={profileHeight}
+            paddingX={1}
+            height={libraryHeight}
             overflow="hidden"
+            flexDirection="column"
           >
-            <select
-              height={profileHeight - 4}
-              width="100%"
-              options={PROFILE_OPTIONS}
-              selectedIndex={profileIndex}
-              showDescription
-              backgroundColor={theme.transparent}
-              focusedBackgroundColor={theme.transparent}
-              selectedBackgroundColor={theme.transparent}
-              selectedTextColor={theme.brand}
-              selectedDescriptionColor={theme.muted}
-              focused={
-                focus === 'profile' && overlay === 'none' && !workspaceVisible
-              }
-              onChange={(_, option) => {
-                const nextIndex = PROFILE_OPTIONS.findIndex(
-                  (item) => item.value === option?.value,
-                );
-                if (nextIndex >= 0) setProfileIndex(nextIndex);
-              }}
-              onSelect={(_, option) => {
-                const nextIndex = PROFILE_OPTIONS.findIndex(
-                  (item) => item.value === option?.value,
-                );
-                if (nextIndex >= 0) {
-                  setProfileIndex(nextIndex);
-                  onOpenProfileActions(PROFILE_OPTIONS[nextIndex]!.value);
-                }
-              }}
-            />
-          </box>
+            <box
+              flexDirection="row"
+              columnGap={1}
+              paddingX={1}
+              marginBottom={1}
+            >
+              <text
+                fg={activeLibraryTab === 'profile' ? theme.brand : theme.muted}
+              >
+                {activeLibraryTab === 'profile' ? <u>Profile</u> : 'Profile'}
+              </text>
 
-          <box
-            title="[4]Answers"
-            border
-            borderColor={
-              focus === 'answers' ? theme.borderActive : theme.border
-            }
-            padding={1}
-            height={answersHeight}
-            overflow="hidden"
-          >
-            {answerOptions.length > 0 ? (
+              <text
+                fg={activeLibraryTab === 'answers' ? theme.brand : theme.muted}
+              >
+                {activeLibraryTab === 'answers' ? <u>Answers</u> : 'Answers'}
+              </text>
+            </box>
+            {activeLibraryTab === 'answers' && answerOptions.length === 0 ? (
+              <text fg={theme.muted} content="No saved answers yet." />
+            ) : (
               <select
-                height={answersHeight - 2}
+                height={libraryListHeight}
                 width="100%"
-                options={answerOptions}
-                selectedIndex={answerIndex}
-                showDescription
+                options={libraryOptions}
+                selectedIndex={librarySelectedIndex}
+                showDescription={false}
                 backgroundColor={theme.transparent}
                 focusedBackgroundColor={theme.transparent}
                 selectedBackgroundColor={theme.transparent}
                 selectedTextColor={theme.brand}
                 selectedDescriptionColor={theme.muted}
+                // itemSpacing={1}
                 focused={
-                  focus === 'answers' && overlay === 'none' && !workspaceVisible
+                  (focus === 'profile' || focus === 'answers') &&
+                  overlay === 'none' &&
+                  !workspaceVisible
                 }
                 onChange={(_, option) => {
+                  if (activeLibraryTab === 'profile') {
+                    const nextIndex = PROFILE_OPTIONS.findIndex(
+                      (item) => item.value === option?.value,
+                    );
+                    if (nextIndex >= 0) setProfileIndex(nextIndex);
+                    return;
+                  }
                   const nextIndex = answerOptions.findIndex(
                     (item) => item.value === option?.value,
                   );
                   if (nextIndex >= 0) setAnswerIndex(nextIndex);
                 }}
                 onSelect={(_, option) => {
+                  if (activeLibraryTab === 'profile') {
+                    const nextIndex = PROFILE_OPTIONS.findIndex(
+                      (item) => item.value === option?.value,
+                    );
+                    if (nextIndex >= 0) {
+                      setProfileIndex(nextIndex);
+                      onOpenProfileActions(PROFILE_OPTIONS[nextIndex]!.value);
+                    }
+                    return;
+                  }
                   const nextIndex = answerOptions.findIndex(
                     (item) => item.value === option?.value,
                   );
                   if (nextIndex >= 0) setAnswerIndex(nextIndex);
                 }}
               />
-            ) : (
-              <text fg={theme.muted} content="No saved answers yet." />
             )}
           </box>
         </box>
 
         <box width={detailWidth} flexDirection="column" overflow="hidden">
           <box
-            title={detailTitle}
+            title={`[0] ${detailTitle}`}
             border
             borderColor={
               focus === 'detail' || workspaceVisible
@@ -648,7 +656,10 @@ export default function DashboardScreen({
                   onSave={onSaveProfile}
                 />
               ) : (
-                <box flexDirection="column" width={Math.max(20, detailWidth - 6)}>
+                <box
+                  flexDirection="column"
+                  width={Math.max(20, detailWidth - 6)}
+                >
                   <markdown
                     width={Math.max(20, detailWidth - 6)}
                     content={detailContent}
@@ -669,23 +680,11 @@ export default function DashboardScreen({
         position="absolute"
         bottom={0}
       >
-        <text fg={theme.footer} content="1=status" />
+        <text fg={theme.footer} content="Actions: <enter>" />
         <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="2=jobs" />
+        <text fg={theme.footer} content="Move: j / k" />
         <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="3=profile" />
-        <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="4=answers" />
-        <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="h/l=left-detail" />
-        <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="[/]=filter" />
-        <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="j/k=move" />
-        <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="enter=open" />
-        <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="a=add job" />
+        <text fg={theme.footer} content="Add Job: a" />
       </box>
     </>
   );

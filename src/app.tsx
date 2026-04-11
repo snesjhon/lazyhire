@@ -434,14 +434,49 @@ export default function App() {
     setFocus('jobs');
   }
 
+  function activeConfigTarget(): Extract<FocusTarget, 'profile' | 'answers'> {
+    return detailSource === 'answers' ? 'answers' : 'profile';
+  }
+
+  function setConfigTab(
+    tab: Extract<FocusTarget, 'profile' | 'answers'>,
+    nextFocus: FocusTarget = focus,
+  ) {
+    setDetailSource(tab);
+    setFocus(nextFocus === 'detail' ? 'detail' : tab);
+  }
+
+  function cycleFocusedPanel(direction: -1 | 1) {
+    const panel = focus === 'detail' ? detailSource : focus;
+
+    if (panel === 'jobs') {
+      const filterIndex = JOB_FILTERS.indexOf(filter);
+      setFilter(
+        JOB_FILTERS[
+          (filterIndex + direction + JOB_FILTERS.length) % JOB_FILTERS.length
+        ]!,
+      );
+      return;
+    }
+
+    if (panel === 'profile' || panel === 'answers') {
+      const nextTab = panel === 'profile' ? 'answers' : 'profile';
+      setConfigTab(nextTab, focus);
+    }
+  }
+
   function quit() {
     activeRenderer.destroy();
     process.exit(0);
   }
 
   useKeyboard((key) => {
-    const LEFT_PANELS: FocusTarget[] = ['status', 'jobs', 'profile', 'answers'];
-    const filterIndex = JOB_FILTERS.indexOf(filter);
+    const PANEL_ORDER: Array<'status' | 'jobs' | 'profile'> = [
+      'status',
+      'jobs',
+      'profile',
+    ];
+    const configTarget = activeConfigTarget();
 
     if (key.ctrl && key.name === 'c') quit();
     if (key.name === 'q') quit();
@@ -451,6 +486,7 @@ export default function App() {
       return;
     }
     if (answerJobId || jobActionState || profileActionView) return;
+    if (key.name === '0') setFocus('detail');
     if (key.name === '1') {
       setFocus('status');
       setDetailSource('status');
@@ -460,19 +496,24 @@ export default function App() {
       setDetailSource('jobs');
     }
     if (key.name === '3') {
-      setFocus('profile');
-      setDetailSource('profile');
+      setFocus(configTarget);
+      setDetailSource(configTarget);
     }
-    if (key.name === '4') {
-      setFocus('answers');
-      setDetailSource('answers');
+    if (key.name === 'tab') {
+      let currentPanel: 'status' | 'jobs' | 'profile' = 'status';
+      if (focus === 'jobs') currentPanel = 'jobs';
+      if (focus === 'profile' || focus === 'answers') currentPanel = 'profile';
+      const currentIndex = PANEL_ORDER.indexOf(currentPanel);
+      const step = key.shift ? -1 : 1;
+      const nextIndex =
+        (currentIndex + step + PANEL_ORDER.length) % PANEL_ORDER.length;
+      const nextPanel = PANEL_ORDER[nextIndex]!;
+      setFocus(nextPanel === 'profile' ? configTarget : nextPanel);
+      if (nextPanel !== 'profile') setDetailSource(nextPanel);
+      return;
     }
-    if (key.sequence === '[')
-      setFilter(JOB_FILTERS[(filterIndex - 1 + JOB_FILTERS.length) % JOB_FILTERS.length]!);
-    if (key.sequence === ']')
-      setFilter(JOB_FILTERS[(filterIndex + 1) % JOB_FILTERS.length]!);
-    if (key.name === 'h') setFocus(detailSource);
-    if (key.name === 'l') setFocus('detail');
+    if (key.sequence === '[') cycleFocusedPanel(-1);
+    if (key.sequence === ']') cycleFocusedPanel(1);
     if (key.name === 'a') setOverlay('add');
     if (key.name === 'e' && selectedJob) void runEvaluate(selectedJob);
     if (key.name === 'g' && selectedJob) openJobActions('generate-cv');
