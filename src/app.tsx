@@ -1,4 +1,5 @@
 /** @jsxImportSource @opentui/react */
+import type { ThemeMode } from '@opentui/core';
 import {
   useKeyboard,
   useRenderer,
@@ -28,6 +29,7 @@ import TasksIndicator from './components/TasksIndicator.js';
 import type { Flash, FocusTarget, Overlay, Screen } from './ui.js';
 import { scoreDisplay, type FlashVariant } from './lib/utils.js';
 import type { JobActionView } from './components/JobActionWorkspace.js';
+import { resolveUiTheme } from './theme.js';
 
 const JOB_FILTERS = [
   'Queue',
@@ -73,8 +75,12 @@ export default function App() {
   const [flash, setFlashState] = useState<Flash | null>(null);
   const [tasks, setTasks] = useState<string[]>([]);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [themeMode, setThemeMode] = useState<ThemeMode | null>(
+    activeRenderer.themeMode,
+  );
 
   const jobs = useMemo(() => db.readJobs(), [refreshToken]);
+  const theme = useMemo(() => resolveUiTheme(themeMode), [themeMode]);
 
   const filteredJobs = useMemo(() => {
     const next = jobs.filter((job) => {
@@ -111,6 +117,15 @@ export default function App() {
     appHeight - (overlay === 'none' ? 10 : 20),
   );
   const detailHeight = Math.max(8, contentHeight - 5);
+
+  useEffect(() => {
+    const handleThemeMode = (nextMode: ThemeMode) => setThemeMode(nextMode);
+    setThemeMode(activeRenderer.themeMode);
+    activeRenderer.on('theme_mode', handleThemeMode);
+    return () => {
+      activeRenderer.off('theme_mode', handleThemeMode);
+    };
+  }, [activeRenderer]);
 
   useEffect(() => {
     if (!flash) return;
@@ -457,6 +472,7 @@ export default function App() {
     >
       <Header
         appWidth={appWidth}
+        theme={theme}
         screen={screen}
         focus={focus}
         overlay={overlay}
@@ -468,6 +484,7 @@ export default function App() {
 
       {screen === 'dashboard' ? (
         <DashboardScreen
+          theme={theme}
           contentHeight={contentHeight}
           queueWidth={queueWidth}
           detailWidth={detailWidth}
@@ -481,7 +498,7 @@ export default function App() {
           overlay={overlay}
           isAnswering={selectedJob?.id === answerJobId}
           jobActionView={
-            selectedJob?.id === jobActionState?.jobId ? jobActionState.view : null
+            selectedJob?.id === jobActionState?.jobId ? jobActionState?.view ?? null : null
           }
           onJobSelect={setSelectedJobId}
           onOpenActions={() => openJobActions('menu')}
@@ -531,16 +548,18 @@ export default function App() {
         <ScanScreen
           appWidth={appWidth}
           appHeight={appHeight}
+          theme={theme}
           onBack={() => setScreen('dashboard')}
         />
       ) : screen === 'profile' ? (
-        <ProfileScreen appWidth={appWidth} appHeight={appHeight} />
+        <ProfileScreen appWidth={appWidth} appHeight={appHeight} theme={theme} />
       ) : (
-        <AnswersScreen appWidth={appWidth} appHeight={appHeight} />
+        <AnswersScreen appWidth={appWidth} appHeight={appHeight} theme={theme} />
       )}
 
       {screen === 'dashboard' && overlay !== 'none' && (
         <DashboardOverlay
+          theme={theme}
           overlay={overlay}
           onAddUrl={handleAddUrl}
           onAddJd={handleAddJd}
@@ -549,7 +568,7 @@ export default function App() {
         />
       )}
 
-      <TasksIndicator tasks={tasks} />
+      <TasksIndicator tasks={tasks} theme={theme} />
     </box>
   );
 }

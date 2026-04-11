@@ -17,6 +17,7 @@ import {
   generateAnswer,
   refineAnswer,
 } from '../services/ai/answers.js';
+import type { UiTheme } from '../theme.js';
 import type { AnswerCategory, Job } from '../types.js';
 
 type Step =
@@ -29,7 +30,6 @@ type Step =
   | 'ask-refine'
   | 'refining';
 
-const TRANSPARENT = 'transparent';
 const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<TextareaOptions['keyBindings']> = [
   { name: 'o', ctrl: true, action: 'submit' },
 ];
@@ -44,17 +44,6 @@ const CATEGORY_LABEL: Record<AnswerCategory, string> = {
   culture: 'Culture',
   situational: 'Situational',
   other: 'Other',
-};
-
-const CATEGORY_COLOR: Record<AnswerCategory, string> = {
-  identity: '#c77dff',
-  motivation: '#4cc9f0',
-  behavioral: '#f5c542',
-  strengths: '#57cc99',
-  vision: '#7aa2f7',
-  culture: '#48cae4',
-  situational: '#ff6b6b',
-  other: '#868e96',
 };
 
 function today(): string {
@@ -72,6 +61,7 @@ function useSpinner(active: boolean): string {
 }
 
 interface Props {
+  theme: UiTheme;
   job: Job;
   width: number;
   height: number;
@@ -80,6 +70,7 @@ interface Props {
 }
 
 export default function AnswerWorkspace({
+  theme,
   job,
   width,
   height,
@@ -258,10 +249,10 @@ export default function AnswerWorkspace({
 
   return (
     <box flexDirection="column" overflow="hidden">
-      <text fg="#4cc9f0" content={`${job.company || 'Unknown Company'} · ${job.role || 'Untitled Role'}`} />
-      {statusLine ? <text fg="#868e96" content={statusLine} /> : null}
+      <text fg={theme.brand} content={`${job.company || 'Unknown Company'} · ${job.role || 'Untitled Role'}`} />
+      {statusLine ? <text fg={theme.muted} content={statusLine} /> : null}
       {question && step !== 'ask-question' ? (
-        <text fg={CATEGORY_COLOR[category]} content={`Question: ${clip(question, width - 6)}`} />
+        <text fg={theme.answerCategoryColors[category]} content={`Question: ${clip(question, width - 6)}`} />
       ) : null}
 
       {step === 'review' && generatedAnswer ? (
@@ -286,11 +277,11 @@ export default function AnswerWorkspace({
         </scrollbox>
       ) : null}
 
-      {isSpinning ? <text fg="#f5c542" content={`${spinner} ${spinnerLabel}`} /> : null}
+      {isSpinning ? <text fg={theme.warning} content={`${spinner} ${spinnerLabel}`} /> : null}
 
       {step === 'ask-question' ? (
         <box flexDirection="column" marginTop={1}>
-          <text fg="#ffffff" content="Question" />
+          <text fg={theme.heading} content="Question" />
           <input
             ref={questionInputRef}
             value={questionDraft}
@@ -311,10 +302,10 @@ export default function AnswerWorkspace({
             width="100%"
             options={toneOptions}
             focused
-            backgroundColor={TRANSPARENT}
-            focusedBackgroundColor={TRANSPARENT}
-            selectedBackgroundColor={TRANSPARENT}
-            selectedTextColor="#4cc9f0"
+            backgroundColor={theme.transparent}
+            focusedBackgroundColor={theme.transparent}
+            selectedBackgroundColor={theme.transparent}
+            selectedTextColor={theme.brand}
             onSelect={(_, option) => {
               if (option?.value) handleToneSelect(String(option.value));
             }}
@@ -324,7 +315,7 @@ export default function AnswerWorkspace({
 
       {step === 'ask-context' ? (
         <box flexDirection="column" marginTop={1}>
-          <text fg="#ffffff" content="Context (optional)" />
+          <text fg={theme.heading} content="Context (optional)" />
           <textarea
             ref={contextInputRef}
             height={4}
@@ -340,7 +331,7 @@ export default function AnswerWorkspace({
 
       {step === 'ask-refine' ? (
         <box flexDirection="column" marginTop={1}>
-          <text fg="#ffffff" content="Refinement request" />
+          <text fg={theme.heading} content="Refinement request" />
           <input
             ref={refineInputRef}
             value={refineDraft}
@@ -356,16 +347,16 @@ export default function AnswerWorkspace({
 
       <box flexDirection="row" columnGap={1} marginTop={1}>
         {copyFlash ? (
-          <text fg="#57cc99" content="Copied!" />
+          <text fg={theme.success} content="Copied!" />
         ) : (
           <>
-            {step === 'review' ? <text fg="#7aa2f7" content="s=save" /> : null}
-            {step === 'review' ? <text fg="#868e96" content="|" /> : null}
-            {step === 'review' ? <text fg="#7aa2f7" content="r=refine" /> : null}
-            {step === 'review' ? <text fg="#868e96" content="|" /> : null}
-            {step === 'review' ? <text fg="#7aa2f7" content="c=copy" /> : null}
-            {step === 'review' ? <text fg="#868e96" content="|" /> : null}
-            <text fg="#7aa2f7" content="esc=back" />
+            {step === 'review' ? <text fg={theme.footer} content="s=save" /> : null}
+            {step === 'review' ? <text fg={theme.muted} content="|" /> : null}
+            {step === 'review' ? <text fg={theme.footer} content="r=refine" /> : null}
+            {step === 'review' ? <text fg={theme.muted} content="|" /> : null}
+            {step === 'review' ? <text fg={theme.footer} content="c=copy" /> : null}
+            {step === 'review' ? <text fg={theme.muted} content="|" /> : null}
+            <text fg={theme.footer} content="esc=back" />
           </>
         )}
       </box>

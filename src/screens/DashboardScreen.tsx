@@ -3,6 +3,7 @@ import { SyntaxStyle } from '@opentui/core';
 import type { Job, JobStatus } from '../types.js';
 import type { FocusTarget, Overlay } from '../ui.js';
 import { clip, scoreDisplay } from '../lib/utils.js';
+import type { UiTheme } from '../theme.js';
 import AnswerWorkspace from '../components/AnswerWorkspace.js';
 import JobActionWorkspace, {
   type JobActionView,
@@ -14,8 +15,6 @@ const syntaxStyle = SyntaxStyle.fromStyles({
   'markup.heading.2': { bold: true },
   'markup.strong': { bold: true },
 });
-
-const TRANSPARENT_BACKGROUND = 'transparent';
 
 function jobDetailMarkdown(job: Job): string {
   const classification = [job.category, job.focus].filter(Boolean).join(' / ');
@@ -42,6 +41,7 @@ function jobDetailMarkdown(job: Job): string {
 }
 
 interface Props {
+  theme: UiTheme;
   contentHeight: number;
   queueWidth: number;
   detailWidth: number;
@@ -84,6 +84,7 @@ interface Props {
 }
 
 export default function DashboardScreen({
+  theme,
   contentHeight,
   queueWidth,
   detailWidth,
@@ -130,8 +131,8 @@ export default function DashboardScreen({
         {filters.map((item) => (
           <text
             key={item}
-            fg={item === filter ? '#050505' : '#868e96'}
-            bg={item === filter ? '#4cc9f0' : undefined}
+            fg={item === filter ? theme.brandContrast : theme.muted}
+            bg={item === filter ? theme.brand : undefined}
             content={item === filter ? ` ${item} ` : item}
           />
         ))}
@@ -142,7 +143,7 @@ export default function DashboardScreen({
         <box
           title={filter}
           border
-          borderColor={focus === 'jobs' ? '#57cc99' : '#868e96'}
+          borderColor={focus === 'jobs' ? theme.borderActive : theme.border}
           width={queueWidth}
           padding={1}
           overflow="hidden"
@@ -156,11 +157,11 @@ export default function DashboardScreen({
               showDescription
               showScrollIndicator
               itemSpacing={1}
-              backgroundColor={TRANSPARENT_BACKGROUND}
-              focusedBackgroundColor={TRANSPARENT_BACKGROUND}
-              selectedBackgroundColor={TRANSPARENT_BACKGROUND}
-              selectedTextColor="#4cc9f0"
-              selectedDescriptionColor="#868e96"
+              backgroundColor={theme.transparent}
+              focusedBackgroundColor={theme.transparent}
+              selectedBackgroundColor={theme.transparent}
+              selectedTextColor={theme.brand}
+              selectedDescriptionColor={theme.muted}
               focused={focus === 'jobs' && overlay === 'none'}
               onChange={(_, option) => {
                 if (option?.value) onJobSelect(String(option.value));
@@ -171,14 +172,14 @@ export default function DashboardScreen({
               }}
             />
           ) : (
-            <text fg="#868e96" content="No jobs yet. Press a to add one." />
+            <text fg={theme.muted} content="No jobs yet. Press a to add one." />
           )}
         </box>
 
         <box
           title="Detail"
           border
-          borderColor={focus === 'detail' ? '#57cc99' : '#868e96'}
+          borderColor={focus === 'detail' ? theme.borderActive : theme.border}
           width={detailWidth}
           padding={1}
           flexDirection="column"
@@ -186,6 +187,7 @@ export default function DashboardScreen({
         >
           {selectedJob && isAnswering ? (
             <AnswerWorkspace
+              theme={theme}
               job={selectedJob}
               width={Math.max(20, detailWidth - 4)}
               height={detailHeight + 1}
@@ -194,6 +196,7 @@ export default function DashboardScreen({
             />
           ) : selectedJob && jobActionView ? (
             <JobActionWorkspace
+              theme={theme}
               job={selectedJob}
               width={Math.max(20, detailWidth - 4)}
               height={detailHeight + 1}
@@ -234,7 +237,7 @@ export default function DashboardScreen({
               </box>
             </scrollbox>
           ) : (
-            <text fg="#868e96" content="Select a job to inspect it." />
+            <text fg={theme.muted} content="Select a job to inspect it." />
           )}
         </box>
       </box>
@@ -247,29 +250,29 @@ export default function DashboardScreen({
         position="absolute"
         bottom={0}
       >
-        <text fg="#7aa2f7" content="1-3=tabs" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="tab=filter" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="h/l=panes" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="j/k=move" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="enter=job actions" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="a=add" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="e=evaluate" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="g=cv" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="c=cover" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="w=answer" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="esc=close" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="q=quit" />
+        <text fg={theme.footer} content="1-3=tabs" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="tab=filter" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="h/l=panes" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="j/k=move" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="enter=job actions" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="a=add" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="e=evaluate" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="g=cv" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="c=cover" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="w=answer" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="esc=close" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="q=quit" />
       </box>
     </>
   );

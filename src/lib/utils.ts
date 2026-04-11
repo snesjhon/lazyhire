@@ -1,4 +1,5 @@
 import type { JobStatus } from '../types.js';
+import type { UiTheme } from '../theme.js';
 
 export type FlashVariant = 'info' | 'success' | 'warning' | 'error';
 
@@ -11,25 +12,10 @@ export function scoreDisplay(score: number | null): string {
   return score === null ? '—' : score.toFixed(1);
 }
 
-export function statusColor(status: JobStatus): string {
-  const colors: Record<JobStatus, string> = {
-    Pending: '#f5c542',
-    Evaluated: '#4cc9f0',
-    Applied: '#7aa2f7',
-    Interview: '#c77dff',
-    Offer: '#57cc99',
-    Rejected: '#ff6b6b',
-    Discarded: '#868e96',
-  };
-  return colors[status];
+export function statusColor(status: JobStatus, theme: UiTheme): string {
+  return theme.statusColors[status];
 }
 
-export function flashColor(variant: FlashVariant): string {
-  const colors: Record<FlashVariant, string> = {
-    info: '#7aa2f7',
-    success: '#57cc99',
-    warning: '#f5c542',
-    error: '#ff6b6b',
-  };
-  return colors[variant];
+export function flashColor(variant: FlashVariant, theme: UiTheme): string {
+  return theme.flashColors[variant];
 }

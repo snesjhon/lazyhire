@@ -3,8 +3,7 @@ import { type TabSelectRenderable } from '@opentui/core';
 import { useEffect, useRef } from 'react';
 import type { Flash, FocusTarget, Overlay, Screen } from '../ui.js';
 import { clip, flashColor } from '../lib/utils.js';
-
-const TRANSPARENT_BACKGROUND = 'transparent';
+import type { UiTheme } from '../theme.js';
 
 const TAB_OPTIONS = [
   { name: 'Jobs', description: 'Job pipeline', value: 'dashboard' as Screen },
@@ -21,6 +20,7 @@ function screenIndex(screen: Screen): number {
 
 interface Props {
   appWidth: number;
+  theme: UiTheme;
   screen: Screen;
   focus: FocusTarget;
   overlay: Overlay;
@@ -32,6 +32,7 @@ interface Props {
 
 export default function Header({
   appWidth,
+  theme,
   screen,
   focus,
   overlay,
@@ -48,17 +49,17 @@ export default function Header({
 
   return (
     <box flexDirection="row" justifyContent="space-between" marginBottom={1}>
-      <text fg="#4cc9f0" content="lazyhire" />
+      <text fg={theme.brand} content="lazyhire" />
       <tab-select
         ref={tabs}
         width={60}
         height={2}
         tabWidth={10}
         options={VISIBLE_TAB_OPTIONS}
-        selectedTextColor="#050505"
-        selectedBackgroundColor="#4cc9f0"
-        backgroundColor={TRANSPARENT_BACKGROUND}
-        focusedBackgroundColor={TRANSPARENT_BACKGROUND}
+        selectedTextColor={theme.brandContrast}
+        selectedBackgroundColor={theme.brand}
+        backgroundColor={theme.transparent}
+        focusedBackgroundColor={theme.transparent}
         showDescription={false}
         showUnderline={false}
         focused={focus === 'tabs' && overlay === 'none' && screen === 'dashboard'}
@@ -69,11 +70,11 @@ export default function Header({
       />
       {flash ? (
         <text
-          fg={flashColor(flash.variant)}
+          fg={flashColor(flash.variant, theme)}
           content={clip(flash.message, Math.max(24, appWidth - 40))}
         />
       ) : (
-        <text fg="#868e96" content={`${jobCount} jobs`} />
+        <text fg={theme.muted} content={`${jobCount} jobs`} />
       )}
     </box>
   );

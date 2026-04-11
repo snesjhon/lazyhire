@@ -3,6 +3,7 @@ import { useKeyboard } from '@opentui/react';
 import type { InputRenderable, SelectOption } from '@opentui/core';
 import { useEffect, useRef, useState } from 'react';
 import { loadProfile, saveProfile } from '../profile.js';
+import type { UiTheme } from '../theme.js';
 import type { Profile } from '../types.js';
 
 type Section =
@@ -14,8 +15,6 @@ type Section =
   | 'salary-max'
   | 'remote'
   | 'deal-breakers';
-
-const TRANSPARENT = 'transparent';
 
 const REMOTE_OPTIONS: SelectOption[] = [
   { name: 'Full Remote', description: 'remote only', value: 'full' },
@@ -35,9 +34,10 @@ const MENU_OPTIONS: SelectOption[] = [
 interface Props {
   appWidth: number;
   appHeight: number;
+  theme: UiTheme;
 }
 
-export default function ProfileScreen({ appWidth, appHeight }: Props) {
+export default function ProfileScreen({ appWidth, appHeight, theme }: Props) {
   const [profile, setProfile] = useState<Profile>(() => loadProfile());
   const [section, setSection] = useState<Section>('none');
   const [draft, setDraft] = useState('');
@@ -157,27 +157,27 @@ export default function ProfileScreen({ appWidth, appHeight }: Props) {
       {/* Candidate info */}
       <box
         border
-        borderColor="#868e96"
+        borderColor={theme.border}
         padding={1}
         marginTop={1}
         width={panelWidth}
         flexDirection="column"
       >
-        <text fg="#ffffff" content={candidate.name} />
-        <text fg="#868e96" content={headline} />
+        <text fg={theme.heading} content={candidate.name} />
+        <text fg={theme.muted} content={headline} />
       </box>
 
       {/* Targets summary */}
       <box
         title="Targets"
         border
-        borderColor="#868e96"
+        borderColor={theme.border}
         padding={1}
         marginTop={1}
         width={panelWidth}
         flexDirection="column"
       >
-        <text fg="#868e96" content={infoLines} />
+        <text fg={theme.subtext} content={infoLines} />
       </box>
 
       {/* Edit menu */}
@@ -185,7 +185,7 @@ export default function ProfileScreen({ appWidth, appHeight }: Props) {
         <box
           title="Edit Profile"
           border
-          borderColor="#4cc9f0"
+          borderColor={theme.brand}
           padding={1}
           marginTop={1}
           width={panelWidth}
@@ -197,10 +197,10 @@ export default function ProfileScreen({ appWidth, appHeight }: Props) {
             options={MENU_OPTIONS}
             showDescription
             focused
-            backgroundColor={TRANSPARENT}
-            focusedBackgroundColor={TRANSPARENT}
-            selectedBackgroundColor={TRANSPARENT}
-            selectedTextColor="#4cc9f0"
+            backgroundColor={theme.transparent}
+            focusedBackgroundColor={theme.transparent}
+            selectedBackgroundColor={theme.transparent}
+            selectedTextColor={theme.brand}
             onSelect={(_, option) =>
               option?.value && openSection(option.value as Section)
             }
@@ -213,7 +213,7 @@ export default function ProfileScreen({ appWidth, appHeight }: Props) {
         <box
           title={section === 'remote' ? 'Remote Preference' : inputLabel}
           border
-          borderColor="#f5c542"
+          borderColor={theme.warning}
           padding={1}
           marginTop={1}
           width={panelWidth}
@@ -227,10 +227,10 @@ export default function ProfileScreen({ appWidth, appHeight }: Props) {
               options={REMOTE_OPTIONS}
               selectedIndex={REMOTE_OPTIONS.findIndex((o) => o.value === targets.remote)}
               showDescription
-              backgroundColor={TRANSPARENT}
-              focusedBackgroundColor={TRANSPARENT}
-              selectedBackgroundColor={TRANSPARENT}
-              selectedTextColor="#4cc9f0"
+              backgroundColor={theme.transparent}
+              focusedBackgroundColor={theme.transparent}
+              selectedBackgroundColor={theme.transparent}
+              selectedTextColor={theme.brand}
               onSelect={(_, option) => {
                 if (option?.value) {
                   persist({
@@ -246,7 +246,7 @@ export default function ProfileScreen({ appWidth, appHeight }: Props) {
             />
           ) : (
             <box flexDirection="column">
-              <text fg="#868e96" content={inputLabel} />
+              <text fg={theme.muted} content={inputLabel} />
               <input
                 ref={inputRef}
                 value={draft}
@@ -262,13 +262,13 @@ export default function ProfileScreen({ appWidth, appHeight }: Props) {
       )}
 
       <box flexDirection="row" columnGap={1} position="absolute" bottom={0}>
-        <text fg="#7aa2f7" content="enter=select" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="esc=close" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="1-3=tabs" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="q=quit" />
+        <text fg={theme.footer} content="enter=select" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="esc=close" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="1-3=tabs" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="q=quit" />
       </box>
     </box>
   );

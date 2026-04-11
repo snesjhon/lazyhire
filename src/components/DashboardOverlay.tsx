@@ -6,9 +6,8 @@ import {
 } from '@opentui/core';
 import { useKeyboard } from '@opentui/react';
 import { useEffect, useRef, useState } from 'react';
+import type { UiTheme } from '../theme.js';
 import type { Overlay } from '../ui.js';
-
-const TRANSPARENT_BACKGROUND = 'transparent';
 
 function isTextareaSubmitKey(key: KeyEvent): boolean {
   return key.ctrl && key.name === 'o';
@@ -20,6 +19,7 @@ function overlayTitle(overlay: Overlay): string {
 }
 
 interface Props {
+  theme: UiTheme;
   overlay: Overlay;
   onAddUrl: (url: string) => Promise<void>;
   onAddJd: (jd: string) => Promise<void>;
@@ -28,6 +28,7 @@ interface Props {
 }
 
 export default function DashboardOverlay({
+  theme,
   overlay,
   onAddUrl,
   onAddJd,
@@ -57,7 +58,7 @@ export default function DashboardOverlay({
     <box
       title={overlayTitle(overlay)}
       border
-      borderColor="#f5c542"
+      borderColor={theme.warning}
       marginTop={1}
       padding={1}
       height={9}
@@ -84,9 +85,9 @@ export default function DashboardOverlay({
               value: 'none',
             },
           ]}
-          backgroundColor={TRANSPARENT_BACKGROUND}
-          focusedBackgroundColor={TRANSPARENT_BACKGROUND}
-          selectedBackgroundColor={TRANSPARENT_BACKGROUND}
+          backgroundColor={theme.transparent}
+          focusedBackgroundColor={theme.transparent}
+          selectedBackgroundColor={theme.transparent}
           onSelect={(_, option) =>
             onOverlayChange((option?.value as Overlay | undefined) ?? 'none')
           }
@@ -95,7 +96,7 @@ export default function DashboardOverlay({
 
       {overlay === 'add-url' && (
         <box flexDirection="column">
-          <text fg="#868e96" content="Job URL" />
+          <text fg={theme.muted} content="Job URL" />
           <input
             ref={urlInput}
             value={addUrl}

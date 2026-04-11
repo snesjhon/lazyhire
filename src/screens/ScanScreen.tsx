@@ -3,6 +3,7 @@ import { useKeyboard } from '@opentui/react';
 import { useEffect, useRef, useState } from 'react';
 import { db } from '../db.js';
 import { loadProfile } from '../profile.js';
+import type { UiTheme } from '../theme.js';
 import { normalizeCompanyKey, runScan } from '../scan.js';
 import type { SourceStatus } from '../scan.js';
 
@@ -14,6 +15,7 @@ type Phase = 'loading' | 'scanning' | 'done' | 'error';
 interface Props {
   appWidth: number;
   appHeight: number;
+  theme: UiTheme;
   onBack: () => void;
 }
 
@@ -31,7 +33,7 @@ function useSpinner(active: boolean): string {
   return SPINNER_FRAMES[frame]!;
 }
 
-export default function ScanScreen({ appWidth, onBack }: Props) {
+export default function ScanScreen({ appWidth, theme, onBack }: Props) {
   const [phase, setPhase] = useState<Phase>('loading');
   const [sources, setSources] = useState<SourceStatus[]>([]);
   const [added, setAdded] = useState(0);
@@ -131,8 +133,8 @@ export default function ScanScreen({ appWidth, onBack }: Props) {
   return (
     <box flexDirection="column" width={appWidth} paddingX={1}>
       {phase === 'loading' && (
-        <box border borderColor="#f5c542" padding={1} width={panelWidth} marginTop={1}>
-          <text fg="#f5c542" content={`${spinner} Loading profile…`} />
+        <box border borderColor={theme.warning} padding={1} width={panelWidth} marginTop={1}>
+          <text fg={theme.warning} content={`${spinner} Loading profile…`} />
         </box>
       )}
 
@@ -140,14 +142,14 @@ export default function ScanScreen({ appWidth, onBack }: Props) {
         <box
           title="Scanning Sources"
           border
-          borderColor="#f5c542"
+          borderColor={theme.warning}
           padding={1}
           width={panelWidth}
           marginTop={1}
           flexDirection="column"
         >
           <text content={sourceLines || ' '} />
-          <text fg="#868e96" content="esc to cancel" />
+          <text fg={theme.muted} content="esc to cancel" />
         </box>
       )}
 
@@ -155,14 +157,14 @@ export default function ScanScreen({ appWidth, onBack }: Props) {
         <box
           title="Scan Failed"
           border
-          borderColor="#ff6b6b"
+          borderColor={theme.error}
           padding={1}
           width={panelWidth}
           marginTop={1}
           flexDirection="column"
         >
-          <text fg="#ff6b6b" content={error} />
-          <text fg="#868e96" content="enter or esc to go back" />
+          <text fg={theme.error} content={error} />
+          <text fg={theme.muted} content="enter or esc to go back" />
         </box>
       )}
 
@@ -170,7 +172,7 @@ export default function ScanScreen({ appWidth, onBack }: Props) {
         <box
           title="Scan Complete"
           border
-          borderColor="#57cc99"
+          borderColor={theme.success}
           padding={1}
           width={panelWidth}
           marginTop={1}
@@ -182,17 +184,17 @@ export default function ScanScreen({ appWidth, onBack }: Props) {
           <text
             content={`${lowerRanked} lower-ranked job${lowerRanked !== 1 ? 's' : ''} also saved`}
           />
-          <text fg="#868e96" content={`${added} total jobs added to Pending`} />
-          <text fg="#868e96" content="enter or esc to go back" />
+          <text fg={theme.muted} content={`${added} total jobs added to Pending`} />
+          <text fg={theme.muted} content="enter or esc to go back" />
         </box>
       )}
 
       <box flexDirection="row" columnGap={1} position="absolute" bottom={0}>
-        <text fg="#7aa2f7" content="esc=back" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="1-3=tabs" />
-        <text fg="#868e96" content="|" />
-        <text fg="#7aa2f7" content="q=quit" />
+        <text fg={theme.footer} content="esc=back" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="1-3=tabs" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="q=quit" />
       </box>
     </box>
   );

@@ -10,6 +10,7 @@ import { execSync } from 'child_process';
 import { useEffect, useRef, useState } from 'react';
 import { answersDb } from '../db.js';
 import { loadProfile } from '../profile.js';
+import type { UiTheme } from '../theme.js';
 import type { AnswerCategory, AnswerEntry } from '../types.js';
 import {
   TONE_OPTIONS,
@@ -31,7 +32,6 @@ type Step =
   | 'ask-refine'
   | 'refining';
 
-const TRANSPARENT = 'transparent';
 const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<TextareaOptions['keyBindings']> = [
   { name: 'o', ctrl: true, action: 'submit' },
 ];
@@ -45,17 +45,6 @@ const CATEGORY_LABEL: Record<AnswerCategory, string> = {
   culture: 'Culture',
   situational: 'Situational',
   other: 'Other',
-};
-
-const CATEGORY_COLOR: Record<AnswerCategory, string> = {
-  identity: '#c77dff',
-  motivation: '#4cc9f0',
-  behavioral: '#f5c542',
-  strengths: '#57cc99',
-  vision: '#7aa2f7',
-  culture: '#48cae4',
-  situational: '#ff6b6b',
-  other: '#868e96',
 };
 
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const;
@@ -77,9 +66,10 @@ function useSpinner(active: boolean): string {
 interface Props {
   appWidth: number;
   appHeight: number;
+  theme: UiTheme;
 }
 
-export default function AnswersScreen({ appWidth, appHeight }: Props) {
+export default function AnswersScreen({ appWidth, appHeight, theme }: Props) {
   const [answers, setAnswers] = useState<AnswerEntry[]>(() => answersDb.readAnswers());
   const [selectedId, setSelectedId] = useState<string | null>(
     () => answersDb.readAnswers()[0]?.id ?? null,
@@ -369,13 +359,13 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
         <box
           title="Saved"
           border
-          borderColor={activePanel === 'list' ? '#57cc99' : '#868e96'}
+          borderColor={activePanel === 'list' ? theme.borderActive : theme.border}
           width={listWidth}
           padding={1}
           overflow="hidden"
         >
           {answers.length === 0 ? (
-            <text fg="#868e96" content={`No answers yet.\nPress n to start.`} />
+            <text fg={theme.muted} content={`No answers yet.\nPress n to start.`} />
           ) : (
             <select
               height={contentHeight - 2}
@@ -384,11 +374,11 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
               selectedIndex={selectedIndex}
               showDescription
               showScrollIndicator
-              backgroundColor={TRANSPARENT}
-              focusedBackgroundColor={TRANSPARENT}
-              selectedBackgroundColor={TRANSPARENT}
-              selectedTextColor="#4cc9f0"
-              selectedDescriptionColor="#868e96"
+              backgroundColor={theme.transparent}
+              focusedBackgroundColor={theme.transparent}
+              selectedBackgroundColor={theme.transparent}
+              selectedTextColor={theme.brand}
+              selectedDescriptionColor={theme.muted}
               focused={activePanel === 'list' && !isInputStep && step !== 'ask-tone' && !isSpinning}
               onChange={(_, option) => {
                 if (!option?.value) return;
@@ -413,23 +403,23 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
         <box
           title={showWizard ? 'Wizard' : 'Answer'}
           border
-          borderColor={activePanel === 'detail' ? '#57cc99' : '#868e96'}
+          borderColor={activePanel === 'detail' ? theme.borderActive : theme.border}
           width={detailWidth}
           padding={1}
           flexDirection="column"
           overflow="hidden"
         >
           {showIdle && (
-            <text fg="#868e96" content="Press n to answer your first question." />
+            <text fg={theme.muted} content="Press n to answer your first question." />
           )}
 
           {showSavedDetail && selectedAnswer && (
             <box flexDirection="column" overflow="hidden">
               <text
-                fg={CATEGORY_COLOR[selectedAnswer.category]}
+                fg={theme.answerCategoryColors[selectedAnswer.category]}
                 content={`${CATEGORY_LABEL[selectedAnswer.category]}  ·  ${selectedAnswer.company || 'General'}  ·  ${selectedAnswer.tone}  ·  ${selectedAnswer.revised}`}
               />
-              <text fg="#ffffff" content={selectedAnswer.question} />
+              <text fg={theme.heading} content={selectedAnswer.question} />
               <scrollbox
                 height={scrollHeight}
                 width="100%"
@@ -450,7 +440,7 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
                 />
               </scrollbox>
               {selectedAnswer.context ? (
-                <text fg="#868e96" content={`Context: ${selectedAnswer.context}`} />
+                <text fg={theme.muted} content={`Context: ${selectedAnswer.context}`} />
               ) : null}
             </box>
           )}
@@ -459,12 +449,12 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
             <box flexDirection="column" overflow="hidden">
               {/* Status / instructions */}
               {statusLine ? (
-                <text fg="#4cc9f0" content={statusLine} />
+                <text fg={theme.brand} content={statusLine} />
               ) : null}
 
               {/* Question echo (after it's been set) */}
               {question && step !== 'ask-question' ? (
-                <text fg="#868e96" content={`Q: ${clip(question, detailWidth - 6)}`} />
+                <text fg={theme.muted} content={`Q: ${clip(question, detailWidth - 6)}`} />
               ) : null}
 
               {/* Generated answer preview (review step) */}
@@ -492,13 +482,13 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
 
               {/* Spinner */}
               {isSpinning && (
-                <text fg="#f5c542" content={`${spinner} ${spinnerLabel}`} />
+                <text fg={theme.warning} content={`${spinner} ${spinnerLabel}`} />
               )}
 
               {/* Step inputs */}
               {step === 'ask-question' && (
                 <box flexDirection="column" marginTop={1}>
-                  <text fg="#868e96" content="Question" />
+                  <text fg={theme.muted} content="Question" />
                   <input
                     ref={questionInputRef}
                     value={questionDraft}
@@ -519,10 +509,10 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
                     width="100%"
                     options={toneOptions}
                     focused
-                    backgroundColor={TRANSPARENT}
-                    focusedBackgroundColor={TRANSPARENT}
-                    selectedBackgroundColor={TRANSPARENT}
-                    selectedTextColor="#4cc9f0"
+                    backgroundColor={theme.transparent}
+                    focusedBackgroundColor={theme.transparent}
+                    selectedBackgroundColor={theme.transparent}
+                    selectedTextColor={theme.brand}
                     onSelect={(_, option) => {
                       if (option?.value) void handleToneSelect(String(option.value));
                     }}
@@ -532,7 +522,7 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
 
               {step === 'ask-context' && (
                 <box flexDirection="column" marginTop={1}>
-                  <text fg="#868e96" content="Context (optional)" />
+                  <text fg={theme.muted} content="Context (optional)" />
                   <textarea
                     ref={contextInputRef}
                     height={4}
@@ -552,7 +542,7 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
 
               {step === 'ask-refine' && (
                 <box flexDirection="column" marginTop={1}>
-                  <text fg="#868e96" content="Refinement request" />
+                  <text fg={theme.muted} content="Refinement request" />
                   <input
                     ref={refineInputRef}
                     value={refineDraft}
@@ -573,38 +563,38 @@ export default function AnswersScreen({ appWidth, appHeight }: Props) {
       {/* Footer */}
       <box flexDirection="row" columnGap={1} position="absolute" bottom={0}>
         {copyFlash ? (
-          <text fg="#57cc99" content="Copied!" />
+          <text fg={theme.success} content="Copied!" />
         ) : (
           <>
-            <text fg="#7aa2f7" content="n=new" />
+            <text fg={theme.footer} content="n=new" />
             {step === 'view-saved' && (
               <>
-                <text fg="#868e96" content="|" />
-                <text fg="#7aa2f7" content="r=refine" />
-                <text fg="#868e96" content="|" />
-                <text fg="#7aa2f7" content="d=delete" />
-                <text fg="#868e96" content="|" />
-                <text fg="#7aa2f7" content="c=copy" />
-                <text fg="#868e96" content="|" />
-                <text fg="#7aa2f7" content="h/l=panels" />
+                <text fg={theme.muted} content="|" />
+                <text fg={theme.footer} content="r=refine" />
+                <text fg={theme.muted} content="|" />
+                <text fg={theme.footer} content="d=delete" />
+                <text fg={theme.muted} content="|" />
+                <text fg={theme.footer} content="c=copy" />
+                <text fg={theme.muted} content="|" />
+                <text fg={theme.footer} content="h/l=panels" />
               </>
             )}
             {step === 'review' && (
               <>
-                <text fg="#868e96" content="|" />
-                <text fg="#7aa2f7" content="s=save" />
-                <text fg="#868e96" content="|" />
-                <text fg="#7aa2f7" content="r=refine" />
-                <text fg="#868e96" content="|" />
-                <text fg="#7aa2f7" content="c=copy" />
+                <text fg={theme.muted} content="|" />
+                <text fg={theme.footer} content="s=save" />
+                <text fg={theme.muted} content="|" />
+                <text fg={theme.footer} content="r=refine" />
+                <text fg={theme.muted} content="|" />
+                <text fg={theme.footer} content="c=copy" />
               </>
             )}
-            <text fg="#868e96" content="|" />
-            <text fg="#7aa2f7" content="esc=back" />
-            <text fg="#868e96" content="|" />
-            <text fg="#7aa2f7" content="1-3=tabs" />
-            <text fg="#868e96" content="|" />
-            <text fg="#7aa2f7" content="q=quit" />
+            <text fg={theme.muted} content="|" />
+            <text fg={theme.footer} content="esc=back" />
+            <text fg={theme.muted} content="|" />
+            <text fg={theme.footer} content="1-3=tabs" />
+            <text fg={theme.muted} content="|" />
+            <text fg={theme.footer} content="q=quit" />
           </>
         )}
       </box>

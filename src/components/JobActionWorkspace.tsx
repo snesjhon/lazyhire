@@ -7,6 +7,7 @@ import type {
   TextareaRenderable,
 } from '@opentui/core';
 import { useEffect, useRef, useState } from 'react';
+import type { UiTheme } from '../theme.js';
 import { JOB_STATUSES, type Job, type JobStatus } from '../types.js';
 
 export type JobActionView =
@@ -21,7 +22,6 @@ export type JobActionView =
   | 'generate-cv'
   | 'generate-cover-letter';
 
-const TRANSPARENT = 'transparent';
 const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<TextareaOptions['keyBindings']> = [
   { name: 'o', ctrl: true, action: 'submit' },
 ];
@@ -34,6 +34,7 @@ type GenerateCvState =
 type GenerateArtifact = 'cv' | 'cover-letter';
 
 interface Props {
+  theme: UiTheme;
   job: Job;
   width: number;
   height: number;
@@ -55,6 +56,7 @@ interface Props {
 }
 
 export default function JobActionWorkspace({
+  theme,
   job,
   width,
   height,
@@ -248,7 +250,7 @@ export default function JobActionWorkspace({
   return (
     <box flexDirection="column" overflow="hidden">
       <text
-        fg="#868e96"
+        fg={theme.muted}
         content={
           view === 'menu'
             ? `Actions for #${job.id}. Enter to run, esc to return.`
@@ -272,11 +274,11 @@ export default function JobActionWorkspace({
             options={menuOptions}
             showDescription
             itemSpacing={1}
-            backgroundColor={TRANSPARENT}
-            focusedBackgroundColor={TRANSPARENT}
-            selectedBackgroundColor={TRANSPARENT}
-            selectedTextColor="#4cc9f0"
-            selectedDescriptionColor="#868e96"
+            backgroundColor={theme.transparent}
+            focusedBackgroundColor={theme.transparent}
+            selectedBackgroundColor={theme.transparent}
+            selectedTextColor={theme.brand}
+            selectedDescriptionColor={theme.muted}
             onSelect={(_, option) => {
               const value = String(option?.value ?? '');
               if (value === 'answer') onStartAnswer();
@@ -301,7 +303,7 @@ export default function JobActionWorkspace({
         {isTextInputView ? (
           <box flexDirection="column" width={Math.max(20, width)}>
             <text
-              fg="#868e96"
+              fg={theme.muted}
               content={
                 view === 'edit-company'
                   ? 'Company'
@@ -383,7 +385,7 @@ export default function JobActionWorkspace({
               height={Math.max(6, height - 5)}
             >
               <text
-                fg="#f5c542"
+                fg={theme.warning}
                 content={
                   generateArtifact === 'cover-letter'
                     ? `Generating cover letter for #${job.id}...`
@@ -391,7 +393,7 @@ export default function JobActionWorkspace({
                 }
               />
               <text
-                fg="#868e96"
+                fg={theme.muted}
                 content="Stay on this screen. This will return with actions when it finishes."
               />
             </box>
@@ -416,9 +418,9 @@ export default function JobActionWorkspace({
                   value: 'back',
                 },
               ]}
-              backgroundColor={TRANSPARENT}
-              focusedBackgroundColor={TRANSPARENT}
-              selectedBackgroundColor={TRANSPARENT}
+              backgroundColor={theme.transparent}
+              focusedBackgroundColor={theme.transparent}
+              selectedBackgroundColor={theme.transparent}
               onSelect={(_, option) => {
                 if (option?.value === 'open-cv') onOpenCv();
                 if (option?.value === 'open-cover-letter') onOpenCoverLetter();
@@ -445,9 +447,9 @@ export default function JobActionWorkspace({
                   value: 'back',
                 },
               ]}
-              backgroundColor={TRANSPARENT}
-              focusedBackgroundColor={TRANSPARENT}
-              selectedBackgroundColor={TRANSPARENT}
+              backgroundColor={theme.transparent}
+              focusedBackgroundColor={theme.transparent}
+              selectedBackgroundColor={theme.transparent}
               onSelect={(_, option) => {
                 if (option?.value === 'retry') setGenerateCvState({ step: 'editing' });
                 if (option?.value === 'back') {
@@ -470,9 +472,9 @@ export default function JobActionWorkspace({
               value: status,
             }))}
             selectedIndex={JOB_STATUSES.indexOf(job.status)}
-            backgroundColor={TRANSPARENT}
-            focusedBackgroundColor={TRANSPARENT}
-            selectedBackgroundColor={TRANSPARENT}
+            backgroundColor={theme.transparent}
+            focusedBackgroundColor={theme.transparent}
+            selectedBackgroundColor={theme.transparent}
             onSelect={(_, option) => {
               const status = option?.value as JobStatus | undefined;
               if (!status) return;
@@ -499,9 +501,9 @@ export default function JobActionWorkspace({
                 value: 'no',
               },
             ]}
-            backgroundColor={TRANSPARENT}
-            focusedBackgroundColor={TRANSPARENT}
-            selectedBackgroundColor={TRANSPARENT}
+            backgroundColor={theme.transparent}
+            focusedBackgroundColor={theme.transparent}
+            selectedBackgroundColor={theme.transparent}
             onSelect={(_, option) => {
               if (option?.value === 'yes') onDelete();
               else setView('menu');

@@ -1,15 +1,17 @@
 /** @jsxImportSource @opentui/react */
+import type { UiTheme } from '../theme.js';
 
 interface Props {
   tasks: string[];
+  theme: UiTheme;
 }
 
-export default function TasksIndicator({ tasks }: Props) {
+export default function TasksIndicator({ tasks, theme }: Props) {
   if (tasks.length === 0) return null;
   return (
-    <box border borderColor="#f5c542" marginTop={1} paddingX={1}>
+    <box border borderColor={theme.warning} marginTop={1} paddingX={1}>
       <text
-        fg="#f5c542"
+        fg={theme.warning}
         content={`${tasks[0]}${tasks.length > 1 ? ` (+${tasks.length - 1} more)` : ''}`}
       />
     </box>
