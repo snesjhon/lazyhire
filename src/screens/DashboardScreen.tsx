@@ -19,7 +19,12 @@ const syntaxStyle = SyntaxStyle.fromStyles({
   'markup.strong': { bold: true },
 });
 
-const LEFT_PANEL_ORDER: FocusTarget[] = ['status', 'jobs', 'profile', 'answers'];
+const LEFT_PANEL_ORDER: FocusTarget[] = [
+  'status',
+  'jobs',
+  'profile',
+  'answers',
+];
 
 const PROFILE_OPTIONS: Array<{
   name: string;
@@ -74,7 +79,9 @@ function jobDetailMarkdown(job: Job): string {
     classification ? `**Category / Focus:** ${classification}` : '',
     job.url ? `**URL:** ${job.url}` : '',
     job.pdfPath ? `**Generated CV:** ${job.pdfPath}` : '',
-    job.coverLetterPdfPath ? `**Generated Cover Letter:** ${job.coverLetterPdfPath}` : '',
+    job.coverLetterPdfPath
+      ? `**Generated Cover Letter:** ${job.coverLetterPdfPath}`
+      : '',
     job.notes ? `**Notes:** ${job.notes}` : '',
   ].filter(Boolean);
 
@@ -321,13 +328,23 @@ export default function DashboardScreen({
   const [profileIndex, setProfileIndex] = useState(0);
   const [answerIndex, setAnswerIndex] = useState(0);
 
-  const modalVisible = Boolean(selectedJob && (isAnswering || jobActionView)) || Boolean(profileActionView);
-  const modalHeight = modalVisible ? Math.min(14, Math.max(8, Math.floor(contentHeight * 0.42))) : 0;
-  const detailHeight = Math.max(8, contentHeight - (modalVisible ? modalHeight + 1 : 0));
+  const modalVisible =
+    Boolean(selectedJob && (isAnswering || jobActionView)) ||
+    Boolean(profileActionView);
+  const modalHeight = modalVisible
+    ? Math.min(14, Math.max(8, Math.floor(contentHeight * 0.42)))
+    : 0;
+  const detailHeight = Math.max(
+    8,
+    contentHeight - (modalVisible ? modalHeight + 1 : 0),
+  );
   const statusHeight = 5;
   const profileHeight = 6;
   const answersHeight = 6;
-  const jobsHeight = Math.max(12, contentHeight - statusHeight - profileHeight - answersHeight);
+  const jobsHeight = Math.max(
+    12,
+    contentHeight - statusHeight - profileHeight - answersHeight,
+  );
 
   const companyWidth = Math.max(10, Math.floor((queueWidth - 12) * 0.34));
   const roleWidth = Math.max(12, queueWidth - companyWidth - 18);
@@ -355,7 +372,8 @@ export default function DashboardScreen({
     if (answerIndex >= answerOptions.length) setAnswerIndex(0);
   }, [answerIndex, answerOptions.length]);
 
-  const selectedProfileOption = PROFILE_OPTIONS[profileIndex] ?? PROFILE_OPTIONS[0] ?? null;
+  const selectedProfileOption =
+    PROFILE_OPTIONS[profileIndex] ?? PROFILE_OPTIONS[0] ?? null;
   const selectedAnswer = answers.slice().reverse()[answerIndex] ?? null;
   const activePanel = LEFT_PANEL_ORDER.includes(focus) ? focus : detailSource;
 
@@ -386,12 +404,12 @@ export default function DashboardScreen({
       <box flexDirection="row" columnGap={1} height={contentHeight}>
         <box width={queueWidth} flexDirection="column" overflow="hidden">
           <box
-            title="lazyhire"
+            title="[1]Status"
             border
             borderColor={focus === 'status' ? theme.borderActive : theme.border}
-            padding={1}
-            height={statusHeight}
-            overflow="hidden"
+            paddingX={1}
+            // height={statusHeight}
+            // overflow="hidden"
           >
             <box flexDirection="column">
               <text fg={theme.heading} content={`${jobs.length} jobs`} />
@@ -400,11 +418,12 @@ export default function DashboardScreen({
           </box>
 
           <box
-            title={filter === 'Queue' ? 'Jobs' : `${filter} Jobs`}
+            title="[2]Jobs"
+            // title={filter === 'Queue' ? 'Jobs' : `${filter} Jobs`}
             border
             borderColor={focus === 'jobs' ? theme.borderActive : theme.border}
-            padding={1}
-            height={jobsHeight}
+            paddingX={1}
+            height={jobsHeight + 2}
             overflow="hidden"
             flexDirection="column"
           >
@@ -412,15 +431,15 @@ export default function DashboardScreen({
               {filters.map((item) => (
                 <text
                   key={item}
-                  fg={item === filter ? theme.brandContrast : theme.muted}
-                  bg={item === filter ? theme.brand : undefined}
-                  content={item === filter ? ` ${item} ` : item}
+                  fg={item === filter ? theme.brand : theme.muted}
+                  // bg={item === filter ? theme.brand : undefined}
+                  content={item === filter ? `${item}` : `${item}`}
                 />
               ))}
             </box>
             {jobOptions.length > 0 ? (
               <select
-                height={jobsHeight - 4}
+                height={jobsHeight}
                 width="100%"
                 options={jobOptions}
                 selectedIndex={selectedIndex}
@@ -432,7 +451,9 @@ export default function DashboardScreen({
                 selectedBackgroundColor={theme.transparent}
                 selectedTextColor={theme.brand}
                 selectedDescriptionColor={theme.muted}
-                focused={focus === 'jobs' && overlay === 'none' && !modalVisible}
+                focused={
+                  focus === 'jobs' && overlay === 'none' && !modalVisible
+                }
                 onChange={(_, option) => {
                   if (option?.value) onJobSelect(String(option.value));
                 }}
@@ -442,20 +463,25 @@ export default function DashboardScreen({
                 }}
               />
             ) : (
-              <text fg={theme.muted} content="No jobs yet. Press a to add one." />
+              <text
+                fg={theme.muted}
+                content="No jobs yet. Press a to add one."
+              />
             )}
           </box>
 
           <box
-            title="Profile"
+            title="[3]Profile"
             border
-            borderColor={focus === 'profile' ? theme.borderActive : theme.border}
+            borderColor={
+              focus === 'profile' ? theme.borderActive : theme.border
+            }
             padding={1}
             height={profileHeight}
             overflow="hidden"
           >
             <select
-              height={profileHeight - 2}
+              height={profileHeight - 4}
               width="100%"
               options={PROFILE_OPTIONS}
               selectedIndex={profileIndex}
@@ -465,13 +491,19 @@ export default function DashboardScreen({
               selectedBackgroundColor={theme.transparent}
               selectedTextColor={theme.brand}
               selectedDescriptionColor={theme.muted}
-              focused={focus === 'profile' && overlay === 'none' && !modalVisible}
+              focused={
+                focus === 'profile' && overlay === 'none' && !modalVisible
+              }
               onChange={(_, option) => {
-                const nextIndex = PROFILE_OPTIONS.findIndex((item) => item.value === option?.value);
+                const nextIndex = PROFILE_OPTIONS.findIndex(
+                  (item) => item.value === option?.value,
+                );
                 if (nextIndex >= 0) setProfileIndex(nextIndex);
               }}
               onSelect={(_, option) => {
-                const nextIndex = PROFILE_OPTIONS.findIndex((item) => item.value === option?.value);
+                const nextIndex = PROFILE_OPTIONS.findIndex(
+                  (item) => item.value === option?.value,
+                );
                 if (nextIndex >= 0) {
                   setProfileIndex(nextIndex);
                   onOpenProfileActions(PROFILE_OPTIONS[nextIndex]!.value);
@@ -481,9 +513,11 @@ export default function DashboardScreen({
           </box>
 
           <box
-            title="Answers"
+            title="[4]Answers"
             border
-            borderColor={focus === 'answers' ? theme.borderActive : theme.border}
+            borderColor={
+              focus === 'answers' ? theme.borderActive : theme.border
+            }
             padding={1}
             height={answersHeight}
             overflow="hidden"
@@ -500,13 +534,19 @@ export default function DashboardScreen({
                 selectedBackgroundColor={theme.transparent}
                 selectedTextColor={theme.brand}
                 selectedDescriptionColor={theme.muted}
-                focused={focus === 'answers' && overlay === 'none' && !modalVisible}
+                focused={
+                  focus === 'answers' && overlay === 'none' && !modalVisible
+                }
                 onChange={(_, option) => {
-                  const nextIndex = answerOptions.findIndex((item) => item.value === option?.value);
+                  const nextIndex = answerOptions.findIndex(
+                    (item) => item.value === option?.value,
+                  );
                   if (nextIndex >= 0) setAnswerIndex(nextIndex);
                 }}
                 onSelect={(_, option) => {
-                  const nextIndex = answerOptions.findIndex((item) => item.value === option?.value);
+                  const nextIndex = answerOptions.findIndex(
+                    (item) => item.value === option?.value,
+                  );
                   if (nextIndex >= 0) setAnswerIndex(nextIndex);
                 }}
               />
@@ -520,7 +560,11 @@ export default function DashboardScreen({
           <box
             title={detailTitle}
             border
-            borderColor={focus === 'detail' || modalVisible ? theme.borderActive : theme.border}
+            borderColor={
+              focus === 'detail' || modalVisible
+                ? theme.borderActive
+                : theme.border
+            }
             padding={1}
             height={detailHeight}
             overflow="hidden"
@@ -530,7 +574,9 @@ export default function DashboardScreen({
               width="100%"
               scrollX={false}
               scrollY
-              focused={focus === 'detail' && overlay === 'none' && !modalVisible}
+              focused={
+                focus === 'detail' && overlay === 'none' && !modalVisible
+              }
               rootOptions={{ overflow: 'hidden' }}
               wrapperOptions={{ overflow: 'hidden' }}
               viewportOptions={{ overflow: 'hidden' }}
