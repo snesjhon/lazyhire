@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { answersDb } from '../../../shared/data/db.js';
 import { clip } from '../../../shared/lib/utils.js';
 import { loadProfile } from '../../../shared/models/profile.js';
+import Spinner from '../../../shared/ui/Spinner.js';
 import {
   TONE_OPTIONS,
   detectCategory,
@@ -33,7 +34,6 @@ type Step =
 const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<TextareaOptions['keyBindings']> = [
   { name: 'o', ctrl: true, action: 'submit' },
 ];
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const;
 
 const CATEGORY_LABEL: Record<AnswerCategory, string> = {
   identity: 'Identity',
@@ -48,16 +48,6 @@ const CATEGORY_LABEL: Record<AnswerCategory, string> = {
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-function useSpinner(active: boolean): string {
-  const [frame, setFrame] = useState(0);
-  useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => setFrame((current) => (current + 1) % SPINNER_FRAMES.length), 80);
-    return () => clearInterval(id);
-  }, [active]);
-  return SPINNER_FRAMES[frame]!;
 }
 
 interface Props {
@@ -96,7 +86,6 @@ export default function AnswerWorkspace({
 
   const isInputStep = step === 'ask-question' || step === 'ask-context' || step === 'ask-refine';
   const isSpinning = step === 'detecting' || step === 'generating' || step === 'refining';
-  const spinner = useSpinner(isSpinning);
   const scrollHeight = Math.max(6, height - 10);
 
   useEffect(() => {
@@ -277,7 +266,12 @@ export default function AnswerWorkspace({
         </scrollbox>
       ) : null}
 
-      {isSpinning ? <text fg={theme.warning} content={`${spinner} ${spinnerLabel}`} /> : null}
+      {isSpinning ? (
+        <box flexDirection="row" columnGap={1}>
+          <Spinner color={theme.warning} />
+          <text fg={theme.warning} content={spinnerLabel} />
+        </box>
+      ) : null}
 
       {step === 'ask-question' ? (
         <box flexDirection="column" marginTop={1}>

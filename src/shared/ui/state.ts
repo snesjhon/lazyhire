@@ -13,5 +13,6 @@ export type Overlay =
   | 'none'
   | 'add'
   | 'add-url'
-  | 'add-jd';
+  | 'add-jd'
+  | 'add-evaluating';
 export type Flash = { message: string; variant: FlashVariant };

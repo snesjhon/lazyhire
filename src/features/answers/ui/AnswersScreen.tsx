@@ -10,6 +10,7 @@ import { execSync } from 'child_process';
 import { useEffect, useRef, useState } from 'react';
 import { answersDb } from '../../../shared/data/db.js';
 import { loadProfile } from '../../../shared/models/profile.js';
+import Spinner from '../../../shared/ui/Spinner.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
 import type { AnswerCategory, AnswerEntry } from '../../../shared/models/types.js';
 import {
@@ -47,20 +48,8 @@ const CATEGORY_LABEL: Record<AnswerCategory, string> = {
   other: 'Other',
 };
 
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const;
-
 function today(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-function useSpinner(active: boolean): string {
-  const [frame, setFrame] = useState(0);
-  useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => setFrame((f) => (f + 1) % SPINNER_FRAMES.length), 80);
-    return () => clearInterval(id);
-  }, [active]);
-  return SPINNER_FRAMES[frame]!;
 }
 
 interface Props {
@@ -94,10 +83,6 @@ export default function AnswersScreen({ appWidth, appHeight, theme }: Props) {
   const questionInputRef = useRef<InputRenderable>(null);
   const contextInputRef = useRef<TextareaRenderable>(null);
   const refineInputRef = useRef<InputRenderable>(null);
-
-  const spinner = useSpinner(
-    step === 'detecting' || step === 'generating' || step === 'refining',
-  );
 
   const isInputStep = step === 'ask-question' || step === 'ask-context' || step === 'ask-refine';
   const isSpinning = step === 'detecting' || step === 'generating' || step === 'refining';
@@ -482,7 +467,10 @@ export default function AnswersScreen({ appWidth, appHeight, theme }: Props) {
 
               {/* Spinner */}
               {isSpinning && (
-                <text fg={theme.warning} content={`${spinner} ${spinnerLabel}`} />
+                <box flexDirection="row" columnGap={1}>
+                  <Spinner color={theme.warning} />
+                  <text fg={theme.warning} content={spinnerLabel} />
+                </box>
               )}
 
               {/* Step inputs */}

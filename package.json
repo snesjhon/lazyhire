@@ -14,14 +14,15 @@
     "@opentui/core": "^0.1.97",
     "@opentui/react": "^0.1.97",
     "@types/pdf-parse": "^1.1.5",
-"pdf-parse": "^2.4.5",
+    "opentui-spinner": "^0.0.6",
+    "pdf-parse": "^2.4.5",
     "puppeteer": "^22.0.0",
     "react": "^19.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.2",
-"tsx": "^4.19.0",
+    "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^2.1.0"
   }

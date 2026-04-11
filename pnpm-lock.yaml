@@ -20,6 +20,9 @@ importers:
       '@types/pdf-parse':
         specifier: ^1.1.5
         version: 1.1.5
+      opentui-spinner:
+        specifier: ^0.0.6
+        version: 0.0.6(@opentui/core@0.1.97(stage-js@1.0.2)(typescript@5.9.3)(web-tree-sitter@0.25.10))(@opentui/react@0.1.97(react-devtools-core@7.0.1)(react@19.2.5)(stage-js@1.0.2)(typescript@5.9.3)(web-tree-sitter@0.25.10)(ws@8.20.0))(typescript@5.9.3)
       pdf-parse:
         specifier: ^2.4.5
         version: 2.4.5
@@ -1001,6 +1004,10 @@ packages:
     peerDependencies:
       devtools-protocol: '*'
 
+  cli-spinners@3.4.0:
+    resolution: {integrity: sha512-bXfOC4QcT1tKXGorxL3wbJm6XJPDqEnij2gQ2m7ESQuE+/z9YFIWnl/5RpTiKWbMq3EVKR4fRLJGn6DVfu0mpw==}
+    engines: {node: '>=18.20'}
+
   cliui@8.0.1:
     resolution: {integrity: sha512-BSeNnyus75C4//NQ9gQt1/csTXyo/8Sb+afLAkzAptFuMsod9HFokGNudZpi/oQV73hnVK+sR+5PVRMd+Dr7YQ==}
     engines: {node: '>=12'}
@@ -1248,6 +1255,19 @@ packages:
 
   once@1.4.0:
     resolution: {integrity: sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==}
+
+  opentui-spinner@0.0.6:
+    resolution: {integrity: sha512-xupLOeVQEAXEvVJCvHkfX6fChDWmJIPHe5jyUrVb8+n4XVTX8mBNhitFfB9v2ZbkC1H2UwPab/ElePHoW37NcA==}
+    peerDependencies:
+      '@opentui/core': ^0.1.49
+      '@opentui/react': ^0.1.49
+      '@opentui/solid': ^0.1.49
+      typescript: ^5
+    peerDependenciesMeta:
+      '@opentui/react':
+        optional: true
+      '@opentui/solid':
+        optional: true
 
   pac-proxy-agent@7.2.0:
     resolution: {integrity: sha512-TEB8ESquiLMc0lV8vcd5Ql/JAKAoyzHFXaStwjkzpOpC5Yv+pIzLfHvjTSdf3vpa2bMiUQrg9i6276yn8666aA==}
@@ -2450,6 +2470,8 @@ snapshots:
       urlpattern-polyfill: 10.0.0
       zod: 3.23.8
 
+  cli-spinners@3.4.0: {}
+
   cliui@8.0.1:
     dependencies:
       string-width: 4.2.3
@@ -2740,6 +2762,14 @@ snapshots:
   once@1.4.0:
     dependencies:
       wrappy: 1.0.2
+
+  opentui-spinner@0.0.6(@opentui/core@0.1.97(stage-js@1.0.2)(typescript@5.9.3)(web-tree-sitter@0.25.10))(@opentui/react@0.1.97(react-devtools-core@7.0.1)(react@19.2.5)(stage-js@1.0.2)(typescript@5.9.3)(web-tree-sitter@0.25.10)(ws@8.20.0))(typescript@5.9.3):
+    dependencies:
+      '@opentui/core': 0.1.97(stage-js@1.0.2)(typescript@5.9.3)(web-tree-sitter@0.25.10)
+      cli-spinners: 3.4.0
+      typescript: 5.9.3
+    optionalDependencies:
+      '@opentui/react': 0.1.97(react-devtools-core@7.0.1)(react@19.2.5)(stage-js@1.0.2)(typescript@5.9.3)(web-tree-sitter@0.25.10)(ws@8.20.0)
 
   pac-proxy-agent@7.2.0:
     dependencies:

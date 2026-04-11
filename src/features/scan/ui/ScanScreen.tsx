@@ -3,12 +3,12 @@ import { useKeyboard } from '@opentui/react';
 import { useEffect, useRef, useState } from 'react';
 import { db } from '../../../shared/data/db.js';
 import { loadProfile } from '../../../shared/models/profile.js';
+import Spinner from '../../../shared/ui/Spinner.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
 import { normalizeCompanyKey, runScan } from '../scan.js';
 import type { SourceStatus } from '../scan.js';
 
 const TOP_RECOMMENDATION_COUNT = 30;
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const;
 
 type Phase = 'loading' | 'scanning' | 'done' | 'error';
 
@@ -23,16 +23,6 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function useSpinner(active: boolean): string {
-  const [frame, setFrame] = useState(0);
-  useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => setFrame((f) => (f + 1) % SPINNER_FRAMES.length), 80);
-    return () => clearInterval(id);
-  }, [active]);
-  return SPINNER_FRAMES[frame]!;
-}
-
 export default function ScanScreen({ appWidth, theme, onBack }: Props) {
   const [phase, setPhase] = useState<Phase>('loading');
   const [sources, setSources] = useState<SourceStatus[]>([]);
@@ -41,7 +31,6 @@ export default function ScanScreen({ appWidth, theme, onBack }: Props) {
   const [lowerRanked, setLowerRanked] = useState(0);
   const [error, setError] = useState('');
   const cancelledRef = useRef(false);
-  const spinner = useSpinner(phase === 'loading' || phase === 'scanning');
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -121,20 +110,14 @@ export default function ScanScreen({ appWidth, theme, onBack }: Props) {
 
   const panelWidth = Math.max(50, Math.floor(appWidth * 0.6));
 
-  const sourceLines = sources
-    .map((s) => {
-      const icon = s.state === 'done' ? '✓' : s.state === 'error' ? '✗' : spinner;
-      const detail =
-        s.state === 'done' ? `${s.count} jobs` : s.state === 'running' ? 'scanning…' : '';
-      return `${icon} ${s.name.padEnd(14)} ${detail}`;
-    })
-    .join('\n');
-
   return (
     <box flexDirection="column" width={appWidth} paddingX={1}>
       {phase === 'loading' && (
         <box border borderColor={theme.warning} padding={1} width={panelWidth} marginTop={1}>
-          <text fg={theme.warning} content={`${spinner} Loading profile…`} />
+          <box flexDirection="row" columnGap={1}>
+            <Spinner color={theme.warning} />
+            <text fg={theme.warning} content="Loading profile…" />
+          </box>
         </box>
       )}
 
@@ -148,7 +131,34 @@ export default function ScanScreen({ appWidth, theme, onBack }: Props) {
           marginTop={1}
           flexDirection="column"
         >
-          <text content={sourceLines || ' '} />
+          {sources.length > 0 ? (
+            <box flexDirection="column">
+              {sources.map((source) => {
+                const detail =
+                  source.state === 'done'
+                    ? `${source.count} jobs`
+                    : source.state === 'running'
+                      ? 'scanning…'
+                      : '';
+
+                return (
+                  <box key={source.name} flexDirection="row" columnGap={1}>
+                    {source.state === 'done' ? (
+                      <text fg={theme.success} content="✓" />
+                    ) : source.state === 'error' ? (
+                      <text fg={theme.error} content="✗" />
+                    ) : (
+                      <Spinner color={theme.warning} />
+                    )}
+                    <text content={source.name.padEnd(14)} />
+                    <text fg={theme.muted} content={detail} />
+                  </box>
+                );
+              })}
+            </box>
+          ) : (
+            <text content=" " />
+          )}
           <text fg={theme.muted} content="esc to cancel" />
         </box>
       )}

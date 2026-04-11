@@ -107,7 +107,7 @@ function statusDetailMarkdown(
   const counts = filters.map((item) => {
     const count = jobs.filter((job) => {
       if (item === 'Queue') {
-        return job.status === 'Pending' || job.status === 'Evaluated';
+        return job.status === 'Evaluated';
       }
       return job.status === item;
     }).length;
@@ -266,6 +266,7 @@ interface Props {
   jobActionView: JobActionView | null;
   profileActionView: ProfileActionView | null;
   showInitWizard: boolean;
+  evaluatingMessage: string | null;
   onFilterChange: (filter: Props['filter']) => void;
   onCycleFilter: (direction: -1 | 1) => void;
   onJobSelect: (jobId: string) => void;
@@ -317,6 +318,7 @@ export default function DashboardScreen({
   jobActionView,
   profileActionView,
   showInitWizard,
+  evaluatingMessage,
   onFilterChange,
   onCycleFilter,
   onJobSelect,
@@ -408,7 +410,9 @@ export default function DashboardScreen({
         ? 'Add Job'
         : overlay === 'add-url'
           ? 'Paste Job Link'
-          : 'Paste Job Description'
+          : overlay === 'add-jd'
+            ? 'Paste Job Description'
+            : 'Evaluating Job'
       : selectedJob && isAnswering
         ? `Answer #${selectedJob.id}`
           : selectedJob && jobActionView
@@ -641,6 +645,7 @@ export default function DashboardScreen({
                   overlay={overlay}
                   width={Math.max(20, detailWidth - 6)}
                   height={detailHeight - 2}
+                  evaluatingMessage={evaluatingMessage}
                   onAddUrl={onAddUrl}
                   onAddJd={onAddJd}
                   onOverlayChange={onOverlayChange}

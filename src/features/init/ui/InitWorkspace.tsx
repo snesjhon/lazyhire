@@ -28,7 +28,10 @@ interface Props {
   onChooseManual: () => void;
 }
 
-function previewLines(preview: ResumePreview, extracted: ExtractionResult): string[] {
+function previewLines(
+  preview: ResumePreview,
+  extracted: ExtractionResult,
+): string[] {
   return [
     `Name: ${extracted.candidate.name || preview.name || 'Unknown'}`,
     `Headline: ${extracted.headline || preview.headline || 'Unknown'}`,
@@ -129,10 +132,16 @@ export default function InitWorkspace({
   const contentWidth = Math.max(20, width);
   const menuWidth = Math.max(34, Math.min(contentWidth, 58));
   const heroWidth = Math.max(menuWidth, 74);
-  const subtitle = 'resume-led onboarding for first launch';
+  const subtitle = 'AI-Driven tools to help you land your next job';
   const subtitlePadding = Math.max(
     0,
     Math.floor((heroWidth - subtitle.length) / 2),
+  );
+
+  const author = 'Jhonatan Salazar';
+  const authorPadding = Math.max(
+    0,
+    Math.floor((heroWidth - author.length) / 2),
   );
 
   return (
@@ -147,9 +156,14 @@ export default function InitWorkspace({
             <box flexDirection="column" width={heroWidth} overflow="hidden">
               <BrandLogo theme={theme} variant="hero" width={heroWidth} />
               <box marginTop={1}>
+                <text fg={theme.muted} marginBottom={1}>
+                  <strong>
+                    {' '.repeat(subtitlePadding)} {subtitle}
+                  </strong>
+                </text>
                 <text
                   fg={theme.muted}
-                  content={`${' '.repeat(subtitlePadding)}${subtitle}`}
+                  content={`${' '.repeat(authorPadding)}${author}`}
                 />
               </box>
               <box marginTop={2} flexDirection="row" justifyContent="center">
@@ -164,6 +178,8 @@ export default function InitWorkspace({
                     focusedBackgroundColor={theme.transparent}
                     selectedBackgroundColor={theme.transparent}
                     selectedTextColor={theme.brand}
+                    selectedDescriptionColor={theme.subtext}
+                    itemSpacing={1}
                     showDescription
                     onSelect={(_, option) => {
                       if (option?.value === 'url') {
@@ -181,7 +197,10 @@ export default function InitWorkspace({
 
         {view === 'url' && (
           <box flexDirection="column" width={Math.max(20, width)}>
-            <text fg={theme.muted} content="Paste a resume PDF URL and press Enter. esc=back" />
+            <text
+              fg={theme.muted}
+              content="Paste a resume PDF URL and press Enter. esc=back"
+            />
             <text fg={theme.heading} content="Resume PDF URL" />
             <input
               ref={urlInputRef}
@@ -206,17 +225,33 @@ export default function InitWorkspace({
                   : 'Finalizing profile from extracted resume data...'
               }
             />
-            <text fg={theme.heading} content={view === 'extracting' ? 'Importing Resume' : 'Creating Profile'} />
+            <text
+              fg={theme.heading}
+              content={
+                view === 'extracting' ? 'Importing Resume' : 'Creating Profile'
+              }
+            />
             <text
               fg={theme.subtext}
-              content={view === 'extracting' ? url || 'Working...' : 'Applying extracted resume data to your profile.'}
+              content={
+                view === 'extracting'
+                  ? url || 'Working...'
+                  : 'Applying extracted resume data to your profile.'
+              }
             />
           </box>
         )}
 
         {view === 'preview' && preview && extracted && (
-          <box flexDirection="column" width={Math.max(20, width)} overflow="hidden">
-            <text fg={theme.muted} content="Review the extracted profile summary. Enter to continue." />
+          <box
+            flexDirection="column"
+            width={Math.max(20, width)}
+            overflow="hidden"
+          >
+            <text
+              fg={theme.muted}
+              content="Review the extracted profile summary. Enter to continue."
+            />
             <text fg={theme.heading} content="Extracted Resume Summary" />
             <text
               fg={theme.subtext}
@@ -230,7 +265,8 @@ export default function InitWorkspace({
                 options={[
                   {
                     name: 'Create profile',
-                    description: 'Use the extracted resume data and suggested targets',
+                    description:
+                      'Use the extracted resume data and suggested targets',
                     value: 'create',
                   },
                   {
@@ -268,7 +304,11 @@ export default function InitWorkspace({
         )}
 
         {view === 'error' && (
-          <box flexDirection="column" width={Math.max(20, width)} overflow="hidden">
+          <box
+            flexDirection="column"
+            width={Math.max(20, width)}
+            overflow="hidden"
+          >
             <text fg={theme.muted} content="Resume import failed. esc=back" />
             <text fg={theme.warning} content="Resume import failed" />
             <text fg={theme.subtext} content={errorMessage} />
