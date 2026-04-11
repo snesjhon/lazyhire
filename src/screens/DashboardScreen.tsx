@@ -27,6 +27,7 @@ function jobDetailMarkdown(job: Job): string {
     classification ? `**Category / Focus:** ${classification}` : '',
     job.url ? `**URL:** ${job.url}` : '',
     job.pdfPath ? `**Generated CV:** ${job.pdfPath}` : '',
+    job.coverLetterPdfPath ? `**Generated Cover Letter:** ${job.coverLetterPdfPath}` : '',
     job.notes ? `**Notes:** ${job.notes}` : '',
   ].filter(Boolean);
 
@@ -71,6 +72,7 @@ interface Props {
   onEvaluateJob: () => void;
   onOpenJobLink: () => void;
   onOpenGeneratedCv: () => void;
+  onOpenGeneratedCoverLetter: () => void;
   onSaveMetadata: (
     patch: Partial<Pick<Job, 'company' | 'role' | 'url' | 'notes'>>,
   ) => void;
@@ -78,6 +80,7 @@ interface Props {
   onSaveStatus: (status: JobStatus) => void;
   onDeleteJob: () => void;
   onGenerateCv: (guidance: string) => Promise<Job>;
+  onGenerateCoverLetter: (guidance: string) => Promise<Job>;
 }
 
 export default function DashboardScreen({
@@ -103,11 +106,13 @@ export default function DashboardScreen({
   onEvaluateJob,
   onOpenJobLink,
   onOpenGeneratedCv,
+  onOpenGeneratedCoverLetter,
   onSaveMetadata,
   onSaveEditJd,
   onSaveStatus,
   onDeleteJob,
   onGenerateCv,
+  onGenerateCoverLetter,
 }: Props) {
   const companyWidth = Math.max(10, Math.floor((queueWidth - 14) * 0.38));
   const roleWidth = Math.max(12, queueWidth - companyWidth - 20);
@@ -198,11 +203,13 @@ export default function DashboardScreen({
               onEvaluate={onEvaluateJob}
               onOpenLink={onOpenJobLink}
               onOpenCv={onOpenGeneratedCv}
+              onOpenCoverLetter={onOpenGeneratedCoverLetter}
               onSaveMetadata={onSaveMetadata}
               onSaveEditJd={onSaveEditJd}
               onSaveStatus={onSaveStatus}
               onDelete={onDeleteJob}
               onGenerateCv={onGenerateCv}
+              onGenerateCoverLetter={onGenerateCoverLetter}
             />
           ) : selectedJob ? (
             <scrollbox
@@ -255,6 +262,8 @@ export default function DashboardScreen({
         <text fg="#7aa2f7" content="e=evaluate" />
         <text fg="#868e96" content="|" />
         <text fg="#7aa2f7" content="g=cv" />
+        <text fg="#868e96" content="|" />
+        <text fg="#7aa2f7" content="c=cover" />
         <text fg="#868e96" content="|" />
         <text fg="#7aa2f7" content="w=answer" />
         <text fg="#868e96" content="|" />

@@ -1,8 +1,8 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, it, expect } from 'vitest';
-import { injectCV } from './pdf.js';
-import type { GeneratedCV } from '../../types.js';
+import { injectCV, injectCoverLetter } from './pdf.js';
+import type { GeneratedCV, GeneratedCoverLetter } from '../../types.js';
 
 const cv: GeneratedCV = {
   name: 'Jane Doe',
@@ -27,6 +27,17 @@ const minimalTemplate = `<body>
 <div>{{ROLES}}</div>
 <div>{{EDUCATION}}</div>
 </body>`;
+
+const coverLetter: GeneratedCoverLetter = {
+  name: 'Jane Doe',
+  contact: { email: 'jane@example.com', location: 'SF, CA', site: 'jane.dev' },
+  company: 'Acme',
+  role: 'Senior Product Engineer',
+  paragraphs: [
+    'I am excited to apply for the Senior Product Engineer role at Acme.',
+    'I would bring product judgment, technical depth, and clear communication.',
+  ],
+};
 
 describe('injectCV', () => {
   it('replaces NAME placeholder', () => {
@@ -66,5 +77,35 @@ describe('injectCV', () => {
     expect(template).toContain('text-decoration: underline');
     expect(template).not.toContain('font-weight: 600');
     expect(template).not.toContain('·');
+  });
+});
+
+describe('injectCoverLetter', () => {
+  it('replaces cover letter placeholders', () => {
+    const template = `<body>
+<h1>{{NAME}}</h1>
+<div>{{COMPANY}} / {{ROLE}}</div>
+<p>{{PARAGRAPH_ONE}}</p>
+<p>{{PARAGRAPH_TWO}}</p>
+</body>`;
+
+    const html = injectCoverLetter(template, coverLetter);
+
+    expect(html).toContain('Jane Doe');
+    expect(html).toContain('Acme / Senior Product Engineer');
+    expect(html).toContain('I am excited to apply');
+    expect(html).not.toMatch(/\{\{[A-Z_]+\}\}/);
+  });
+
+  it('uses the canonical cover letter template', () => {
+    const template = readFileSync(join(process.cwd(), 'themes', 'cover-letter.html'), 'utf8');
+    expect(template).toContain('{{PARAGRAPH_ONE}}');
+    expect(template).toContain('{{PARAGRAPH_TWO}}');
+    expect(template).toContain('{{COMPANY}}');
+    expect(template).toContain('Dear {{COMPANY}} Hiring Team,');
+    expect(template).toContain('Thank you for your time and consideration,');
+    expect(template).toContain('min-height: 100vh');
+    expect(template).toContain('font-family: Arial, sans-serif');
+    expect(template).toContain('font-size: 12.75pt');
   });
 });

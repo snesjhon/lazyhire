@@ -13,6 +13,8 @@ export function createDb(dbPath = DEFAULT_PATH) {
       ...job,
       ...normalizeJobClassification(job),
       notes: typeof job.notes === 'string' ? job.notes : '',
+      coverLetterPdfPath:
+        typeof job.coverLetterPdfPath === 'string' ? job.coverLetterPdfPath : null,
     }));
   }
 

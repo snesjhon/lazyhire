@@ -14,7 +14,7 @@ export function isJobStatus(value: string): value is JobStatus {
   return (JOB_STATUSES as readonly string[]).includes(value);
 }
 
-export type Theme = 'resume';
+export type Theme = 'resume' | 'cover-letter';
 
 export interface Job {
   id: string;          // zero-padded, e.g. "001"
@@ -30,6 +30,7 @@ export interface Job {
   focus: string | null;
   reportPath: string | null;
   pdfPath: string | null;
+  coverLetterPdfPath: string | null;
   theme: Theme | null;
   notes: string;
 }
@@ -79,6 +80,18 @@ export interface GeneratedCV {
     institution: string;
     degree: string;
   }>;
+}
+
+export interface GeneratedCoverLetter {
+  name: string;
+  contact: {
+    email: string;
+    location: string;
+    site: string;
+  };
+  company: string;
+  role: string;
+  paragraphs: [string, string];
 }
 
 export interface Experience {

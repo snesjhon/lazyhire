@@ -5,6 +5,8 @@ import { loadProfile } from '../../profile.js';
 import { evaluateJob } from '../ai/evaluation.js';
 import { generateCV } from '../ai/generate.js';
 import { renderPDF } from './pdf.js';
+import { renderCoverLetterPDF } from './pdf.js';
+import { generateCoverLetter } from '../ai/cover-letter.js';
 import type { Job } from '../../types.js';
 
 type JobSignals = {
@@ -536,6 +538,7 @@ export function createPendingJob(
     focus: null,
     reportPath: null,
     pdfPath: null,
+    coverLetterPdfPath: null,
     theme: null,
     notes: '',
   };
@@ -587,5 +590,31 @@ export async function generateAndPersistPdf(
 
   const updated: Job = { ...job, pdfPath, theme };
   db.updateJob(job.id, { pdfPath, theme });
+  return updated;
+}
+
+export async function generateAndPersistCoverLetterPdf(
+  job: Job,
+  tailoringNotes = '',
+): Promise<Job> {
+  const profile = loadProfile();
+  const coverLetter = await generateCoverLetter(
+    {
+      company: job.company,
+      role: job.role,
+      jd: job.jd || `URL: ${job.url}`,
+      jdSummary: job.jdSummary,
+      url: job.url,
+    },
+    profile,
+    tailoringNotes,
+  );
+
+  const filename = `${job.id}-${slugify(job.company)}-cover-letter.pdf`;
+  const coverLetterPdfPath = join(process.cwd(), 'output', filename);
+  await renderCoverLetterPDF(coverLetter, coverLetterPdfPath);
+
+  const updated: Job = { ...job, coverLetterPdfPath, theme: 'cover-letter' };
+  db.updateJob(job.id, { coverLetterPdfPath, theme: 'cover-letter' });
   return updated;
 }

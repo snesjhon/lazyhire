@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{NAME}} Cover Letter</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #ffffff;
+      color: #000000;
+      font-family: Arial, sans-serif;
+      font-size: 12.75pt;
+      line-height: 1.52;
+    }
+
+    main {
+      min-height: 100vh;
+      padding: 0.55in 0.6in 0.5in;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+
+    header {
+      margin-bottom: 0.45rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 18pt;
+      font-weight: 700;
+    }
+
+    .contact,
+    .target {
+      margin: 2px 0 0;
+      font-size: 11pt;
+    }
+
+    .salutation,
+    .closing,
+    .signature {
+      font-size: 12.75pt;
+    }
+
+    p {
+      margin: 0 0 0.78rem;
+      font-size: 12.75pt;
+      line-height: 1.52;
+    }
+
+    .salutation {
+      margin: 0.45rem 0 0.9rem;
+      font-weight: 700;
+    }
+
+    .closing {
+      margin: 0.95rem 0 0.15rem;
+    }
+
+    .signature {
+      margin: 0;
+      font-weight: 400;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>{{NAME}}</h1>
+      <p class="contact">{{EMAIL}} | {{LOCATION}} | {{SITE}}</p>
+      <p class="target">{{ROLE}} | {{COMPANY}}</p>
+    </header>
+
+    <p class="salutation">Dear {{COMPANY}} Hiring Team,</p>
+
+    <section>
+      <p>{{PARAGRAPH_ONE}}</p>
+      <p>{{PARAGRAPH_TWO}}</p>
+    </section>
+
+    <p class="closing">Thank you for your time and consideration,</p>
+    <p class="signature">{{NAME}}</p>
+  </main>
+</body>
+</html>

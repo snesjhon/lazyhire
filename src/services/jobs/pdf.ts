@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import puppeteer from 'puppeteer';
-import type { GeneratedCV } from '../../types.js';
+import type { GeneratedCV, GeneratedCoverLetter } from '../../types.js';
 
 function escapeHtml(value: string): string {
   return value
@@ -82,14 +82,25 @@ export function injectCV(template: string, cv: GeneratedCV): string {
     .replace(/\{\{EDUCATION\}\}/g, educationHtml);
 }
 
-export async function renderPDF(
-  cv: GeneratedCV,
+export function injectCoverLetter(
+  template: string,
+  coverLetter: GeneratedCoverLetter,
+): string {
+  return template
+    .replace(/\{\{NAME\}\}/g, renderInlineMarkup(coverLetter.name))
+    .replace(/\{\{EMAIL\}\}/g, renderInlineMarkup(coverLetter.contact.email))
+    .replace(/\{\{LOCATION\}\}/g, renderInlineMarkup(coverLetter.contact.location))
+    .replace(/\{\{SITE\}\}/g, renderInlineMarkup(coverLetter.contact.site))
+    .replace(/\{\{COMPANY\}\}/g, renderInlineMarkup(coverLetter.company))
+    .replace(/\{\{ROLE\}\}/g, renderInlineMarkup(coverLetter.role))
+    .replace(/\{\{PARAGRAPH_ONE\}\}/g, renderInlineMarkup(coverLetter.paragraphs[0]))
+    .replace(/\{\{PARAGRAPH_TWO\}\}/g, renderInlineMarkup(coverLetter.paragraphs[1]));
+}
+
+async function renderHtmlToPdf(
+  html: string,
   outputPath: string,
 ): Promise<void> {
-  const templatePath = join(process.cwd(), 'themes', 'resume.html');
-  const template = readFileSync(templatePath, 'utf8');
-  const html = injectCV(template, cv);
-
   mkdirSync(dirname(outputPath), { recursive: true });
   const tmpHtml = join(process.cwd(), 'output', `_tmp-${Date.now()}.html`);
   writeFileSync(tmpHtml, html, 'utf8');
@@ -114,4 +125,22 @@ export async function renderPDF(
       /* ignore */
     }
   });
+}
+
+export async function renderPDF(
+  cv: GeneratedCV,
+  outputPath: string,
+): Promise<void> {
+  const templatePath = join(process.cwd(), 'themes', 'resume.html');
+  const template = readFileSync(templatePath, 'utf8');
+  await renderHtmlToPdf(injectCV(template, cv), outputPath);
+}
+
+export async function renderCoverLetterPDF(
+  coverLetter: GeneratedCoverLetter,
+  outputPath: string,
+): Promise<void> {
+  const templatePath = join(process.cwd(), 'themes', 'cover-letter.html');
+  const template = readFileSync(templatePath, 'utf8');
+  await renderHtmlToPdf(injectCoverLetter(template, coverLetter), outputPath);
 }

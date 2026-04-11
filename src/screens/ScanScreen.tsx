@@ -87,6 +87,7 @@ export default function ScanScreen({ appWidth, onBack }: Props) {
             focus: null,
             reportPath: null,
             pdfPath: null,
+            coverLetterPdfPath: null,
             theme: null,
             notes: '',
           });

@@ -20,6 +20,7 @@ const makeJob = (overrides: Partial<Job> = {}): Job => ({
   focus: null,
   reportPath: null,
   pdfPath: null,
+  coverLetterPdfPath: null,
   theme: null,
   notes: '',
   ...overrides,

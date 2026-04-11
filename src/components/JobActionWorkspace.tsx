@@ -18,7 +18,8 @@ export type JobActionView =
   | 'edit-jd'
   | 'status'
   | 'delete'
-  | 'generate-cv';
+  | 'generate-cv'
+  | 'generate-cover-letter';
 
 const TRANSPARENT = 'transparent';
 const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<TextareaOptions['keyBindings']> = [
@@ -30,6 +31,8 @@ type GenerateCvState =
   | { step: 'success'; pdfPath: string | null }
   | { step: 'error'; message: string };
 
+type GenerateArtifact = 'cv' | 'cover-letter';
+
 interface Props {
   job: Job;
   width: number;
@@ -40,6 +43,7 @@ interface Props {
   onEvaluate: () => void;
   onOpenLink: () => void;
   onOpenCv: () => void;
+  onOpenCoverLetter: () => void;
   onSaveMetadata: (
     patch: Partial<Pick<Job, 'company' | 'role' | 'url' | 'notes'>>,
   ) => void;
@@ -47,6 +51,7 @@ interface Props {
   onSaveStatus: (status: JobStatus) => void;
   onDelete: () => void;
   onGenerateCv: (guidance: string) => Promise<Job>;
+  onGenerateCoverLetter: (guidance: string) => Promise<Job>;
 }
 
 export default function JobActionWorkspace({
@@ -59,11 +64,13 @@ export default function JobActionWorkspace({
   onEvaluate,
   onOpenLink,
   onOpenCv,
+  onOpenCoverLetter,
   onSaveMetadata,
   onSaveEditJd,
   onSaveStatus,
   onDelete,
   onGenerateCv,
+  onGenerateCoverLetter,
 }: Props) {
   const [view, setView] = useState<JobActionView>(initialView);
   const [metadataDraft, setMetadataDraft] = useState('');
@@ -82,7 +89,12 @@ export default function JobActionWorkspace({
     view === 'edit-role' ||
     view === 'edit-url' ||
     view === 'edit-notes';
-  const isTextAreaView = view === 'edit-jd' || view === 'generate-cv';
+  const generateArtifact: GenerateArtifact | null =
+    view === 'generate-cv'
+      ? 'cv'
+      : view === 'generate-cover-letter'
+        ? 'cover-letter'
+        : null;
 
   useEffect(() => {
     setView(initialView);
@@ -116,7 +128,7 @@ export default function JobActionWorkspace({
       setEditJdDraft(job.jd);
       editJdInputRef.current?.focus();
     }
-    if (view === 'generate-cv') {
+    if (view === 'generate-cv' || view === 'generate-cover-letter') {
       if (generateCvState.step === 'editing') {
         setCvGuidance('');
         guidanceInputRef.current?.focus();
@@ -148,6 +160,11 @@ export default function JobActionWorkspace({
       name: 'Generate CV',
       description: 'Create a tailored PDF for this role',
       value: 'generate-cv',
+    },
+    {
+      name: 'Generate cover letter',
+      description: 'Create a tailored two-paragraph cover letter PDF',
+      value: 'generate-cover-letter',
     },
     {
       name: 'Edit company',
@@ -188,6 +205,15 @@ export default function JobActionWorkspace({
           },
         ]
       : []),
+    ...(job.coverLetterPdfPath
+      ? [
+          {
+            name: 'Open generated cover letter',
+            description: job.coverLetterPdfPath,
+            value: 'open-cover-letter',
+          },
+        ]
+      : []),
     {
       name: 'Open job link',
       description: job.url || 'No job URL saved',
@@ -207,7 +233,11 @@ export default function JobActionWorkspace({
 
   useKeyboard((key) => {
     if (key.name !== 'escape') return;
-    if (view === 'generate-cv' && generateCvState.step === 'submitting') return;
+    if (
+      (view === 'generate-cv' || view === 'generate-cover-letter') &&
+      generateCvState.step === 'submitting'
+    )
+      return;
     if (view === 'menu') onClose();
     else {
       setGenerateCvState({ step: 'editing' });
@@ -222,10 +252,13 @@ export default function JobActionWorkspace({
         content={
           view === 'menu'
             ? `Actions for #${job.id}. Enter to run, esc to return.`
-            : view === 'generate-cv' && generateCvState.step === 'editing'
-              ? 'ctrl-o=generate · esc=back'
+            : (view === 'generate-cv' || view === 'generate-cover-letter') &&
+                generateCvState.step === 'editing'
+              ? 'ctrl-o=generate, esc=back'
               : generateCvState.step === 'submitting'
-                ? 'Generating CV...'
+                ? generateArtifact === 'cover-letter'
+                  ? 'Generating cover letter...'
+                  : 'Generating CV...'
                 : 'esc=back'
         }
       />
@@ -249,6 +282,7 @@ export default function JobActionWorkspace({
               if (value === 'answer') onStartAnswer();
               if (value === 'evaluate') onEvaluate();
               if (value === 'generate-cv') setView('generate-cv');
+              if (value === 'generate-cover-letter') setView('generate-cover-letter');
               if (value === 'edit-company') setView('edit-company');
               if (value === 'edit-role') setView('edit-role');
               if (value === 'edit-url') setView('edit-url');
@@ -256,6 +290,7 @@ export default function JobActionWorkspace({
               if (value === 'edit-jd') setView('edit-jd');
               if (value === 'status') setView('status');
               if (value === 'open-cv') onOpenCv();
+              if (value === 'open-cover-letter') onOpenCoverLetter();
               if (value === 'open-link') onOpenLink();
               if (value === 'delete') setView('delete');
               if (value === 'close') onClose();
@@ -303,29 +338,39 @@ export default function JobActionWorkspace({
           />
         ) : null}
 
-        {view === 'generate-cv' ? (
+        {view === 'generate-cv' || view === 'generate-cover-letter' ? (
           generateCvState.step === 'editing' ? (
             <textarea
               ref={guidanceInputRef}
               height={Math.max(6, height - 5)}
               initialValue={cvGuidance}
-              placeholder="Optional tailoring guidance."
+              placeholder={
+                generateArtifact === 'cover-letter'
+                  ? 'Optional cover letter guidance.'
+                  : 'Optional tailoring guidance.'
+              }
               keyBindings={TEXTAREA_SUBMIT_KEY_BINDINGS}
               onContentChange={() => setCvGuidance(guidanceInputRef.current?.plainText ?? '')}
               onSubmit={async () => {
                 setGenerateCvState({ step: 'submitting' });
                 try {
-                  const updated = await onGenerateCv(
-                    guidanceInputRef.current?.plainText ?? '',
-                  );
+                  const updated = generateArtifact === 'cover-letter'
+                    ? await onGenerateCoverLetter(guidanceInputRef.current?.plainText ?? '')
+                    : await onGenerateCv(guidanceInputRef.current?.plainText ?? '');
                   setGenerateCvState({
                     step: 'success',
-                    pdfPath: updated.pdfPath,
+                    pdfPath:
+                      generateArtifact === 'cover-letter'
+                        ? updated.coverLetterPdfPath
+                        : updated.pdfPath,
                   });
                 } catch (error) {
                   setGenerateCvState({
                     step: 'error',
-                    message: `CV generation failed: ${String(error)}`,
+                    message:
+                      generateArtifact === 'cover-letter'
+                        ? `Cover letter generation failed: ${String(error)}`
+                        : `CV generation failed: ${String(error)}`,
                   });
                 }
               }}
@@ -337,7 +382,14 @@ export default function JobActionWorkspace({
               justifyContent="center"
               height={Math.max(6, height - 5)}
             >
-              <text fg="#f5c542" content={`Generating CV for #${job.id}...`} />
+              <text
+                fg="#f5c542"
+                content={
+                  generateArtifact === 'cover-letter'
+                    ? `Generating cover letter for #${job.id}...`
+                    : `Generating CV for #${job.id}...`
+                }
+              />
               <text
                 fg="#868e96"
                 content="Stay on this screen. This will return with actions when it finishes."
@@ -350,10 +402,13 @@ export default function JobActionWorkspace({
               focused
               options={[
                 {
-                  name: 'Open CV',
+                  name: generateArtifact === 'cover-letter' ? 'Open cover letter' : 'Open CV',
                   description:
-                    generateCvState.pdfPath ?? 'Generated CV is ready to open',
-                  value: 'open-cv',
+                    generateCvState.pdfPath ??
+                    (generateArtifact === 'cover-letter'
+                      ? 'Generated cover letter is ready to open'
+                      : 'Generated CV is ready to open'),
+                  value: generateArtifact === 'cover-letter' ? 'open-cover-letter' : 'open-cv',
                 },
                 {
                   name: 'Back to detail',
@@ -366,6 +421,7 @@ export default function JobActionWorkspace({
               selectedBackgroundColor={TRANSPARENT}
               onSelect={(_, option) => {
                 if (option?.value === 'open-cv') onOpenCv();
+                if (option?.value === 'open-cover-letter') onOpenCoverLetter();
                 if (option?.value === 'back') onClose();
               }}
             />
@@ -382,7 +438,10 @@ export default function JobActionWorkspace({
                 },
                 {
                   name: 'Back to actions',
-                  description: 'Return without generating a CV',
+                  description:
+                    generateArtifact === 'cover-letter'
+                      ? 'Return without generating a cover letter'
+                      : 'Return without generating a CV',
                   value: 'back',
                 },
               ]}

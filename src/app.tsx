@@ -10,6 +10,7 @@ import { db } from './db.js';
 import {
   createPendingJob,
   evaluateAndPersistJob,
+  generateAndPersistCoverLetterPdf,
   generateAndPersistPdf,
   hydrateJobFromUrl,
   inferFromJdText,
@@ -315,6 +316,15 @@ export default function App() {
     return updated;
   }
 
+  async function runGenerateCoverLetter(job: Job, guidance: string) {
+    setOverlay('none');
+    setFocus('detail');
+    const updated = await generateAndPersistCoverLetterPdf(job, guidance);
+    refreshJobs();
+    setSelectedJobId(updated.id);
+    return updated;
+  }
+
   function handleSaveEditJd(jobId: string, jd: string) {
     const trimmedJd = jd.trim();
     db.updateJob(jobId, {
@@ -426,6 +436,7 @@ export default function App() {
       openJobActions('menu');
     if (key.name === 'e' && selectedJob) void runEvaluate(selectedJob);
     if (key.name === 'g' && selectedJob) openJobActions('generate-cv');
+    if (key.name === 'c' && selectedJob) openJobActions('generate-cover-letter');
     if (key.name === 'w' && selectedJob) startAnswerWorkspace();
     if (key.name === 's' && selectedJob) openJobActions('status');
     if (key.name === 'd' && selectedJob) openJobActions('delete');
@@ -496,12 +507,24 @@ export default function App() {
               `Opened generated CV for #${selectedJob.id}.`,
               'No generated CV available.',
             )}
+          onOpenGeneratedCoverLetter={() =>
+            selectedJob &&
+            openTarget(
+              selectedJob.coverLetterPdfPath,
+              `Opened generated cover letter for #${selectedJob.id}.`,
+              'No generated cover letter available.',
+            )}
           onSaveMetadata={(patch) => selectedJob && handleSaveMetadata(selectedJob.id, patch)}
           onSaveEditJd={(jd) => selectedJob && handleSaveEditJd(selectedJob.id, jd)}
           onSaveStatus={(status) => selectedJob && handleSaveStatus(selectedJob.id, status)}
           onDeleteJob={() => selectedJob && handleConfirmDelete(selectedJob.id)}
           onGenerateCv={(guidance) =>
             selectedJob ? runGenerate(selectedJob, guidance) : Promise.reject(new Error('No job selected'))
+          }
+          onGenerateCoverLetter={(guidance) =>
+            selectedJob
+              ? runGenerateCoverLetter(selectedJob, guidance)
+              : Promise.reject(new Error('No job selected'))
           }
         />
       ) : screen === 'scan' ? (
