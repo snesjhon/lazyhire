@@ -3,9 +3,39 @@ import { dirname, join } from 'path';
 import type { Profile } from './types.js';
 import { normalizeTargetPreferences } from './taxonomy.js';
 
+export function createEmptyProfile(): Profile {
+  return {
+    candidate: {
+      name: '',
+      email: '',
+      location: '',
+      site: '',
+    },
+    headline: '',
+    summary: '',
+    cv: '',
+    targets: {
+      roles: [],
+      salaryMin: 0,
+      salaryMax: 0,
+      remote: 'full',
+      dealBreakers: [],
+      categories: [],
+      focuses: [],
+    },
+    experiences: [],
+    education: [],
+    skills: [],
+  };
+}
+
 export function createProfileStore(profilePath: string) {
+  function exists(): boolean {
+    return existsSync(profilePath);
+  }
+
   function load(): Profile {
-    if (!existsSync(profilePath)) {
+    if (!exists()) {
       throw new Error('Profile not found. Run pnpm init to set up your profile.');
     }
 
@@ -33,10 +63,16 @@ export function createProfileStore(profilePath: string) {
     writeFileSync(profilePath, JSON.stringify(profile, null, 2), 'utf8');
   }
 
-  return { load, save };
+  function loadOrDefault(): Profile {
+    return exists() ? load() : createEmptyProfile();
+  }
+
+  return { exists, load, loadOrDefault, save };
 }
 
 const DEFAULT_PATH = join(process.cwd(), 'profile', 'profile.json');
 const defaultStore = createProfileStore(DEFAULT_PATH);
+export const hasProfile = defaultStore.exists;
 export const loadProfile = defaultStore.load;
+export const loadProfileOrDefault = defaultStore.loadOrDefault;
 export const saveProfile = defaultStore.save;

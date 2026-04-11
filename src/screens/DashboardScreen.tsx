@@ -13,6 +13,7 @@ import JobActionWorkspace, {
 import ProfileActionWorkspace, {
   type ProfileActionView,
 } from '../components/ProfileActionWorkspace.js';
+import InitWorkspace from '../components/InitWorkspace.js';
 
 const syntaxStyle = SyntaxStyle.fromStyles({
   'markup.heading.1': { bold: true },
@@ -264,6 +265,7 @@ interface Props {
   isAnswering: boolean;
   jobActionView: JobActionView | null;
   profileActionView: ProfileActionView | null;
+  showInitWizard: boolean;
   onFilterChange: (filter: Props['filter']) => void;
   onCycleFilter: (direction: -1 | 1) => void;
   onJobSelect: (jobId: string) => void;
@@ -287,6 +289,8 @@ interface Props {
   onOpenProfileActions: (view: ProfileActionView) => void;
   onCloseProfileActions: () => void;
   onSaveProfile: (profile: Profile, message: string) => void;
+  onCompleteInit: (profile: Profile, message: string) => void;
+  onChooseManualOnboarding: () => void;
   onAddUrl: (url: string) => Promise<void>;
   onAddJd: (jd: string) => Promise<void>;
   onOverlayChange: (overlay: Overlay) => void;
@@ -312,6 +316,7 @@ export default function DashboardScreen({
   isAnswering,
   jobActionView,
   profileActionView,
+  showInitWizard,
   onFilterChange,
   onCycleFilter,
   onJobSelect,
@@ -333,6 +338,8 @@ export default function DashboardScreen({
   onOpenProfileActions,
   onCloseProfileActions,
   onSaveProfile,
+  onCompleteInit,
+  onChooseManualOnboarding,
   onAddUrl,
   onAddJd,
   onOverlayChange,
@@ -343,6 +350,7 @@ export default function DashboardScreen({
 
   const workspaceVisible =
     overlay !== 'none' ||
+    showInitWizard ||
     Boolean(selectedJob && (isAnswering || jobActionView)) ||
     Boolean(profileActionView);
   const detailHeight = Math.max(8, contentHeight);
@@ -403,10 +411,12 @@ export default function DashboardScreen({
           : 'Paste Job Description'
       : selectedJob && isAnswering
         ? `Answer #${selectedJob.id}`
-        : selectedJob && jobActionView
-          ? `Job Actions #${selectedJob.id}`
-          : profileActionView
-            ? 'Profile Actions'
+          : selectedJob && jobActionView
+            ? `Job Actions #${selectedJob.id}`
+            : showInitWizard
+              ? 'Init Wizard'
+            : profileActionView
+              ? 'Profile Actions'
             : activePanel === 'status'
               ? 'Status'
               : activePanel === 'profile'
@@ -663,6 +673,14 @@ export default function DashboardScreen({
                   onDelete={onDeleteJob}
                   onGenerateCv={onGenerateCv}
                   onGenerateCoverLetter={onGenerateCoverLetter}
+                />
+              ) : showInitWizard ? (
+                <InitWorkspace
+                  theme={theme}
+                  width={Math.max(20, detailWidth - 6)}
+                  height={detailHeight - 2}
+                  onComplete={onCompleteInit}
+                  onChooseManual={onChooseManualOnboarding}
                 />
               ) : profileActionView ? (
                 <ProfileActionWorkspace

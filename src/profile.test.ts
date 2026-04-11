@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, rmSync } from 'fs';
+import { existsSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { createProfileStore } from './profile.js';
 import type { Profile } from './types.js';
@@ -66,5 +66,13 @@ describe('createProfileStore', () => {
     expect(loaded.targets.remote).toBe('full');
     expect(loaded.targets.categories).toContain('engineering');
     expect(loaded.targets.focuses).toContain('platform');
+  });
+
+  it('creates the profile directory when saving from a clean checkout', () => {
+    rmSync(TMP, { recursive: true, force: true });
+    store.save(sample);
+
+    expect(existsSync(TMP)).toBe(true);
+    expect(store.load().candidate.name).toBe('Jane');
   });
 });

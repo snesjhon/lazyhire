@@ -13,6 +13,20 @@ export interface ExtractionResult {
   suggestedFocuses: string[];
 }
 
+export function buildSuggestedTargets(
+  extracted: ExtractionResult,
+): Profile['targets'] {
+  return {
+    roles: extracted.suggestedRoles,
+    salaryMin: 0,
+    salaryMax: 0,
+    remote: 'full',
+    dealBreakers: [],
+    categories: extracted.suggestedCategories,
+    focuses: extracted.suggestedFocuses,
+  };
+}
+
 export interface FinalizeProfileInput {
   rawText: string;
   extracted: ExtractionResult;

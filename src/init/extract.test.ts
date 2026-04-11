@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  buildSuggestedTargets,
   buildFinalizeProfilePrompt,
   parseExtractionResult,
   parseProfileResult,
@@ -54,6 +55,18 @@ describe('resume extraction helpers', () => {
 });
 
 describe('final profile generation helpers', () => {
+  it('buildSuggestedTargets maps extraction suggestions into default targets', () => {
+    expect(buildSuggestedTargets(extraction)).toEqual({
+      roles: ['Senior Frontend Engineer', 'Platform Engineer'],
+      salaryMin: 0,
+      salaryMax: 0,
+      remote: 'full',
+      dealBreakers: [],
+      categories: ['engineering'],
+      focuses: ['platform'],
+    });
+  });
+
   it('buildFinalizeProfilePrompt includes corrections and extra experience', () => {
     const prompt = buildFinalizeProfilePrompt({
       rawText: 'Resume body',

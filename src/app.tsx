@@ -27,7 +27,11 @@ import { scoreDisplay, type FlashVariant } from './lib/utils.js';
 import type { JobActionView } from './components/JobActionWorkspace.js';
 import type { ProfileActionView } from './components/ProfileActionWorkspace.js';
 import { resolveUiTheme } from './theme.js';
-import { loadProfile, saveProfile } from './profile.js';
+import {
+  hasProfile,
+  loadProfileOrDefault,
+  saveProfile,
+} from './profile.js';
 
 const JOB_FILTERS = ['Queue', 'Applied', 'Interview', 'Offer', 'Rejected', 'Discarded'] as const;
 
@@ -46,6 +50,7 @@ function browserCommand(
 }
 
 export default function App() {
+  const initialProfileExists = hasProfile();
   const activeRenderer = useRenderer();
   const { width, height } = useTerminalDimensions();
   const appWidth = Math.max(width, 80);
@@ -60,14 +65,20 @@ export default function App() {
     jobId: string;
     view: JobActionView;
   } | null>(null);
-  const [profileActionView, setProfileActionView] = useState<ProfileActionView | null>(null);
+  const [profileActionView, setProfileActionView] = useState<ProfileActionView | null>(
+    null,
+  );
   const [flash, setFlashState] = useState<Flash | null>(null);
   const [tasks, setTasks] = useState<string[]>([]);
   const [refreshToken, setRefreshToken] = useState(0);
   const [themeMode, setThemeMode] = useState<ThemeMode | null>(
     activeRenderer.themeMode,
   );
-  const [profile, setProfileState] = useState(() => loadProfile());
+  const [profile, setProfileState] = useState(() => loadProfileOrDefault());
+  const [requiresOnboarding, setRequiresOnboarding] = useState(
+    !initialProfileExists,
+  );
+  const [showInitWizard, setShowInitWizard] = useState(!initialProfileExists);
 
   const jobs = useMemo(() => db.readJobs(), [refreshToken]);
   const answers = useMemo(() => answersDb.readAnswers(), [refreshToken]);
@@ -119,6 +130,18 @@ export default function App() {
     const timeout = setTimeout(() => setFlashState(null), 2500);
     return () => clearTimeout(timeout);
   }, [flash]);
+
+  useEffect(() => {
+    if (!requiresOnboarding) return;
+    if (showInitWizard) {
+      setProfileActionView(null);
+      setDetailSource('profile');
+      setFocus('detail');
+      return;
+    }
+    setDetailSource('profile');
+    setFocus('profile');
+  }, [requiresOnboarding]);
 
   useEffect(() => {
     if (filteredJobs.length === 0) {
@@ -413,6 +436,13 @@ export default function App() {
   }
 
   function closeProfileActionWorkspace() {
+    if (requiresOnboarding) {
+      setProfileActionView(null);
+      setShowInitWizard(true);
+      setFocus('detail');
+      setDetailSource('profile');
+      return;
+    }
     setProfileActionView(null);
     setFocus('profile');
   }
@@ -420,10 +450,19 @@ export default function App() {
   function handleSaveProfile(nextProfile: typeof profile, message: string) {
     saveProfile(nextProfile);
     setProfileState(nextProfile);
+    setRequiresOnboarding(false);
+    setShowInitWizard(false);
     setProfileActionView(null);
     setDetailSource('profile');
     setFocus('profile');
     setFlash(message);
+  }
+
+  function chooseManualOnboarding() {
+    setShowInitWizard(false);
+    setProfileActionView('candidate');
+    setDetailSource('profile');
+    setFocus('profile');
   }
 
   function startAnswerWorkspace() {
@@ -485,6 +524,7 @@ export default function App() {
       if (key.name === 'escape') closeOverlay();
       return;
     }
+    if (requiresOnboarding) return;
     if (answerJobId || jobActionState || profileActionView) return;
     if (key.name === '0') setFocus('detail');
     if (key.name === '1') {
@@ -558,6 +598,7 @@ export default function App() {
           selectedJob?.id === jobActionState?.jobId ? jobActionState?.view ?? null : null
         }
         profileActionView={profileActionView}
+        showInitWizard={showInitWizard}
         onJobSelect={setSelectedJobId}
         onCycleFilter={(direction) =>
           setFilter(
@@ -611,6 +652,8 @@ export default function App() {
         onOpenProfileActions={openProfileActions}
         onCloseProfileActions={closeProfileActionWorkspace}
         onSaveProfile={handleSaveProfile}
+        onCompleteInit={handleSaveProfile}
+        onChooseManualOnboarding={chooseManualOnboarding}
         onAddUrl={handleAddUrl}
         onAddJd={handleAddJd}
         onOverlayChange={setOverlay}
