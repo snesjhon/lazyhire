@@ -387,6 +387,12 @@ export default function DashboardScreen({
   const librarySelectedIndex =
     activeLibraryTab === 'profile' ? profileIndex : answerIndex;
   const libraryListHeight = Math.max(3, libraryHeight - 5);
+  const jobsFocused =
+    focus === 'jobs' && overlay === 'none' && !workspaceVisible;
+  const libraryFocused =
+    (focus === 'profile' || focus === 'answers') &&
+    overlay === 'none' &&
+    !workspaceVisible;
 
   const detailTitle =
     overlay !== 'none'
@@ -430,6 +436,7 @@ export default function DashboardScreen({
             title="[1] Status"
             border
             borderColor={focus === 'status' ? theme.borderActive : theme.border}
+            borderStyle="rounded"
             paddingX={1}
             overflow="hidden"
           >
@@ -456,9 +463,11 @@ export default function DashboardScreen({
               {filters.map((item) => (
                 <text
                   key={item}
-                  fg={item === filter ? theme.brand : theme.muted}
+                  fg={
+                    item === filter && jobsFocused ? theme.brand : theme.muted
+                  }
                 >
-                  {item === filter ? <u>{item}</u> : item}
+                  {item === filter ? <u><strong>{item}</strong></u> : item}
                 </text>
               ))}
             </box>
@@ -474,11 +483,9 @@ export default function DashboardScreen({
                 backgroundColor={theme.transparent}
                 focusedBackgroundColor={theme.transparent}
                 selectedBackgroundColor={theme.transparent}
-                selectedTextColor={theme.brand}
+                selectedTextColor={jobsFocused ? theme.brand : theme.text}
                 selectedDescriptionColor={theme.muted}
-                focused={
-                  focus === 'jobs' && overlay === 'none' && !workspaceVisible
-                }
+                focused={jobsFocused}
                 onChange={(_, option) => {
                   if (option?.value) onJobSelect(String(option.value));
                 }}
@@ -515,15 +522,31 @@ export default function DashboardScreen({
               marginBottom={1}
             >
               <text
-                fg={activeLibraryTab === 'profile' ? theme.brand : theme.muted}
+                fg={
+                  activeLibraryTab === 'profile' && libraryFocused
+                    ? theme.brand
+                    : theme.muted
+                }
               >
-                {activeLibraryTab === 'profile' ? <u>Profile</u> : 'Profile'}
+                {activeLibraryTab === 'profile' ? (
+                  <u><strong>Profile</strong></u>
+                ) : (
+                  'Profile'
+                )}
               </text>
 
               <text
-                fg={activeLibraryTab === 'answers' ? theme.brand : theme.muted}
+                fg={
+                  activeLibraryTab === 'answers' && libraryFocused
+                    ? theme.brand
+                    : theme.muted
+                }
               >
-                {activeLibraryTab === 'answers' ? <u>Answers</u> : 'Answers'}
+                {activeLibraryTab === 'answers' ? (
+                  <u><strong>Answers</strong></u>
+                ) : (
+                  'Answers'
+                )}
               </text>
             </box>
             {activeLibraryTab === 'answers' && answerOptions.length === 0 ? (
@@ -538,14 +561,10 @@ export default function DashboardScreen({
                 backgroundColor={theme.transparent}
                 focusedBackgroundColor={theme.transparent}
                 selectedBackgroundColor={theme.transparent}
-                selectedTextColor={theme.brand}
+                selectedTextColor={libraryFocused ? theme.brand : theme.text}
                 selectedDescriptionColor={theme.muted}
                 // itemSpacing={1}
-                focused={
-                  (focus === 'profile' || focus === 'answers') &&
-                  overlay === 'none' &&
-                  !workspaceVisible
-                }
+                focused={libraryFocused}
                 onChange={(_, option) => {
                   if (activeLibraryTab === 'profile') {
                     const nextIndex = PROFILE_OPTIONS.findIndex(
