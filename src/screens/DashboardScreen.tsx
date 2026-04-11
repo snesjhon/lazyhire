@@ -464,7 +464,7 @@ export default function DashboardScreen({
             </box>
             {jobOptions.length > 0 ? (
               <select
-                height={jobsHeight}
+                height={jobsHeight - 1}
                 width="100%"
                 options={jobOptions}
                 selectedIndex={selectedIndex}
