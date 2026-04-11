@@ -7,7 +7,7 @@ import {
 } from '@opentui/react';
 import { spawn } from 'child_process';
 import { useEffect, useMemo, useState } from 'react';
-import { db } from './db.js';
+import { db } from './shared/data/db.js';
 import {
   createPendingJob,
   evaluateAndPersistJob,
@@ -17,23 +17,23 @@ import {
   inferFromJdText,
   saveJob,
   summarizeJobDescription,
-} from './services/jobs/jobs.js';
-import type { Job, JobStatus } from './types.js';
-import { answersDb } from './db.js';
-import DashboardScreen from './screens/DashboardScreen.js';
-import TasksIndicator from './components/TasksIndicator.js';
-import InitWorkspace from './components/InitWorkspace.js';
-import ProfileActionWorkspace from './components/ProfileActionWorkspace.js';
-import type { Flash, FocusTarget, Overlay } from './ui.js';
-import { scoreDisplay, type FlashVariant } from './lib/utils.js';
-import type { JobActionView } from './components/JobActionWorkspace.js';
-import type { ProfileActionView } from './components/ProfileActionWorkspace.js';
-import { resolveUiTheme } from './theme.js';
+} from './features/jobs/services/jobs.js';
+import type { Job, JobStatus } from './shared/models/types.js';
+import { answersDb } from './shared/data/db.js';
+import DashboardScreen from './features/jobs/ui/DashboardScreen.js';
+import TasksIndicator from './shared/app-shell/TasksIndicator.js';
+import InitWorkspace from './features/init/ui/InitWorkspace.js';
+import ProfileActionWorkspace from './features/profile/ui/ProfileActionWorkspace.js';
+import type { Flash, FocusTarget, Overlay } from './shared/ui/state.js';
+import { scoreDisplay, type FlashVariant } from './shared/lib/utils.js';
+import type { JobActionView } from './features/jobs/ui/JobActionWorkspace.js';
+import type { ProfileActionView } from './features/profile/ui/ProfileActionWorkspace.js';
+import { resolveUiTheme } from './shared/ui/theme.js';
 import {
   hasProfile,
   loadProfileOrDefault,
   saveProfile,
-} from './profile.js';
+} from './shared/models/profile.js';
 
 const JOB_FILTERS = ['Queue', 'Applied', 'Interview', 'Offer', 'Rejected', 'Discarded'] as const;
 
