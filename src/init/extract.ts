@@ -127,6 +127,8 @@ Rules:
 - Set "cv" to the full raw resume text exactly as provided.
 - Output only JSON.`;
 
+const JSON_RETRY_LIMIT = 2;
+
 function assertSupportedClaudeRuntime(): void {
   const major = Number.parseInt(process.versions.node.split('.')[0] ?? '', 10);
   if (Number.isNaN(major)) return;
@@ -140,10 +142,7 @@ function assertSupportedClaudeRuntime(): void {
 }
 
 export function parseProfileResult(text: string): Profile {
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('No JSON found in profile generation response');
-
-  const parsed = JSON.parse(jsonMatch[0]) as Partial<Profile>;
+  const parsed = parseJsonObject<Profile>(text, 'profile generation response');
 
   if (!parsed.candidate) throw new Error('Missing candidate in generated profile');
   if (!parsed.headline) throw new Error('Missing headline in generated profile');
@@ -158,10 +157,7 @@ export function parseProfileResult(text: string): Profile {
 }
 
 export function parseExtractionResult(text: string): ExtractionResult {
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('No JSON found in extraction response');
-
-  const parsed = JSON.parse(jsonMatch[0]) as Partial<ExtractionResult>;
+  const parsed = parseJsonObject<ExtractionResult>(text, 'extraction response');
 
   if (!parsed.candidate) throw new Error('Missing candidate in extraction result');
   if (!parsed.headline) throw new Error('Missing headline in extraction result');
@@ -174,6 +170,143 @@ export function parseExtractionResult(text: string): ExtractionResult {
   if (!Array.isArray(parsed.suggestedFocuses)) throw new Error('Missing suggestedFocuses in extraction result');
 
   return parsed as ExtractionResult;
+}
+
+function extractTopLevelJsonObject(text: string): string {
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaping = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (start === -1) {
+      if (char === '{') {
+        start = index;
+        depth = 1;
+      }
+      continue;
+    }
+
+    if (inString) {
+      if (escaping) {
+        escaping = false;
+        continue;
+      }
+      if (char === '\\') {
+        escaping = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (char === '{') {
+      depth += 1;
+      continue;
+    }
+
+    if (char === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return text.slice(start, index + 1);
+      }
+    }
+  }
+
+  throw new Error('No complete JSON object found');
+}
+
+function parseJsonObject<T>(text: string, source: string): Partial<T> {
+  let candidate: string;
+
+  try {
+    candidate = extractTopLevelJsonObject(text);
+  } catch (error) {
+    throw new Error(`No JSON found in ${source}`, { cause: error });
+  }
+
+  try {
+    return JSON.parse(candidate) as Partial<T>;
+  } catch (error) {
+    throw new Error(`Invalid JSON in ${source}: ${(error as Error).message}`, { cause: error });
+  }
+}
+
+async function runClaudePrompt(prompt: string, failureMessage: string): Promise<string> {
+  let responseText = '';
+  let stderr = '';
+
+  try {
+    for await (const message of query({
+      prompt,
+      options: {
+        maxTurns: 1,
+        stderr: (data) => {
+          stderr += data;
+        },
+      },
+    })) {
+      if (message.type === 'result' && message.subtype === 'success') {
+        responseText = message.result;
+      }
+    }
+  } catch (error) {
+    const detail = stderr
+      .replaceAll(/\s+/g, ' ')
+      .trim()
+      .match(/TypeError:[\s\S]*|Error:[\s\S]*/)?.[0];
+
+    const suffix = detail ? ` Claude stderr: ${detail}` : '';
+    throw new Error(`${failureMessage}.${suffix}`, { cause: error });
+  }
+
+  return responseText;
+}
+
+async function runJsonPrompt<T>(
+  prompt: string,
+  parser: (text: string) => T,
+  failureMessage: string,
+): Promise<T> {
+  let lastError: Error | null = null;
+  let previousResponse = '';
+
+  for (let attempt = 1; attempt <= JSON_RETRY_LIMIT; attempt += 1) {
+    const attemptPrompt =
+      attempt === 1
+        ? prompt
+        : `${prompt}
+
+Your previous response was invalid JSON and could not be parsed.
+Return the full response again as valid JSON only.
+Previous parser error: ${lastError?.message ?? 'Unknown parse error'}
+
+Previous invalid response:
+${previousResponse}`;
+
+    const responseText = await runClaudePrompt(attemptPrompt, failureMessage);
+
+    try {
+      return parser(responseText);
+    } catch (error) {
+      lastError = error as Error;
+      previousResponse = responseText;
+    }
+  }
+
+  throw new Error(
+    `${failureMessage}. Failed to parse Claude JSON after ${JSON_RETRY_LIMIT} attempts: ${lastError?.message ?? 'Unknown parse error'}`,
+    { cause: lastError ?? undefined },
+  );
 }
 
 export function buildFinalizeProfilePrompt(input: FinalizeProfileInput): string {
@@ -221,66 +354,12 @@ export async function extractProfileFromText(resumeText: string): Promise<Extrac
   assertSupportedClaudeRuntime();
 
   const prompt = `${EXTRACTION_PROMPT}\n\n---\n\nResume:\n\n${resumeText}`;
-  let responseText = '';
-  let stderr = '';
-
-  try {
-    for await (const message of query({
-      prompt,
-      options: {
-        maxTurns: 1,
-        stderr: (data) => {
-          stderr += data;
-        },
-      },
-    })) {
-      if (message.type === 'result' && message.subtype === 'success') {
-        responseText = message.result;
-      }
-    }
-  } catch (error) {
-    const detail = stderr
-      .replaceAll(/\s+/g, ' ')
-      .trim()
-      .match(/TypeError:[\s\S]*|Error:[\s\S]*/)?.[0];
-
-    const suffix = detail ? ` Claude stderr: ${detail}` : '';
-    throw new Error(`Failed to run Claude extraction.${suffix}`, { cause: error });
-  }
-
-  return parseExtractionResult(responseText);
+  return runJsonPrompt(prompt, parseExtractionResult, 'Failed to run Claude extraction');
 }
 
 export async function finalizeProfileFromIntake(input: FinalizeProfileInput): Promise<Profile> {
   assertSupportedClaudeRuntime();
 
   const prompt = buildFinalizeProfilePrompt(input);
-  let responseText = '';
-  let stderr = '';
-
-  try {
-    for await (const message of query({
-      prompt,
-      options: {
-        maxTurns: 1,
-        stderr: (data) => {
-          stderr += data;
-        },
-      },
-    })) {
-      if (message.type === 'result' && message.subtype === 'success') {
-        responseText = message.result;
-      }
-    }
-  } catch (error) {
-    const detail = stderr
-      .replaceAll(/\s+/g, ' ')
-      .trim()
-      .match(/TypeError:[\s\S]*|Error:[\s\S]*/)?.[0];
-
-    const suffix = detail ? ` Claude stderr: ${detail}` : '';
-    throw new Error(`Failed to generate final profile.${suffix}`, { cause: error });
-  }
-
-  return parseProfileResult(responseText);
+  return runJsonPrompt(prompt, parseProfileResult, 'Failed to generate final profile');
 }

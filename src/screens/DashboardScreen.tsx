@@ -426,6 +426,7 @@ export default function DashboardScreen({
                   : selectedJob
                     ? `Job #${selectedJob.id}`
                     : 'Detail';
+  const detailBoxTitle = showInitWizard ? '' : `[0] ${detailTitle}`;
 
   const detailContent =
     activePanel === 'status'
@@ -611,7 +612,7 @@ export default function DashboardScreen({
 
         <box width={detailWidth} flexDirection="column" overflow="hidden">
           <box
-            title={`[0] ${detailTitle}`}
+            title={detailBoxTitle}
             border
             borderColor={
               focus === 'detail' || workspaceVisible

@@ -22,6 +22,8 @@ import type { Job, JobStatus } from './types.js';
 import { answersDb } from './db.js';
 import DashboardScreen from './screens/DashboardScreen.js';
 import TasksIndicator from './components/TasksIndicator.js';
+import InitWorkspace from './components/InitWorkspace.js';
+import ProfileActionWorkspace from './components/ProfileActionWorkspace.js';
 import type { Flash, FocusTarget, Overlay } from './ui.js';
 import { scoreDisplay, type FlashVariant } from './lib/utils.js';
 import type { JobActionView } from './components/JobActionWorkspace.js';
@@ -568,6 +570,64 @@ export default function App() {
         'No job URL available.',
       );
   });
+
+  if (requiresOnboarding) {
+    return (
+      <box
+        flexDirection="column"
+        width={appWidth}
+        height={appHeight}
+        paddingX={1}
+      >
+        <box
+          border
+          borderColor={theme.borderActive}
+          height={Math.max(8, appHeight - 2)}
+          padding={1}
+          overflow="hidden"
+        >
+          {showInitWizard ? (
+            <InitWorkspace
+              theme={theme}
+              width={Math.max(20, appWidth - 6)}
+              height={Math.max(8, appHeight - 6)}
+              onComplete={handleSaveProfile}
+              onChooseManual={chooseManualOnboarding}
+            />
+          ) : (
+            <ProfileActionWorkspace
+              theme={theme}
+              profile={profile}
+              width={Math.max(20, appWidth - 6)}
+              height={Math.max(8, appHeight - 6)}
+              initialView={profileActionView ?? 'candidate'}
+              onClose={closeProfileActionWorkspace}
+              onSave={handleSaveProfile}
+            />
+          )}
+        </box>
+
+        <box
+          flexDirection="row"
+          columnGap={1}
+          flexWrap="wrap"
+          position="absolute"
+          bottom={1}
+        >
+          <text fg={theme.footer} content="Actions: <enter>" />
+          <text fg={theme.muted} content="|" />
+          <text fg={theme.footer} content="Move: j / k" />
+          <text fg={theme.muted} content="|" />
+          <text
+            fg={theme.footer}
+            content={showInitWizard ? 'Back: esc' : 'Save: <enter>'}
+          />
+        </box>
+
+        <TasksIndicator tasks={tasks} theme={theme} />
+      </box>
+    );
+  }
 
   return (
     <box

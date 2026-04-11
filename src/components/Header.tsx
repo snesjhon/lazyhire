@@ -1,6 +1,7 @@
 /** @jsxImportSource @opentui/react */
 import { type TabSelectRenderable } from '@opentui/core';
 import { useEffect, useRef } from 'react';
+import BrandLogo from './BrandLogo.js';
 import type { Flash, FocusTarget, Overlay, Screen } from '../ui.js';
 import { clip, flashColor } from '../lib/utils.js';
 import type { UiTheme } from '../theme.js';
@@ -49,7 +50,7 @@ export default function Header({
 
   return (
     <box flexDirection="row" justifyContent="space-between" marginBottom={1}>
-      <text fg={theme.brand} content="lazyhire" />
+      <BrandLogo theme={theme} />
       <tab-select
         ref={tabs}
         width={60}

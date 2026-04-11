@@ -2,6 +2,7 @@
 import type { InputRenderable, SelectOption } from '@opentui/core';
 import { useKeyboard } from '@opentui/react';
 import { useEffect, useRef, useState } from 'react';
+import BrandLogo from './BrandLogo.js';
 import {
   buildSuggestedTargets,
   extractProfileFromText,
@@ -125,49 +126,62 @@ export default function InitWorkspace({
     },
   ];
 
+  const contentWidth = Math.max(20, width);
+  const menuWidth = Math.max(34, Math.min(contentWidth, 58));
+  const heroWidth = Math.max(menuWidth, 74);
+  const subtitle = 'resume-led onboarding for first launch';
+  const subtitlePadding = Math.max(
+    0,
+    Math.floor((heroWidth - subtitle.length) / 2),
+  );
+
   return (
     <box flexDirection="column" overflow="hidden" width={width} height={height}>
-      <text
-        fg={theme.muted}
-        content={
-          view === 'menu'
-            ? 'Choose how to start onboarding.'
-            : view === 'url'
-              ? 'Paste a resume PDF URL and press Enter. esc=back'
-              : view === 'extracting'
-                ? 'Fetching resume PDF and extracting profile data...'
-                : view === 'creating'
-                  ? 'Finalizing profile from extracted resume data...'
-                  : view === 'preview'
-                    ? 'Review the extracted profile summary. Enter to continue.'
-                    : 'Resume import failed. esc=back'
-        }
-      />
-
-      <box marginTop={1} height={Math.max(4, height - 2)} overflow="hidden">
+      <box
+        height={height}
+        overflow="hidden"
+        justifyContent={view === 'menu' ? 'center' : 'flex-start'}
+      >
         {view === 'menu' && (
-          <select
-            focused
-            height={Math.max(5, height - 2)}
-            width={Math.max(20, width)}
-            options={menuOptions}
-            backgroundColor={theme.transparent}
-            focusedBackgroundColor={theme.transparent}
-            selectedBackgroundColor={theme.transparent}
-            selectedTextColor={theme.brand}
-            showDescription
-            onSelect={(_, option) => {
-              if (option?.value === 'url') {
-                setView('url');
-                return;
-              }
-              if (option?.value === 'manual') onChooseManual();
-            }}
-          />
+          <box flexDirection="row" justifyContent="center" width={contentWidth}>
+            <box flexDirection="column" width={heroWidth} overflow="hidden">
+              <BrandLogo theme={theme} variant="hero" width={heroWidth} />
+              <box marginTop={1}>
+                <text
+                  fg={theme.muted}
+                  content={`${' '.repeat(subtitlePadding)}${subtitle}`}
+                />
+              </box>
+              <box marginTop={2} flexDirection="row" justifyContent="center">
+                <box width={menuWidth} flexDirection="column" overflow="hidden">
+                  <text fg={theme.subtext} content="Choose how to start" />
+                  <select
+                    focused
+                    height={Math.max(5, height - 12)}
+                    width={menuWidth}
+                    options={menuOptions}
+                    backgroundColor={theme.transparent}
+                    focusedBackgroundColor={theme.transparent}
+                    selectedBackgroundColor={theme.transparent}
+                    selectedTextColor={theme.brand}
+                    showDescription
+                    onSelect={(_, option) => {
+                      if (option?.value === 'url') {
+                        setView('url');
+                        return;
+                      }
+                      if (option?.value === 'manual') onChooseManual();
+                    }}
+                  />
+                </box>
+              </box>
+            </box>
+          </box>
         )}
 
         {view === 'url' && (
           <box flexDirection="column" width={Math.max(20, width)}>
+            <text fg={theme.muted} content="Paste a resume PDF URL and press Enter. esc=back" />
             <text fg={theme.heading} content="Resume PDF URL" />
             <input
               ref={urlInputRef}
@@ -184,6 +198,14 @@ export default function InitWorkspace({
 
         {(view === 'extracting' || view === 'creating') && (
           <box flexDirection="column">
+            <text
+              fg={theme.muted}
+              content={
+                view === 'extracting'
+                  ? 'Fetching resume PDF and extracting profile data...'
+                  : 'Finalizing profile from extracted resume data...'
+              }
+            />
             <text fg={theme.heading} content={view === 'extracting' ? 'Importing Resume' : 'Creating Profile'} />
             <text
               fg={theme.subtext}
@@ -194,6 +216,7 @@ export default function InitWorkspace({
 
         {view === 'preview' && preview && extracted && (
           <box flexDirection="column" width={Math.max(20, width)} overflow="hidden">
+            <text fg={theme.muted} content="Review the extracted profile summary. Enter to continue." />
             <text fg={theme.heading} content="Extracted Resume Summary" />
             <text
               fg={theme.subtext}
@@ -246,6 +269,7 @@ export default function InitWorkspace({
 
         {view === 'error' && (
           <box flexDirection="column" width={Math.max(20, width)} overflow="hidden">
+            <text fg={theme.muted} content="Resume import failed. esc=back" />
             <text fg={theme.warning} content="Resume import failed" />
             <text fg={theme.subtext} content={errorMessage} />
           </box>

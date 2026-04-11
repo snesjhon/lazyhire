@@ -52,6 +52,18 @@ describe('resume extraction helpers', () => {
   it('parseExtractionResult throws on invalid json', () => {
     expect(() => parseExtractionResult('not json')).toThrow();
   });
+
+  it('parseExtractionResult extracts the first complete json object from mixed output', () => {
+    const result = parseExtractionResult(`Here is the result:\n${JSON.stringify(extraction)}\nDone.`);
+    expect(result.candidate.name).toBe('Jane Doe');
+    expect(result.skills).toContain('React');
+  });
+
+  it('parseExtractionResult throws when the json object is truncated', () => {
+    expect(() =>
+      parseExtractionResult('{"candidate":{"name":"Jane Doe"},"headline":"Broken')
+    ).toThrow(/No JSON found in extraction response/);
+  });
 });
 
 describe('final profile generation helpers', () => {
@@ -118,5 +130,30 @@ describe('final profile generation helpers', () => {
 
   it('parseProfileResult throws on invalid json', () => {
     expect(() => parseProfileResult('not json')).toThrow();
+  });
+
+  it('parseProfileResult extracts the first complete json object from mixed output', () => {
+    const profileJson = JSON.stringify({
+      candidate,
+      headline,
+      summary,
+      cv: 'Resume body',
+      targets: {
+        roles: ['Senior Frontend Engineer'],
+        salaryMin: 180000,
+        salaryMax: 220000,
+        remote: 'full',
+        dealBreakers: ['No relocation'],
+        categories: ['engineering'],
+        focuses: ['platform'],
+      },
+      experiences,
+      education,
+      skills,
+    });
+
+    const result = parseProfileResult(`\`\`\`json\n${profileJson}\n\`\`\``);
+    expect(result.candidate.name).toBe('Jane Doe');
+    expect(result.cv).toBe('Resume body');
   });
 });
