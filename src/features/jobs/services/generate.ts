@@ -8,6 +8,8 @@ import { buildWritingGuidance } from '../../../shared/ai/writing-guidance.js';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const GENERATE_PROMPT = readFileSync(join(__dirname, 'prompts', 'generate-cv.md'), 'utf8');
 const BULLET_WORD_RANGE_TOKEN = '{{BULLET_WORD_RANGE}}';
+const TEXT_SIZE_NAME_TOKEN = '{{TEXT_SIZE_NAME}}';
+const TEXT_SIZE_BODY_PT_TOKEN = '{{TEXT_SIZE_BODY_PT}}';
 
 export interface CvBulletWordRange {
   min: number;
@@ -19,6 +21,20 @@ export interface CvBulletLengthPreset {
   name: string;
   description: string;
   range: CvBulletWordRange;
+}
+
+export interface CvTextSizeScale {
+  bodyPt: number;
+  headingNamePt: number;
+  headingSectionPt: number;
+  headingRolePt: number;
+}
+
+export interface CvTextSizePreset {
+  id: 'tight' | 'compact' | 'balanced' | 'detailed' | 'extended';
+  name: string;
+  description: string;
+  scale: CvTextSizeScale;
 }
 
 export const DEFAULT_CV_BULLET_WORD_RANGE: CvBulletWordRange = {
@@ -59,6 +75,66 @@ export const CV_BULLET_LENGTH_PRESETS: CvBulletLengthPreset[] = [
   },
 ];
 
+export const DEFAULT_CV_TEXT_SIZE_SCALE: CvTextSizeScale = {
+  bodyPt: 12,
+  headingNamePt: 18,
+  headingSectionPt: 11.5,
+  headingRolePt: 12.5,
+};
+
+export const CV_TEXT_SIZE_PRESETS: CvTextSizePreset[] = [
+  {
+    id: 'tight',
+    name: 'Tight',
+    description: 'Smallest resume text, 11pt base body copy',
+    scale: {
+      bodyPt: 11,
+      headingNamePt: 16.75,
+      headingSectionPt: 10.5,
+      headingRolePt: 11.5,
+    },
+  },
+  {
+    id: 'compact',
+    name: 'Compact',
+    description: 'Slightly smaller text, 11.25pt base body copy',
+    scale: {
+      bodyPt: 11.25,
+      headingNamePt: 17,
+      headingSectionPt: 10.75,
+      headingRolePt: 11.75,
+    },
+  },
+  {
+    id: 'balanced',
+    name: 'Balanced',
+    description: 'Default text scale, 12pt base body copy',
+    scale: DEFAULT_CV_TEXT_SIZE_SCALE,
+  },
+  {
+    id: 'detailed',
+    name: 'Detailed',
+    description: 'Near-maximum text, 11.75pt base body copy',
+    scale: {
+      bodyPt: 11.75,
+      headingNamePt: 17.75,
+      headingSectionPt: 11.25,
+      headingRolePt: 12.25,
+    },
+  },
+  {
+    id: 'extended',
+    name: 'Extended',
+    description: 'Largest resume text, 12pt base body copy',
+    scale: {
+      bodyPt: 12,
+      headingNamePt: 18,
+      headingSectionPt: 11.5,
+      headingRolePt: 12.5,
+    },
+  },
+];
+
 export interface GenerateInput {
   jd: string;
   category: string;
@@ -74,14 +150,19 @@ export interface GenerateInput {
   };
   education: Array<{ institution: string; degree: string }>;
   bulletWordRange?: CvBulletWordRange;
+  textSizeScale?: CvTextSizeScale;
 }
 
 export function buildGeneratePrompt(input: GenerateInput): string {
   const bulletWordRange = input.bulletWordRange ?? DEFAULT_CV_BULLET_WORD_RANGE;
-  const promptTemplate = GENERATE_PROMPT.replace(
-    BULLET_WORD_RANGE_TOKEN,
-    `${bulletWordRange.min}-${bulletWordRange.max}`,
-  );
+  const textSizeScale = input.textSizeScale ?? DEFAULT_CV_TEXT_SIZE_SCALE;
+  const textSizePreset =
+    CV_TEXT_SIZE_PRESETS.find((preset) => preset.scale.bodyPt === textSizeScale.bodyPt) ??
+    CV_TEXT_SIZE_PRESETS.find((preset) => preset.id === 'balanced')!;
+  const promptTemplate = GENERATE_PROMPT
+    .replace(BULLET_WORD_RANGE_TOKEN, `${bulletWordRange.min}-${bulletWordRange.max}`)
+    .replace(TEXT_SIZE_NAME_TOKEN, textSizePreset.name.toLowerCase())
+    .replace(TEXT_SIZE_BODY_PT_TOKEN, String(textSizeScale.bodyPt));
 
   return `${promptTemplate}
 
@@ -163,6 +244,7 @@ export async function generateCV(
   profile: Profile,
   tailoringNotes = '',
   bulletWordRange: CvBulletWordRange = DEFAULT_CV_BULLET_WORD_RANGE,
+  textSizeScale: CvTextSizeScale = DEFAULT_CV_TEXT_SIZE_SCALE,
 ): Promise<GeneratedCV> {
   const prompt = buildGeneratePrompt({
     jd: job.jd,
@@ -174,6 +256,7 @@ export async function generateCV(
     candidate: profile.candidate,
     education: profile.education,
     bulletWordRange,
+    textSizeScale,
   });
 
   let responseText = '';

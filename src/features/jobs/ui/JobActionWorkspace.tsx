@@ -11,8 +11,11 @@ import type { UiTheme } from '../../../shared/ui/theme.js';
 import { JOB_STATUSES, type Job, type JobStatus } from '../../../shared/models/types.js';
 import {
   CV_BULLET_LENGTH_PRESETS,
+  CV_TEXT_SIZE_PRESETS,
   DEFAULT_CV_BULLET_WORD_RANGE,
+  DEFAULT_CV_TEXT_SIZE_SCALE,
   type CvBulletWordRange,
+  type CvTextSizeScale,
 } from '../services/generate.js';
 
 export type JobActionView =
@@ -31,7 +34,7 @@ const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<TextareaOptions['keyBindings']> 
   { name: 'o', ctrl: true, action: 'submit' },
 ];
 type GenerateCvState =
-  | { step: 'editing'; phase: 'preset' | 'guidance' }
+  | { step: 'editing'; phase: 'bullet-preset' | 'text-size-preset' | 'guidance' }
   | { step: 'submitting' }
   | { step: 'success'; pdfPath: string | null }
   | { step: 'error'; message: string };
@@ -56,7 +59,11 @@ interface Props {
   onSaveEditJd: (jd: string) => void;
   onSaveStatus: (status: JobStatus) => void;
   onDelete: () => void;
-  onGenerateCv: (guidance: string, bulletWordRange: CvBulletWordRange) => Promise<Job>;
+  onGenerateCv: (
+    guidance: string,
+    bulletWordRange: CvBulletWordRange,
+    textSizeScale: CvTextSizeScale,
+  ) => Promise<Job>;
   onGenerateCoverLetter: (guidance: string) => Promise<Job>;
 }
 
@@ -86,10 +93,14 @@ export default function JobActionWorkspace({
   const [cvBulletWordRange, setCvBulletWordRange] = useState<CvBulletWordRange>(
     DEFAULT_CV_BULLET_WORD_RANGE,
   );
+  const [cvTextSizeScale, setCvTextSizeScale] = useState<CvTextSizeScale>(
+    DEFAULT_CV_TEXT_SIZE_SCALE,
+  );
   const [selectedCvPresetId, setSelectedCvPresetId] = useState<string>('balanced');
+  const [selectedCvTextSizePresetId, setSelectedCvTextSizePresetId] = useState<string>('balanced');
   const [generateCvState, setGenerateCvState] = useState<GenerateCvState>({
     step: 'editing',
-    phase: 'preset',
+    phase: 'bullet-preset',
   });
 
   const metadataInputRef = useRef<InputRenderable>(null);
@@ -113,10 +124,12 @@ export default function JobActionWorkspace({
     setEditJdDraft(job.jd);
     setCvGuidance('');
     setCvBulletWordRange(DEFAULT_CV_BULLET_WORD_RANGE);
+    setCvTextSizeScale(DEFAULT_CV_TEXT_SIZE_SCALE);
     setSelectedCvPresetId('balanced');
+    setSelectedCvTextSizePresetId('balanced');
     setGenerateCvState({
       step: 'editing',
-      phase: initialView === 'generate-cover-letter' ? 'guidance' : 'preset',
+      phase: initialView === 'generate-cover-letter' ? 'guidance' : 'bullet-preset',
     });
     if (initialView === 'edit-company') setMetadataDraft(job.company);
     if (initialView === 'edit-role') setMetadataDraft(job.role);
@@ -271,12 +284,19 @@ export default function JobActionWorkspace({
       generateCvState.phase === 'guidance'
     ) {
       setCvGuidance('');
-      setGenerateCvState({ step: 'editing', phase: 'preset' });
+      setGenerateCvState({ step: 'editing', phase: 'text-size-preset' });
+    }
+    else if (
+      view === 'generate-cv' &&
+      generateCvState.step === 'editing' &&
+      generateCvState.phase === 'text-size-preset'
+    ) {
+      setGenerateCvState({ step: 'editing', phase: 'bullet-preset' });
     }
     else {
       setGenerateCvState({
         step: 'editing',
-        phase: view === 'generate-cover-letter' ? 'guidance' : 'preset',
+        phase: view === 'generate-cover-letter' ? 'guidance' : 'bullet-preset',
       });
       setView('menu');
     }
@@ -291,8 +311,12 @@ export default function JobActionWorkspace({
             ? `Actions for #${job.id}. Enter to run, esc to return.`
             : (view === 'generate-cv' || view === 'generate-cover-letter') &&
                 generateCvState.step === 'editing'
-              ? generateArtifact === 'cv' && generateCvState.phase === 'preset'
-                ? 'enter=choose range, esc=back'
+              ? generateArtifact === 'cv' &&
+                  (generateCvState.phase === 'bullet-preset' ||
+                    generateCvState.phase === 'text-size-preset')
+                ? generateCvState.phase === 'bullet-preset'
+                  ? 'enter=choose bullet length, esc=back'
+                  : 'enter=choose text size, esc=back'
                 : 'ctrl-o=generate, esc=back'
               : generateCvState.step === 'submitting'
                 ? generateArtifact === 'cover-letter'
@@ -379,7 +403,7 @@ export default function JobActionWorkspace({
 
         {view === 'generate-cv' || view === 'generate-cover-letter' ? (
           generateCvState.step === 'editing' ? (
-            generateArtifact === 'cv' && generateCvState.phase === 'preset' ? (
+            generateArtifact === 'cv' && generateCvState.phase === 'bullet-preset' ? (
               <select
                 height={Math.max(6, height - 2)}
                 width={Math.max(20, width)}
@@ -414,16 +438,60 @@ export default function JobActionWorkspace({
                   if (!preset) return;
                   setSelectedCvPresetId(preset.id);
                   setCvBulletWordRange(preset.range);
+                  setGenerateCvState({ step: 'editing', phase: 'text-size-preset' });
+                }}
+              />
+            ) : generateArtifact === 'cv' && generateCvState.phase === 'text-size-preset' ? (
+              <select
+                height={Math.max(6, height - 2)}
+                width={Math.max(20, width)}
+                focused
+                options={CV_TEXT_SIZE_PRESETS.map((preset) => ({
+                  name: preset.name,
+                  description: preset.description,
+                  value: preset.id,
+                }))}
+                selectedIndex={CV_TEXT_SIZE_PRESETS.findIndex(
+                  (preset) => preset.id === selectedCvTextSizePresetId,
+                )}
+                showDescription
+                itemSpacing={0}
+                backgroundColor={theme.transparent}
+                focusedBackgroundColor={theme.transparent}
+                selectedBackgroundColor={theme.transparent}
+                selectedTextColor={theme.brand}
+                selectedDescriptionColor={theme.muted}
+                onChange={(_, option) => {
+                  const preset = CV_TEXT_SIZE_PRESETS.find(
+                    (entry) => entry.id === option?.value,
+                  );
+                  if (!preset) return;
+                  setSelectedCvTextSizePresetId(preset.id);
+                  setCvTextSizeScale(preset.scale);
+                }}
+                onSelect={(_, option) => {
+                  const preset = CV_TEXT_SIZE_PRESETS.find(
+                    (entry) => entry.id === option?.value,
+                  );
+                  if (!preset) return;
+                  setSelectedCvTextSizePresetId(preset.id);
+                  setCvTextSizeScale(preset.scale);
                   setGenerateCvState({ step: 'editing', phase: 'guidance' });
                 }}
               />
             ) : (
               <box flexDirection="column" width={Math.max(20, width)} rowGap={1}>
                 {generateArtifact === 'cv' ? (
-                  <text
-                    fg={theme.muted}
-                    content={`Bullet length: ${cvBulletWordRange.min}-${cvBulletWordRange.max} words. esc=change range.`}
-                  />
+                  <box flexDirection="column">
+                    <text
+                      fg={theme.muted}
+                      content={`Bullet length: ${cvBulletWordRange.min}-${cvBulletWordRange.max} words.`}
+                    />
+                    <text
+                      fg={theme.muted}
+                      content={`Text size: ${cvTextSizeScale.bodyPt}pt base copy. esc=change text size.`}
+                    />
+                  </box>
                 ) : null}
                 <textarea
                   ref={guidanceInputRef}
@@ -444,6 +512,7 @@ export default function JobActionWorkspace({
                         : await onGenerateCv(
                             guidanceInputRef.current?.plainText ?? '',
                             cvBulletWordRange,
+                            cvTextSizeScale,
                           );
                       setGenerateCvState({
                         step: 'success',

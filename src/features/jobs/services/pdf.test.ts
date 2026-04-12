@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, it, expect } from 'vitest';
-import { injectCV, injectCoverLetter } from './pdf.js';
+import { injectCV, injectCVWithTextSize, injectCoverLetter } from './pdf.js';
 import type { GeneratedCV, GeneratedCoverLetter } from '../../../shared/models/types.js';
 
 const cv: GeneratedCV = {
@@ -72,6 +72,25 @@ describe('injectCV', () => {
     expect(html).not.toMatch(/\{\{[A-Z_]+\}\}/);
   });
 
+  it('replaces resume text size placeholders when present', () => {
+    const html = injectCVWithTextSize(
+      '<style>body{font-size:{{BASE_FONT_SIZE}};}h1{font-size:{{NAME_FONT_SIZE}};}h2{font-size:{{SECTION_FONT_SIZE}};}h3{font-size:{{ROLE_FONT_SIZE}};}</style>{{NAME}}',
+      cv,
+      {
+        bodyPt: 11.5,
+        headingNamePt: 17.25,
+        headingSectionPt: 11,
+        headingRolePt: 12,
+      },
+    );
+
+    expect(html).toContain('font-size:11.5pt');
+    expect(html).toContain('font-size:17.25pt');
+    expect(html).toContain('font-size:11pt');
+    expect(html).toContain('font-size:12pt');
+    expect(html).not.toMatch(/\{\{[A-Z_]+\}\}/);
+  });
+
   it('uses the canonical full-height resume template without decorative separators', () => {
     const template = readFileSync(
       join(process.cwd(), 'src', 'features', 'jobs', 'templates', 'resume.html'),
@@ -86,6 +105,8 @@ describe('injectCV', () => {
     expect(template).toContain('text-decoration: underline');
     expect(template).not.toContain('font-weight: 600');
     expect(template).not.toContain('·');
+    expect(template).toContain('{{BASE_FONT_SIZE}}');
+    expect(template).toContain('{{NAME_FONT_SIZE}}');
   });
 });
 

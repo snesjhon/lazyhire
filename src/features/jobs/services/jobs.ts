@@ -5,8 +5,10 @@ import { loadProfile } from '../../../shared/models/profile.js';
 import { evaluateJob } from './evaluation.js';
 import {
   DEFAULT_CV_BULLET_WORD_RANGE,
+  DEFAULT_CV_TEXT_SIZE_SCALE,
   generateCV,
   type CvBulletWordRange,
+  type CvTextSizeScale,
 } from './generate.js';
 import { renderPDF } from './pdf.js';
 import { renderCoverLetterPDF } from './pdf.js';
@@ -588,6 +590,7 @@ export async function generateAndPersistPdf(
   job: Job,
   tailoringNotes = '',
   bulletWordRange: CvBulletWordRange = DEFAULT_CV_BULLET_WORD_RANGE,
+  textSizeScale: CvTextSizeScale = DEFAULT_CV_TEXT_SIZE_SCALE,
 ): Promise<Job> {
   const profile = loadProfile();
   const cv = await generateCV(
@@ -595,12 +598,13 @@ export async function generateAndPersistPdf(
     profile,
     tailoringNotes,
     bulletWordRange,
+    textSizeScale,
   );
 
   const theme = 'resume' as const;
   const filename = buildResumeFilename(profile.candidate.name, job.company);
   const pdfPath = join(process.cwd(), 'output', filename);
-  await renderPDF(cv, pdfPath);
+  await renderPDF(cv, pdfPath, textSizeScale);
 
   const updated: Job = { ...job, pdfPath, theme };
   db.updateJob(job.id, { pdfPath, theme });

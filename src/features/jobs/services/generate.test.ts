@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_CV_BULLET_WORD_RANGE,
+  DEFAULT_CV_TEXT_SIZE_SCALE,
   parseGeneratedCV,
   buildGeneratePrompt,
 } from './generate.js';
@@ -67,6 +68,8 @@ describe('buildGeneratePrompt', () => {
     expect(prompt).toContain(
       `${DEFAULT_CV_BULLET_WORD_RANGE.min}-${DEFAULT_CV_BULLET_WORD_RANGE.max} words`,
     );
+    expect(prompt).toContain('balanced text scale');
+    expect(prompt).toContain(`${DEFAULT_CV_TEXT_SIZE_SCALE.bodyPt}pt base body copy`);
   });
 
   it('replaces the bullet word range with the selected values', () => {
@@ -83,5 +86,28 @@ describe('buildGeneratePrompt', () => {
 
     expect(prompt).toContain('prefer 18-32 words');
     expect(prompt).not.toContain('{{BULLET_WORD_RANGE}}');
+  });
+
+  it('replaces the text size tokens with the selected values', () => {
+    const prompt = buildGeneratePrompt({
+      jd: 'Platform engineering role',
+      category: 'engineering',
+      focus: 'platform',
+      cv: '# Jane',
+      experienceContext: '--- Acme ---',
+      candidate: { name: 'Jane', email: 'j@j.com', location: 'SF', site: 'j.dev' },
+      education: [{ institution: 'UC Davis', degree: 'B.A. Psychology' }],
+      textSizeScale: {
+        bodyPt: 11.25,
+        headingNamePt: 17,
+        headingSectionPt: 10.75,
+        headingRolePt: 11.75,
+      },
+    });
+
+    expect(prompt).toContain('compact text scale');
+    expect(prompt).toContain('11.25pt base body copy');
+    expect(prompt).not.toContain('{{TEXT_SIZE_NAME}}');
+    expect(prompt).not.toContain('{{TEXT_SIZE_BODY_PT}}');
   });
 });

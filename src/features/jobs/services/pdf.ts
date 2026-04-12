@@ -2,6 +2,10 @@ import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import puppeteer from 'puppeteer';
 import type { GeneratedCV, GeneratedCoverLetter } from '../../../shared/models/types.js';
+import {
+  DEFAULT_CV_TEXT_SIZE_SCALE,
+  type CvTextSizeScale,
+} from './generate.js';
 
 function escapeHtml(value: string): string {
   return value
@@ -48,6 +52,14 @@ function formatPeriod(period: { start: string; end: string }): string {
 }
 
 export function injectCV(template: string, cv: GeneratedCV): string {
+  return injectCVWithTextSize(template, cv, DEFAULT_CV_TEXT_SIZE_SCALE);
+}
+
+export function injectCVWithTextSize(
+  template: string,
+  cv: GeneratedCV,
+  textSizeScale: CvTextSizeScale,
+): string {
   const skillsHtml = renderInlineMarkup(cv.skills.join(', '));
   const rolesHtml = cv.roles
     .map(
@@ -71,6 +83,10 @@ export function injectCV(template: string, cv: GeneratedCV): string {
     .join('');
 
   return template
+    .replace(/\{\{BASE_FONT_SIZE\}\}/g, `${textSizeScale.bodyPt}pt`)
+    .replace(/\{\{NAME_FONT_SIZE\}\}/g, `${textSizeScale.headingNamePt}pt`)
+    .replace(/\{\{SECTION_FONT_SIZE\}\}/g, `${textSizeScale.headingSectionPt}pt`)
+    .replace(/\{\{ROLE_FONT_SIZE\}\}/g, `${textSizeScale.headingRolePt}pt`)
     .replace(/\{\{NAME\}\}/g, renderInlineMarkup(cv.name))
     .replace(/\{\{TITLE\}\}/g, renderInlineMarkup(cv.title))
     .replace(/\{\{EMAIL\}\}/g, renderInlineMarkup(cv.contact.email))
@@ -129,10 +145,11 @@ async function renderHtmlToPdf(
 export async function renderPDF(
   cv: GeneratedCV,
   outputPath: string,
+  textSizeScale: CvTextSizeScale = DEFAULT_CV_TEXT_SIZE_SCALE,
 ): Promise<void> {
   const templatePath = join(process.cwd(), 'src', 'features', 'jobs', 'templates', 'resume.html');
   const template = readFileSync(templatePath, 'utf8');
-  await renderHtmlToPdf(injectCV(template, cv), outputPath);
+  await renderHtmlToPdf(injectCVWithTextSize(template, cv, textSizeScale), outputPath);
 }
 
 export async function renderCoverLetterPDF(
