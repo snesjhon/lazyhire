@@ -42,6 +42,11 @@ const PROFILE_OPTIONS: Array<{
     value: 'candidate',
   },
   {
+    name: 'Education & Certifications',
+    description: 'ATS-safe resume entries',
+    value: 'education',
+  },
+  {
     name: 'Target Roles',
     description: 'Comma-separated role titles',
     value: 'roles',
@@ -163,6 +168,21 @@ function profileDetailMarkdown(
       'These titles define the roles you want to be matched against during discovery and evaluation.',
       '',
       'Press `Enter` to update the comma-separated role list.',
+    ].join('\n\n');
+  }
+
+  if (activeOption.value === 'education') {
+    const currentValue = profile.education.length > 0
+      ? profile.education.map((entry) => [entry.institution, entry.degree].filter(Boolean).join(' | ')).join('\n')
+      : 'none';
+
+    return [
+      '## Education & Certifications',
+      `**Current Value:**\n${currentValue}`,
+      '',
+      'Each entry should stay on one ATS-safe line so the institution and credential are parsed together.',
+      '',
+      'Press `Enter` to edit one entry per line using `Institution | Credential`.',
     ].join('\n\n');
   }
 

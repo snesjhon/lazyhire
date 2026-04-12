@@ -3,6 +3,9 @@ import { dirname, join } from 'path';
 import type { Profile } from './types.js';
 import { normalizeTargetPreferences } from './taxonomy.js';
 
+const DATA_DIR = '.lazyhire';
+const CANDIDATE_FILE = 'candidate.json';
+
 export function createEmptyProfile(): Profile {
   return {
     candidate: {
@@ -70,7 +73,7 @@ export function createProfileStore(profilePath: string) {
   return { exists, load, loadOrDefault, save };
 }
 
-const DEFAULT_PATH = join(process.cwd(), 'profile', 'profile.json');
+const DEFAULT_PATH = join(process.cwd(), DATA_DIR, CANDIDATE_FILE);
 const defaultStore = createProfileStore(DEFAULT_PATH);
 export const hasProfile = defaultStore.exists;
 export const loadProfile = defaultStore.load;

@@ -2,5 +2,6 @@ node_modules/
 dist/
 docs/superpowers
 output/
+.lazyhire/
 *.env
 .DS_Store

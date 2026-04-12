@@ -64,8 +64,7 @@ export function injectCV(template: string, cv: GeneratedCV): string {
     .map(
       (entry) => `
     <div class="edu">
-      <p><strong>${renderInlineMarkup(entry.institution)}</strong></p>
-      <p>${renderInlineMarkup(entry.degree)}</p>
+      <p><strong>${renderInlineMarkup(entry.institution)}</strong>${entry.degree ? ` | ${renderInlineMarkup(entry.degree)}` : ''}</p>
     </div>
   `,
     )

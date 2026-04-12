@@ -61,6 +61,12 @@ describe('injectCV', () => {
     expect(html).toContain('Mar 2022');
   });
 
+  it('renders education as a single ATS-safe line per entry', () => {
+    const html = injectCV(minimalTemplate, cv);
+    expect(html).toContain('<p><strong>UC Davis</strong> | B.A. Psychology</p>');
+    expect(html).not.toContain('</strong></p>\n      <p>B.A. Psychology</p>');
+  });
+
   it('no unreplaced placeholders remain', () => {
     const html = injectCV(minimalTemplate, cv);
     expect(html).not.toMatch(/\{\{[A-Z_]+\}\}/);

@@ -119,11 +119,11 @@ Key bindings are intentionally simple:
 
 ## Data
 
-Everything is stored locally under `./profile`:
+Everything is stored locally under `./.lazyhire`:
 
-- `profile/profile.json`
-- `profile/jobs.json`
-- `profile/answers.json`
+- `.lazyhire/candidate.json`
+- `.lazyhire/jobs.json`
+- `.lazyhire/answers.json`
 
 Generated PDFs are also attached back to the saved job records.
 

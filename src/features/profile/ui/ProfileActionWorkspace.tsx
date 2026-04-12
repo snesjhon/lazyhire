@@ -7,6 +7,7 @@ import type { Profile } from '../../../shared/models/types.js';
 
 export type ProfileActionView =
   | 'candidate'
+  | 'education'
   | 'roles'
   | 'categories'
   | 'focuses'
@@ -46,6 +47,31 @@ function normalizeList(value: string): string[] {
     .filter(Boolean);
 }
 
+function formatEducationEntries(
+  education: Profile['education'],
+): string {
+  return education
+    .map((entry) => [entry.institution.trim(), entry.degree.trim()].filter(Boolean).join(' | '))
+    .filter(Boolean)
+    .join('\n');
+}
+
+function parseEducationEntries(
+  value: string,
+): Profile['education'] {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [institutionPart, ...degreeParts] = line.split('|');
+      const institution = institutionPart?.trim() ?? '';
+      const degree = degreeParts.join('|').trim();
+      return { institution, degree };
+    })
+    .filter((entry) => entry.institution || entry.degree);
+}
+
 export default function ProfileActionWorkspace({
   theme,
   profile,
@@ -64,6 +90,7 @@ export default function ProfileActionWorkspace({
     setView(initialView);
     setStagedMin(null);
     if (initialView === 'candidate') setDraft(profile.candidate.name);
+    if (initialView === 'education') setDraft(formatEducationEntries(profile.education));
     if (initialView === 'roles') setDraft(profile.targets.roles.join(', '));
     if (initialView === 'categories') setDraft(profile.targets.categories.join(', '));
     if (initialView === 'focuses') setDraft(profile.targets.focuses.join(', '));
@@ -105,6 +132,12 @@ export default function ProfileActionWorkspace({
 
     if (view === 'edit-headline') {
       onSave({ ...profile, headline: value.trim() }, 'Updated candidate headline');
+      return;
+    }
+
+    if (view === 'education') {
+      const education = parseEducationEntries(value);
+      onSave({ ...profile, education }, 'Updated education and certifications');
       return;
     }
 
@@ -167,8 +200,10 @@ export default function ProfileActionWorkspace({
           ? 'Candidate location'
           : view === 'edit-site'
             ? 'Candidate site'
-            : view === 'edit-headline'
-              ? 'Headline'
+              : view === 'edit-headline'
+                ? 'Headline'
+      : view === 'education'
+        ? 'Education & Certifications (one per line: Institution | Credential)'
       : view === 'roles'
       ? 'Target roles (comma-separated)'
       : view === 'categories'
@@ -263,15 +298,28 @@ export default function ProfileActionWorkspace({
         ) : (
           <box flexDirection="column" width={Math.max(20, width)}>
             <text fg={theme.muted} content={label} />
-            <input
-              ref={inputRef}
-              value={draft}
-              onInput={setDraft}
-              focused
-              onSubmit={(value: unknown) => {
-                if (typeof value === 'string') submit(value);
-              }}
-            />
+            {view === 'education' ? (
+              <textarea
+                ref={inputRef}
+                focused
+                height={Math.max(6, height - 6)}
+                key={`education-${initialView}-${profile.education.length}-${draft}`}
+                initialValue={draft}
+                placeholder="Institution | Credential"
+                onContentChange={() => setDraft(inputRef.current?.plainText ?? '')}
+                onSubmit={() => submit(inputRef.current?.plainText ?? '')}
+              />
+            ) : (
+              <input
+                ref={inputRef}
+                value={draft}
+                onInput={setDraft}
+                focused
+                onSubmit={(value: unknown) => {
+                  if (typeof value === 'string') submit(value);
+                }}
+              />
+            )}
           </box>
         )}
       </box>
