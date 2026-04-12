@@ -3,7 +3,11 @@ import puppeteer from 'puppeteer';
 import { db } from '../../../shared/data/db.js';
 import { loadProfile } from '../../../shared/models/profile.js';
 import { evaluateJob } from './evaluation.js';
-import { generateCV } from './generate.js';
+import {
+  DEFAULT_CV_BULLET_WORD_RANGE,
+  generateCV,
+  type CvBulletWordRange,
+} from './generate.js';
 import { renderPDF } from './pdf.js';
 import { renderCoverLetterPDF } from './pdf.js';
 import { generateCoverLetter } from './cover-letter.js';
@@ -33,6 +37,14 @@ function slugify(value: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
   return slug || 'job';
+}
+
+export function buildResumeFilename(candidateName: string, company: string): string {
+  const nameParts = candidateName.trim().split(/\s+/).filter(Boolean);
+  const firstName = slugify(nameParts[0] ?? 'candidate');
+  const lastName = slugify(nameParts.at(-1) ?? nameParts[0] ?? 'candidate');
+  const companySlug = slugify(company);
+  return `${firstName}-${lastName}-${companySlug}-Resume.pdf`;
 }
 
 function titleCaseWords(value: string): string {
@@ -575,16 +587,18 @@ export async function evaluateAndPersistJob(job: Job): Promise<Job> {
 export async function generateAndPersistPdf(
   job: Job,
   tailoringNotes = '',
+  bulletWordRange: CvBulletWordRange = DEFAULT_CV_BULLET_WORD_RANGE,
 ): Promise<Job> {
   const profile = loadProfile();
   const cv = await generateCV(
     { jd: job.jd || `URL: ${job.url}`, category: job.category, focus: job.focus },
     profile,
     tailoringNotes,
+    bulletWordRange,
   );
 
   const theme = 'resume' as const;
-  const filename = `${job.id}-${slugify(job.company)}-${theme}.pdf`;
+  const filename = buildResumeFilename(profile.candidate.name, job.company);
   const pdfPath = join(process.cwd(), 'output', filename);
   await renderPDF(cv, pdfPath);
 

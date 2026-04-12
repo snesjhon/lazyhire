@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildResumeFilename,
   inferRoleAndCompanyFromSignals,
   resolveJobDescriptionText,
   summarizeJobDescription,
@@ -175,5 +176,19 @@ describe('resolveJobDescriptionText', () => {
     });
 
     expect(result).toBe('Short fallback description with more detail than body text.');
+  });
+});
+
+describe('buildResumeFilename', () => {
+  it('formats resume filenames from candidate name and company', () => {
+    expect(buildResumeFilename('Jane Doe', 'Acme AI')).toBe(
+      'jane-doe-acme-ai-Resume.pdf',
+    );
+  });
+
+  it('falls back cleanly for single-name candidates', () => {
+    expect(buildResumeFilename('Prince', 'Example Co')).toBe(
+      'prince-prince-example-co-Resume.pdf',
+    );
   });
 });

@@ -5,6 +5,7 @@ import type { FocusTarget, Overlay } from '../../../shared/ui/state.js';
 import { clip, scoreDisplay } from '../../../shared/lib/utils.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
 import type { AnswerEntry, Job, JobStatus, Profile } from '../../../shared/models/types.js';
+import type { CvBulletWordRange } from '../services/generate.js';
 import AnswerWorkspace from '../../answers/ui/AnswerWorkspace.js';
 import DashboardOverlay from './DashboardOverlay.js';
 import JobActionWorkspace, {
@@ -285,7 +286,7 @@ interface Props {
   onSaveEditJd: (jd: string) => void;
   onSaveStatus: (status: JobStatus) => void;
   onDeleteJob: () => void;
-  onGenerateCv: (guidance: string) => Promise<Job>;
+  onGenerateCv: (guidance: string, bulletWordRange: CvBulletWordRange) => Promise<Job>;
   onGenerateCoverLetter: (guidance: string) => Promise<Job>;
   onOpenProfileActions: (view: ProfileActionView) => void;
   onCloseProfileActions: () => void;

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { parseGeneratedCV, buildGeneratePrompt } from './generate.js';
+import {
+  DEFAULT_CV_BULLET_WORD_RANGE,
+  parseGeneratedCV,
+  buildGeneratePrompt,
+} from './generate.js';
 
 describe('parseGeneratedCV', () => {
   it('parses valid CV JSON', () => {
@@ -54,12 +58,30 @@ describe('buildGeneratePrompt', () => {
     expect(prompt).toContain('Never use em dashes or en dashes');
     expect(prompt).toContain('**double-asterisk emphasis**');
     expect(prompt).toContain('Actively mine the narrative context');
-    expect(prompt).toContain('27-45 words');
     expect(prompt).toContain('high relevant information density');
     expect(prompt).toContain('underline');
     expect(prompt).toContain('technical system detail');
     expect(prompt).toContain('Do not compress bullets into headline-like summaries');
     expect(prompt).toContain('Do not emphasize routine technologies');
     expect(prompt).toContain('trim redundancy and secondary detail');
+    expect(prompt).toContain(
+      `${DEFAULT_CV_BULLET_WORD_RANGE.min}-${DEFAULT_CV_BULLET_WORD_RANGE.max} words`,
+    );
+  });
+
+  it('replaces the bullet word range with the selected values', () => {
+    const prompt = buildGeneratePrompt({
+      jd: 'Frontend engineering role',
+      category: 'engineering',
+      focus: 'frontend',
+      cv: '# Jane',
+      experienceContext: '--- Acme ---',
+      candidate: { name: 'Jane', email: 'j@j.com', location: 'SF', site: 'j.dev' },
+      education: [{ institution: 'UC Davis', degree: 'B.A. Psychology' }],
+      bulletWordRange: { min: 18, max: 32 },
+    });
+
+    expect(prompt).toContain('prefer 18-32 words');
+    expect(prompt).not.toContain('{{BULLET_WORD_RANGE}}');
   });
 });

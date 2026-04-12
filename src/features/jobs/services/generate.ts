@@ -7,6 +7,57 @@ import { buildWritingGuidance } from '../../../shared/ai/writing-guidance.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const GENERATE_PROMPT = readFileSync(join(__dirname, 'prompts', 'generate-cv.md'), 'utf8');
+const BULLET_WORD_RANGE_TOKEN = '{{BULLET_WORD_RANGE}}';
+
+export interface CvBulletWordRange {
+  min: number;
+  max: number;
+}
+
+export interface CvBulletLengthPreset {
+  id: 'tight' | 'compact' | 'balanced' | 'detailed' | 'extended';
+  name: string;
+  description: string;
+  range: CvBulletWordRange;
+}
+
+export const DEFAULT_CV_BULLET_WORD_RANGE: CvBulletWordRange = {
+  min: 25,
+  max: 44,
+};
+
+export const CV_BULLET_LENGTH_PRESETS: CvBulletLengthPreset[] = [
+  {
+    id: 'tight',
+    name: 'Tight',
+    description: 'Lean bullets, 16-24 words',
+    range: { min: 16, max: 24 },
+  },
+  {
+    id: 'compact',
+    name: 'Compact',
+    description: 'Short but specific bullets, 20-32 words',
+    range: { min: 20, max: 32 },
+  },
+  {
+    id: 'balanced',
+    name: 'Balanced',
+    description: 'Default medium-length bullets, 25-44 words',
+    range: DEFAULT_CV_BULLET_WORD_RANGE,
+  },
+  {
+    id: 'detailed',
+    name: 'Detailed',
+    description: 'Richer implementation detail, 32-52 words',
+    range: { min: 32, max: 52 },
+  },
+  {
+    id: 'extended',
+    name: 'Extended',
+    description: 'Most expansive bullets, 40-60 words',
+    range: { min: 40, max: 60 },
+  },
+];
 
 export interface GenerateInput {
   jd: string;
@@ -22,10 +73,17 @@ export interface GenerateInput {
     site: string;
   };
   education: Array<{ institution: string; degree: string }>;
+  bulletWordRange?: CvBulletWordRange;
 }
 
 export function buildGeneratePrompt(input: GenerateInput): string {
-  return `${GENERATE_PROMPT}
+  const bulletWordRange = input.bulletWordRange ?? DEFAULT_CV_BULLET_WORD_RANGE;
+  const promptTemplate = GENERATE_PROMPT.replace(
+    BULLET_WORD_RANGE_TOKEN,
+    `${bulletWordRange.min}-${bulletWordRange.max}`,
+  );
+
+  return `${promptTemplate}
 
 ---
 
@@ -104,6 +162,7 @@ export async function generateCV(
   job: { jd: string; category: string | null; focus: string | null },
   profile: Profile,
   tailoringNotes = '',
+  bulletWordRange: CvBulletWordRange = DEFAULT_CV_BULLET_WORD_RANGE,
 ): Promise<GeneratedCV> {
   const prompt = buildGeneratePrompt({
     jd: job.jd,
@@ -114,6 +173,7 @@ export async function generateCV(
     tailoringNotes,
     candidate: profile.candidate,
     education: profile.education,
+    bulletWordRange,
   });
 
   let responseText = '';

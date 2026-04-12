@@ -34,6 +34,7 @@ import {
   loadProfileOrDefault,
   saveProfile,
 } from './shared/models/profile.js';
+import type { CvBulletWordRange } from './features/jobs/services/generate.js';
 
 const JOB_FILTERS = [
   'Queue',
@@ -362,10 +363,14 @@ export default function App() {
     }
   }
 
-  async function runGenerate(job: Job, guidance: string) {
+  async function runGenerate(
+    job: Job,
+    guidance: string,
+    bulletWordRange: CvBulletWordRange,
+  ) {
     setOverlay('none');
     setFocus('jobs');
-    const updated = await generateAndPersistPdf(job, guidance);
+    const updated = await generateAndPersistPdf(job, guidance, bulletWordRange);
     refreshJobs();
     setSelectedJobId(updated.id);
     return updated;
@@ -745,9 +750,9 @@ export default function App() {
           selectedJob && handleSaveStatus(selectedJob.id, status)
         }
         onDeleteJob={() => selectedJob && handleConfirmDelete(selectedJob.id)}
-        onGenerateCv={(guidance) =>
+        onGenerateCv={(guidance, bulletWordRange) =>
           selectedJob
-            ? runGenerate(selectedJob, guidance)
+            ? runGenerate(selectedJob, guidance, bulletWordRange)
             : Promise.reject(new Error('No job selected'))
         }
         onGenerateCoverLetter={(guidance) =>

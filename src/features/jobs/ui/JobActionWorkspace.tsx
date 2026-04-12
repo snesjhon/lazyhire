@@ -9,6 +9,11 @@ import type {
 import { useEffect, useRef, useState } from 'react';
 import type { UiTheme } from '../../../shared/ui/theme.js';
 import { JOB_STATUSES, type Job, type JobStatus } from '../../../shared/models/types.js';
+import {
+  CV_BULLET_LENGTH_PRESETS,
+  DEFAULT_CV_BULLET_WORD_RANGE,
+  type CvBulletWordRange,
+} from '../services/generate.js';
 
 export type JobActionView =
   | 'menu'
@@ -26,7 +31,7 @@ const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<TextareaOptions['keyBindings']> 
   { name: 'o', ctrl: true, action: 'submit' },
 ];
 type GenerateCvState =
-  | { step: 'editing' }
+  | { step: 'editing'; phase: 'preset' | 'guidance' }
   | { step: 'submitting' }
   | { step: 'success'; pdfPath: string | null }
   | { step: 'error'; message: string };
@@ -51,7 +56,7 @@ interface Props {
   onSaveEditJd: (jd: string) => void;
   onSaveStatus: (status: JobStatus) => void;
   onDelete: () => void;
-  onGenerateCv: (guidance: string) => Promise<Job>;
+  onGenerateCv: (guidance: string, bulletWordRange: CvBulletWordRange) => Promise<Job>;
   onGenerateCoverLetter: (guidance: string) => Promise<Job>;
 }
 
@@ -78,8 +83,13 @@ export default function JobActionWorkspace({
   const [metadataDraft, setMetadataDraft] = useState('');
   const [editJdDraft, setEditJdDraft] = useState(job.jd);
   const [cvGuidance, setCvGuidance] = useState('');
+  const [cvBulletWordRange, setCvBulletWordRange] = useState<CvBulletWordRange>(
+    DEFAULT_CV_BULLET_WORD_RANGE,
+  );
+  const [selectedCvPresetId, setSelectedCvPresetId] = useState<string>('balanced');
   const [generateCvState, setGenerateCvState] = useState<GenerateCvState>({
     step: 'editing',
+    phase: 'preset',
   });
 
   const metadataInputRef = useRef<InputRenderable>(null);
@@ -102,7 +112,12 @@ export default function JobActionWorkspace({
     setView(initialView);
     setEditJdDraft(job.jd);
     setCvGuidance('');
-    setGenerateCvState({ step: 'editing' });
+    setCvBulletWordRange(DEFAULT_CV_BULLET_WORD_RANGE);
+    setSelectedCvPresetId('balanced');
+    setGenerateCvState({
+      step: 'editing',
+      phase: initialView === 'generate-cover-letter' ? 'guidance' : 'preset',
+    });
     if (initialView === 'edit-company') setMetadataDraft(job.company);
     if (initialView === 'edit-role') setMetadataDraft(job.role);
     if (initialView === 'edit-url') setMetadataDraft(job.url);
@@ -131,12 +146,21 @@ export default function JobActionWorkspace({
       editJdInputRef.current?.focus();
     }
     if (view === 'generate-cv' || view === 'generate-cover-letter') {
-      if (generateCvState.step === 'editing') {
+      if (generateCvState.step === 'editing' && generateCvState.phase === 'guidance') {
         setCvGuidance('');
         guidanceInputRef.current?.focus();
       }
     }
-  }, [generateCvState.step, job.company, job.jd, job.notes, job.role, job.url, view]);
+  }, [
+    generateCvState.step,
+    generateCvState.step === 'editing' ? generateCvState.phase : null,
+    job.company,
+    job.jd,
+    job.notes,
+    job.role,
+    job.url,
+    view,
+  ]);
 
   function saveMetadata() {
     const value = metadataDraft.trim();
@@ -241,8 +265,19 @@ export default function JobActionWorkspace({
     )
       return;
     if (view === 'menu') onClose();
+    else if (
+      view === 'generate-cv' &&
+      generateCvState.step === 'editing' &&
+      generateCvState.phase === 'guidance'
+    ) {
+      setCvGuidance('');
+      setGenerateCvState({ step: 'editing', phase: 'preset' });
+    }
     else {
-      setGenerateCvState({ step: 'editing' });
+      setGenerateCvState({
+        step: 'editing',
+        phase: view === 'generate-cover-letter' ? 'guidance' : 'preset',
+      });
       setView('menu');
     }
   });
@@ -256,7 +291,9 @@ export default function JobActionWorkspace({
             ? `Actions for #${job.id}. Enter to run, esc to return.`
             : (view === 'generate-cv' || view === 'generate-cover-letter') &&
                 generateCvState.step === 'editing'
-              ? 'ctrl-o=generate, esc=back'
+              ? generateArtifact === 'cv' && generateCvState.phase === 'preset'
+                ? 'enter=choose range, esc=back'
+                : 'ctrl-o=generate, esc=back'
               : generateCvState.step === 'submitting'
                 ? generateArtifact === 'cover-letter'
                   ? 'Generating cover letter...'
@@ -342,42 +379,93 @@ export default function JobActionWorkspace({
 
         {view === 'generate-cv' || view === 'generate-cover-letter' ? (
           generateCvState.step === 'editing' ? (
-            <textarea
-              ref={guidanceInputRef}
-              height={Math.max(6, height - 5)}
-              initialValue={cvGuidance}
-              placeholder={
-                generateArtifact === 'cover-letter'
-                  ? 'Optional cover letter guidance.'
-                  : 'Optional tailoring guidance.'
-              }
-              keyBindings={TEXTAREA_SUBMIT_KEY_BINDINGS}
-              onContentChange={() => setCvGuidance(guidanceInputRef.current?.plainText ?? '')}
-              onSubmit={async () => {
-                setGenerateCvState({ step: 'submitting' });
-                try {
-                  const updated = generateArtifact === 'cover-letter'
-                    ? await onGenerateCoverLetter(guidanceInputRef.current?.plainText ?? '')
-                    : await onGenerateCv(guidanceInputRef.current?.plainText ?? '');
-                  setGenerateCvState({
-                    step: 'success',
-                    pdfPath:
-                      generateArtifact === 'cover-letter'
-                        ? updated.coverLetterPdfPath
-                        : updated.pdfPath,
-                  });
-                } catch (error) {
-                  setGenerateCvState({
-                    step: 'error',
-                    message:
-                      generateArtifact === 'cover-letter'
-                        ? `Cover letter generation failed: ${String(error)}`
-                        : `CV generation failed: ${String(error)}`,
-                  });
-                }
-              }}
-              focused
-            />
+            generateArtifact === 'cv' && generateCvState.phase === 'preset' ? (
+              <select
+                height={Math.max(6, height - 2)}
+                width={Math.max(20, width)}
+                focused
+                options={CV_BULLET_LENGTH_PRESETS.map((preset) => ({
+                  name: preset.name,
+                  description: preset.description,
+                  value: preset.id,
+                }))}
+                selectedIndex={CV_BULLET_LENGTH_PRESETS.findIndex(
+                  (preset) => preset.id === selectedCvPresetId,
+                )}
+                showDescription
+                itemSpacing={0}
+                backgroundColor={theme.transparent}
+                focusedBackgroundColor={theme.transparent}
+                selectedBackgroundColor={theme.transparent}
+                selectedTextColor={theme.brand}
+                selectedDescriptionColor={theme.muted}
+                onChange={(_, option) => {
+                  const preset = CV_BULLET_LENGTH_PRESETS.find(
+                    (entry) => entry.id === option?.value,
+                  );
+                  if (!preset) return;
+                  setSelectedCvPresetId(preset.id);
+                  setCvBulletWordRange(preset.range);
+                }}
+                onSelect={(_, option) => {
+                  const preset = CV_BULLET_LENGTH_PRESETS.find(
+                    (entry) => entry.id === option?.value,
+                  );
+                  if (!preset) return;
+                  setSelectedCvPresetId(preset.id);
+                  setCvBulletWordRange(preset.range);
+                  setGenerateCvState({ step: 'editing', phase: 'guidance' });
+                }}
+              />
+            ) : (
+              <box flexDirection="column" width={Math.max(20, width)} rowGap={1}>
+                {generateArtifact === 'cv' ? (
+                  <text
+                    fg={theme.muted}
+                    content={`Bullet length: ${cvBulletWordRange.min}-${cvBulletWordRange.max} words. esc=change range.`}
+                  />
+                ) : null}
+                <textarea
+                  ref={guidanceInputRef}
+                  height={Math.max(6, height - (generateArtifact === 'cv' ? 7 : 5))}
+                  initialValue={cvGuidance}
+                  placeholder={
+                    generateArtifact === 'cover-letter'
+                      ? 'Optional cover letter guidance.'
+                      : 'Optional tailoring guidance.'
+                  }
+                  keyBindings={TEXTAREA_SUBMIT_KEY_BINDINGS}
+                  onContentChange={() => setCvGuidance(guidanceInputRef.current?.plainText ?? '')}
+                  onSubmit={async () => {
+                    setGenerateCvState({ step: 'submitting' });
+                    try {
+                      const updated = generateArtifact === 'cover-letter'
+                        ? await onGenerateCoverLetter(guidanceInputRef.current?.plainText ?? '')
+                        : await onGenerateCv(
+                            guidanceInputRef.current?.plainText ?? '',
+                            cvBulletWordRange,
+                          );
+                      setGenerateCvState({
+                        step: 'success',
+                        pdfPath:
+                          generateArtifact === 'cover-letter'
+                            ? updated.coverLetterPdfPath
+                            : updated.pdfPath,
+                      });
+                    } catch (error) {
+                      setGenerateCvState({
+                        step: 'error',
+                        message:
+                          generateArtifact === 'cover-letter'
+                            ? `Cover letter generation failed: ${String(error)}`
+                            : `CV generation failed: ${String(error)}`,
+                      });
+                    }
+                  }}
+                  focused
+                />
+              </box>
+            )
           ) : generateCvState.step === 'submitting' ? (
             <box
               flexDirection="column"
@@ -451,9 +539,17 @@ export default function JobActionWorkspace({
               focusedBackgroundColor={theme.transparent}
               selectedBackgroundColor={theme.transparent}
               onSelect={(_, option) => {
-                if (option?.value === 'retry') setGenerateCvState({ step: 'editing' });
+                if (option?.value === 'retry') {
+                  setGenerateCvState({
+                    step: 'editing',
+                    phase: generateArtifact === 'cover-letter' ? 'guidance' : 'preset',
+                  });
+                }
                 if (option?.value === 'back') {
-                  setGenerateCvState({ step: 'editing' });
+                  setGenerateCvState({
+                    step: 'editing',
+                    phase: generateArtifact === 'cover-letter' ? 'guidance' : 'preset',
+                  });
                   setView('menu');
                 }
               }}
