@@ -1,9 +1,10 @@
 import { readFileSync } from 'fs';
-import pdfParse from 'pdf-parse/lib/pdf-parse.js';
+import { extractText, getDocumentProxy } from 'unpdf';
 
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  const result = await pdfParse(buffer);
-  return result.text.trim();
+  const doc = await getDocumentProxy(new Uint8Array(buffer));
+  const { text } = await extractText(doc, { mergePages: true });
+  return (text as string).trim();
 }
 
 export async function fetchPdfFromUrl(url: string): Promise<Buffer> {
