@@ -1,4 +1,5 @@
 import { query } from '@anthropic-ai/claude-code';
+import { getClaudeQueryOptions } from '../../../shared/ai/claude.js';
 import type { ScanJob, Profile } from '../../../shared/models/types.js';
 
 function buildQueries(profile: Profile): string[] {
@@ -37,10 +38,10 @@ If no results found, respond with exactly: []`;
   try {
     for await (const message of query({
       prompt,
-      options: {
+      options: getClaudeQueryOptions({
         maxTurns: 20,
         allowedTools: ['WebSearch'],
-      },
+      }),
     })) {
       if (message.type === 'result' && message.subtype === 'success') {
         responseText = message.result;

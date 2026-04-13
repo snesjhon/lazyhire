@@ -1,5 +1,6 @@
 import { query } from '@anthropic-ai/claude-code';
 import type { GeneratedCV, Experience, Profile } from '../../../shared/models/types.js';
+import { getClaudeQueryOptions } from '../../../shared/ai/claude.js';
 import { buildWritingGuidance } from '../../../shared/ai/writing-guidance.js';
 import GENERATE_PROMPT from './prompts/generate-cv.md' with { type: 'text' };
 const BULLET_WORD_RANGE_TOKEN = '{{BULLET_WORD_RANGE}}';
@@ -255,7 +256,7 @@ export async function generateCV(
   });
 
   let responseText = '';
-  for await (const message of query({ prompt, options: { maxTurns: 1 } })) {
+  for await (const message of query({ prompt, options: getClaudeQueryOptions({ maxTurns: 1 }) })) {
     if (message.type === 'result' && message.subtype === 'success') {
       responseText = message.result;
     }

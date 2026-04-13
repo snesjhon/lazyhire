@@ -1,6 +1,7 @@
 import { query } from '@anthropic-ai/claude-code';
 import { answersDb } from '../../../shared/data/db.js';
 import type { AnswerEntry, GeneratedCoverLetter, Job, Profile } from '../../../shared/models/types.js';
+import { getClaudeQueryOptions } from '../../../shared/ai/claude.js';
 import { buildWritingGuidance } from '../../../shared/ai/writing-guidance.js';
 import GENERATE_PROMPT from './prompts/generate-cover-letter.md' with { type: 'text' };
 const TOTAL_WORD_COUNT_TOKEN = '{{TOTAL_WORD_COUNT}}';
@@ -195,7 +196,7 @@ export async function generateCoverLetter(
   });
 
   let responseText = '';
-  for await (const message of query({ prompt, options: { maxTurns: 1 } })) {
+  for await (const message of query({ prompt, options: getClaudeQueryOptions({ maxTurns: 1 }) })) {
     if (message.type === 'result' && message.subtype === 'success') {
       responseText = message.result;
     }

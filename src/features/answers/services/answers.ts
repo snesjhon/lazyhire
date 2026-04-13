@@ -1,5 +1,6 @@
 import { query } from '@anthropic-ai/claude-code';
 import type { AnswerCategory, Job, Profile } from '../../../shared/models/types.js';
+import { getClaudeQueryOptions } from '../../../shared/ai/claude.js';
 import { buildWritingGuidance } from '../../../shared/ai/writing-guidance.js';
 
 export const TONE_OPTIONS = [
@@ -70,7 +71,7 @@ function buildJobContext(
 
 async function runQuery(prompt: string): Promise<string> {
   let result = '';
-  for await (const message of query({ prompt, options: { maxTurns: 1 } })) {
+  for await (const message of query({ prompt, options: getClaudeQueryOptions({ maxTurns: 1 }) })) {
     if (message.type === 'result' && message.subtype === 'success') {
       result = message.result;
     }

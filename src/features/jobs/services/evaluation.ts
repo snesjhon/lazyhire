@@ -1,5 +1,6 @@
 import { query } from '@anthropic-ai/claude-code';
 import type { EvaluationResult, Profile } from '../../../shared/models/types.js';
+import { getClaudeQueryOptions } from '../../../shared/ai/claude.js';
 import CATEGORIES_PROMPT from './prompts/categories.md' with { type: 'text' };
 import EVALUATION_PROMPT from './prompts/evaluation.md' with { type: 'text' };
 
@@ -62,7 +63,7 @@ export function parseEvaluationResult(text: string): EvaluationResult {
 
 async function runEvaluationQuery(prompt: string): Promise<string> {
   let responseText = '';
-  for await (const message of query({ prompt, options: { maxTurns: 1 } })) {
+  for await (const message of query({ prompt, options: getClaudeQueryOptions({ maxTurns: 1 }) })) {
     if (message.type === 'result' && message.subtype === 'success') {
       responseText = message.result;
     }
