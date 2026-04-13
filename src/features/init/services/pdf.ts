@@ -1,14 +1,9 @@
 import { readFileSync } from 'fs';
-import { PDFParse } from 'pdf-parse';
+import pdfParse from 'pdf-parse';
 
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  const parser = new PDFParse({ data: buffer });
-  try {
-    const result = await parser.getText();
-    return result.text.trim();
-  } finally {
-    await parser.destroy();
-  }
+  const result = await pdfParse(buffer);
+  return result.text.trim();
 }
 
 export async function fetchPdfFromUrl(url: string): Promise<Buffer> {
