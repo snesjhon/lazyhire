@@ -86,6 +86,12 @@ This is useful for building a bank of role-specific answers before recruiter scr
 
 ## Install
 
+```bash
+curl -fsSL https://raw.githubusercontent.com/snesjhon/lazyhire/main/install.sh | bash
+```
+
+## Development
+
 ### Requirements
 
 - `bun`
