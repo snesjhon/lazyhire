@@ -61,7 +61,9 @@ jobs:
             '  <key>com.apple.security.cs.disable-library-validation</key><true/>' \
             '</dict></plist>' > entitlements.plist
           cat entitlements.plist
+          codesign --remove-signature lazyhire-mac-arm64 || true
           codesign --sign "Developer ID Application: Jhonatan Paredes ($APPLE_TEAM_ID)" \
+            --options runtime \
             --timestamp \
             --force \
             --entitlements entitlements.plist \
