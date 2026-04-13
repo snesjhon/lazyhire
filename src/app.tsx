@@ -16,7 +16,6 @@ import {
   hydrateJobFromUrl,
   inferFromJdText,
   saveJob,
-  summarizeJobDescription,
 } from './features/jobs/services/jobs.js';
 import type { Job, JobStatus } from './shared/models/types.js';
 import { answersDb } from './shared/data/db.js';
@@ -123,6 +122,9 @@ export default function App() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<Overlay>('none');
   const [evaluatingMessage, setEvaluatingMessage] = useState<string | null>(
+    null,
+  );
+  const [addUrlFailureMessage, setAddUrlFailureMessage] = useState<string | null>(
     null,
   );
   const [answerJobId, setAnswerJobId] = useState<string | null>(null);
@@ -303,6 +305,7 @@ export default function App() {
   }
 
   function startEvaluatingOverlay(message: string) {
+    setAddUrlFailureMessage(null);
     setEvaluatingMessage(message);
     setOverlay('add-evaluating');
     setAnswerJobId(null);
@@ -317,6 +320,16 @@ export default function App() {
     setFocus(nextFocus);
   }
 
+  function showAddUrlFailure(message: string) {
+    setEvaluatingMessage(null);
+    setAddUrlFailureMessage(message);
+    setOverlay('add-crawl-failed');
+    setAnswerJobId(null);
+    setJobActionState(null);
+    setDetailSource('jobs');
+    setFocus('detail');
+  }
+
   async function handleAddUrl(url: string) {
     url = url.trim();
     if (!url) {
@@ -324,6 +337,7 @@ export default function App() {
       setFocus('jobs');
       return;
     }
+    let shouldCloseEvaluatingOverlay = true;
     const finishTask = startTask('Hydrating and evaluating link');
     startEvaluatingOverlay(
       'Please wait while the job link is hydrated and evaluated.',
@@ -346,23 +360,14 @@ export default function App() {
         );
       }
     } catch (error) {
-      const fallback = saveJob(
-        createPendingJob({
-          company: 'Unknown Company',
-          role: 'Pasted Link',
-          url,
-          jd: '',
-        }),
+      shouldCloseEvaluatingOverlay = false;
+      showAddUrlFailure(
+        `Couldn't crawl the site. Would you like to add it manually instead?\n\n${String(error)}`,
       );
-      refreshJobs();
-      setSelectedJobId(fallback.id);
-      setFlash(
-        `Saved #${fallback.id} as Pending after intake failed: ${String(error)}`,
-        'warning',
-      );
+      setFlash('Could not crawl the job link. Paste the JD manually instead.', 'warning');
     } finally {
-      stopEvaluatingOverlay();
       finishTask();
+      if (shouldCloseEvaluatingOverlay) stopEvaluatingOverlay();
     }
   }
 
@@ -389,7 +394,6 @@ export default function App() {
           role,
           url: '',
           jd,
-          jdSummary: summarizeJobDescription(jd),
         }),
       );
       refreshJobs();
@@ -466,7 +470,7 @@ export default function App() {
     const trimmedJd = jd.trim();
     db.updateJob(jobId, {
       jd: trimmedJd,
-      jdSummary: summarizeJobDescription(trimmedJd),
+      jdSummary: '',
     });
     refreshJobs();
     setOverlay('none');
@@ -515,6 +519,7 @@ export default function App() {
 
   function closeOverlay() {
     if (overlay === 'add-evaluating') return;
+    setAddUrlFailureMessage(null);
     setOverlay('none');
     setFocus('jobs');
     setDetailSource('jobs');
@@ -898,6 +903,12 @@ export default function App() {
         onChooseManualOnboarding={chooseManualOnboarding}
         onAddUrl={handleAddUrl}
         onAddJd={handleAddJd}
+        addUrlFailureMessage={addUrlFailureMessage}
+        onRetryAddManually={() => {
+          setAddUrlFailureMessage(null);
+          setOverlay('add-jd');
+          setFocus('detail');
+        }}
         onOverlayChange={setOverlay}
         onCloseOverlay={closeOverlay}
       />

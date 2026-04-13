@@ -40,6 +40,11 @@ export interface EvaluationResult {
   category: string;
   focus: string | null;
   recommendation: 'apply' | 'consider' | 'discard';
+  jobSummary: {
+    company: string;
+    alignments: string[];
+    gaps: string[];
+  };
   blockA: {
     tldr: string;
     domain: string;

@@ -5,6 +5,7 @@ import { db } from '../../../shared/data/db.js';
 import { loadProfile } from '../../../shared/models/profile.js';
 import { DATA_DIR } from '../../../shared/lib/paths.js';
 import { evaluateJob } from './evaluation.js';
+import { formatJobSummary } from './evaluation.js';
 import {
   DEFAULT_CV_BULLET_WORD_RANGE,
   DEFAULT_CV_TEXT_SIZE_SCALE,
@@ -99,6 +100,41 @@ function normalizeMarkdown(value: string): string {
     .trim();
 }
 
+function normalizeSummarySource(value: string): string {
+  const sectionLabels = [
+    'Duties & Responsibilities',
+    'Develops and Implements Software Applications',
+    'Designs Software Applications',
+    'Supports Software Applications',
+    'Minimum Qualifications',
+    'Additional Information for US based jobs',
+    'Additional Information',
+    'Technical Skills',
+    'Responsibilities',
+    'Qualifications',
+    'Requirements',
+    'Benefits',
+    'Compensation',
+    'Our Mission',
+    'Our Values',
+    'Company Description',
+  ];
+
+  let normalized = normalizeMarkdown(value);
+  for (const label of sectionLabels) {
+    const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    normalized = normalized.replace(
+      new RegExp(`\\s+(${escapedLabel})(?=[:\\s])`, 'gi'),
+      '\n\n## $1\n',
+    );
+  }
+
+  return normalized
+    .replace(/:\s+/g, ':\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function sectionBodyFromHeading(
   lines: string[],
   headingPattern: RegExp,
@@ -120,6 +156,41 @@ function sectionBodyFromHeading(
   return body.length > 0 ? body.join('\n') : null;
 }
 
+function looksLikeSummaryNoise(line: string): boolean {
+  const normalized = cleanText(line).toLowerCase();
+  const isCompensationLine =
+    /\$\d/.test(normalized) || /\b(compensation|salary|equity|bonus)\b/.test(normalized);
+  return (
+    !normalized ||
+    normalized.length < 20 ||
+    normalized.length > 220 ||
+    normalized === 'new' ||
+    normalized === 'apply' ||
+    normalized === 'back to jobs' ||
+    normalized === 'create alert' ||
+    normalized === 'submit application' ||
+    normalized === 'select...' ||
+    normalized === 'locate me' ||
+    normalized === 'attachattach' ||
+    normalized === 'dropbox' ||
+    normalized === 'google drive' ||
+    normalized === 'enter manuallyenter manually' ||
+    normalized === 'autofill with mygreenhouse' ||
+    normalized === 'indicates a required field' ||
+    normalized.startsWith('accepted file types') ||
+    normalized.startsWith('if you are an ai agent') ||
+    normalized.includes('#li-remote') ||
+    normalized.includes('#li-sw') ||
+    (looksLikeRole(normalized) &&
+      normalized.length < 80 &&
+      !/[.!?:]/.test(normalized)) ||
+    (/^[#*]+/.test(normalized) && !isCompensationLine) ||
+    /^\w+\*+$/.test(normalized) ||
+    /\b(remote)\b/.test(normalized) && normalized.length < 40 ||
+    /\b(city|country|phone|email|resume\/cv|cover letter|linkedin profile|first name|last name)\b/.test(normalized)
+  );
+}
+
 function firstMatchingLines(
   lines: string[],
   patterns: RegExp[],
@@ -131,6 +202,7 @@ function firstMatchingLines(
     if (
       normalized.length >= 18 &&
       normalized.length <= 180 &&
+      !looksLikeSummaryNoise(normalized) &&
       patterns.some((pattern) => pattern.test(normalized)) &&
       !matches.includes(normalized)
     ) {
@@ -142,13 +214,49 @@ function firstMatchingLines(
 }
 
 function excerptLines(value: string, limit: number): string[] {
-  return value
-    .split(/\n+/)
-    .map((line) =>
-      cleanText(line.replace(/^#+\s*/, '').replace(/^[-*]\s+/, '')),
-    )
-    .filter((line) => line.length >= 24 && line.length <= 180)
-    .slice(0, limit);
+  const excerpts: string[] = [];
+
+  for (const rawLine of value.split(/\n+/)) {
+    const cleaned = cleanText(
+      rawLine.replace(/^#+\s*/, '').replace(/^[-*]\s+/, ''),
+    );
+    if (!cleaned || looksLikeSummaryNoise(cleaned)) continue;
+
+    const candidates =
+      cleaned.length <= 180
+        ? [cleaned]
+        : cleaned
+            .split(/(?<=[.!?])\s+/)
+            .map((sentence) => cleanText(sentence))
+            .filter(Boolean);
+
+    for (const candidate of candidates) {
+      if (
+        candidate.length >= 24 &&
+        candidate.length <= 220 &&
+        !looksLikeSummaryNoise(candidate)
+      ) {
+        excerpts.push(candidate);
+      }
+      if (excerpts.length >= limit) return excerpts;
+    }
+  }
+
+  return excerpts;
+}
+
+function firstSentence(value: string): string {
+  const cleaned = cleanText(value);
+  if (!cleaned) return '';
+  const match = cleaned.match(/(.{24,220}?[.!?])(?:\s|$)/);
+  return cleanText(match?.[1] ?? cleaned);
+}
+
+function joinSummaryBits(parts: Array<string | null | undefined>): string {
+  return parts
+    .map((part) => cleanText(part ?? ''))
+    .filter(Boolean)
+    .join(' ');
 }
 
 function looksLikeShellText(value: string): boolean {
@@ -156,6 +264,12 @@ function looksLikeShellText(value: string): boolean {
   return (
     !normalized ||
     normalized.length < 120 ||
+    normalized.includes('just a moment') ||
+    normalized.includes('attention required') ||
+    normalized.includes('verify you are human') ||
+    normalized.includes('checking your browser') ||
+    normalized.includes('cf-browser-verification') ||
+    normalized.includes('cloudflare') ||
     normalized.includes('enable javascript to run this app') ||
     normalized === 'apply for this job'
   );
@@ -178,7 +292,7 @@ export function resolveJobDescriptionText(signals: JobSignals): string {
 }
 
 export function summarizeJobDescription(jd: string): string {
-  const markdown = normalizeMarkdown(jd);
+  const markdown = normalizeSummarySource(jd);
   if (!markdown) return '';
 
   const lines = markdown
@@ -189,19 +303,24 @@ export function summarizeJobDescription(jd: string): string {
   const overview =
     sectionBodyFromHeading(
       lines,
-      /^(about|overview|the role|role summary|job summary|what you'll do)$/i,
+      /^(about|overview|the role|role summary|job summary|what you'll do|about us|company description)$/i,
     ) ?? excerptLines(markdown, 2).join('\n');
   const responsibilities = sectionBodyFromHeading(
     lines,
-    /^(responsibilities|what you'll do|you will|in this role|the work)$/i,
+    /^(responsibilities|what you'll do|you will|in this role|in this role,? you['’]ll:?|the work|projects you might work on:?$)/i,
   );
   const requirements = sectionBodyFromHeading(
     lines,
-    /^(requirements|qualifications|what we're looking for|you have|about you|skills)$/i,
+    /^(requirements|qualifications|what we're looking for|you have|about you|skills|is this role right for you\??|minimum qualifications)$/i,
   );
   const benefits = sectionBodyFromHeading(
     lines,
     /^(benefits|compensation|salary|perks|what we offer)$/i,
+  );
+  const compensation = firstMatchingLines(
+    lines,
+    [/\$\d[\d,]*(?:\s*[-–]\s*\$?\d[\d,]*)?|\bequity\b|\bbonus\b|\bbenefits\b/i],
+    2,
   );
 
   const seniority = firstMatchingLines(
@@ -212,7 +331,7 @@ export function summarizeJobDescription(jd: string): string {
   const stack = firstMatchingLines(
     lines,
     [
-      /\b(typescript|javascript|react|node|python|ruby|go|rust|java|kubernetes|aws|gcp|azure|postgres|sql|graphql|ai|ml|llm)\b/i,
+      /\b(typescript|javascript|react|node|python|ruby|go|golang|rust|java|kubernetes|aws|gcp|azure|postgres|postgresql|sql|graphql|api|apis|ai|ml|llm)\b/i,
     ],
     4,
   );
@@ -222,28 +341,69 @@ export function summarizeJobDescription(jd: string): string {
     3,
   );
 
-  const summary: string[] = ['## Job Description Summary'];
-  if (overview) summary.push('', '**Overview**', overview);
-  if (responsibilities)
-    summary.push('', '**Responsibilities**', responsibilities);
-  if (requirements) summary.push('', '**Requirements**', requirements);
-  if (stack.length > 0)
-    summary.push(
-      '',
-      '**Likely Stack / Domain**',
-      ...stack.map((line) => `- ${line}`),
-    );
-  if (seniority.length > 0)
-    summary.push(
-      '',
-      '**Seniority Signals**',
-      ...seniority.map((line) => `- ${line}`),
-    );
-  if (workModel.length > 0)
-    summary.push('', '**Work Model**', ...workModel.map((line) => `- ${line}`));
-  if (benefits) summary.push('', '**Compensation / Benefits**', benefits);
+  const paragraphOne = joinSummaryBits([
+    firstSentence(overview),
+    responsibilities
+      ? `Key responsibilities include ${cleanText(firstSentence(responsibilities)).replace(/[.!?]+$/g, '')}.`
+      : null,
+    seniority.length > 0
+      ? `The role targets ${seniority.map((line) => cleanText(line).replace(/[.!?]+$/g, '')).join(' and ')}.`
+      : null,
+  ]);
 
-  return normalizeMarkdown(summary.join('\n')).slice(0, 5000);
+  const paragraphTwo = joinSummaryBits([
+    requirements
+      ? `Core requirements include ${cleanText(firstSentence(requirements)).replace(/[.!?]+$/g, '')}.`
+      : null,
+    stack.length > 0
+      ? `The posting emphasizes ${stack
+          .map((line) => cleanText(firstSentence(line)).replace(/[.!?]+$/g, ''))
+          .join('; ')}.`
+      : null,
+    workModel.length > 0
+      ? `Work model signals include ${workModel
+          .map((line) => cleanText(firstSentence(line)).replace(/[.!?]+$/g, ''))
+          .join('; ')}.`
+      : null,
+    benefits
+      ? `Compensation or benefits highlights: ${cleanText(firstSentence(benefits)).replace(/[.!?]+$/g, '')}.`
+      : compensation.length > 0
+        ? `Compensation or benefits highlights: ${compensation
+            .map((line) => cleanText(firstSentence(line)).replace(/[.!?]+$/g, ''))
+            .join('; ')}.`
+      : null,
+  ]);
+
+  return [paragraphOne, paragraphTwo]
+    .map((paragraph) => cleanText(paragraph))
+    .filter(Boolean)
+    .join('\n\n')
+    .slice(0, 5000);
+}
+
+function looksLikeBlockedPageLabel(value: string): boolean {
+  const normalized = cleanText(value).toLowerCase();
+  return (
+    !normalized ||
+    normalized === 'career page' ||
+    normalized === 'unknown company' ||
+    normalized === 'pasted link' ||
+    normalized === 'apply for this job' ||
+    normalized.includes('just a moment') ||
+    normalized.includes('attention required') ||
+    normalized.includes('verify you are human') ||
+    normalized.includes('checking your browser') ||
+    normalized.includes('cloudflare')
+  );
+}
+
+export function hydratedJobLooksValid(job: Pick<Job, 'company' | 'role' | 'jd'>): boolean {
+  const hasMeaningfulCompany = !looksLikeBlockedPageLabel(job.company);
+  const hasMeaningfulRole = !looksLikeBlockedPageLabel(job.role);
+  const hasMeaningfulJd = !looksLikeShellText(job.jd);
+
+  if (hasMeaningfulJd) return true;
+  return hasMeaningfulCompany && hasMeaningfulRole;
 }
 
 function normalizeSegment(value: string): string {
@@ -527,13 +687,21 @@ export async function hydrateJobFromUrl(
     );
     const jd = resolveJobDescriptionText(signals);
 
-    return {
+    const hydrated = {
       company,
       role,
       url: page.url(),
       jd,
       jdSummary: summarizeJobDescription(jd),
     };
+
+    if (!hydratedJobLooksValid(hydrated)) {
+      throw new Error(
+        'Could not crawl enough job details from this page. Paste the job description manually instead.',
+      );
+    }
+
+    return hydrated;
   } finally {
     await page.close().catch(() => null);
     await browser.close().catch(() => null);
@@ -551,7 +719,7 @@ export function createPendingJob(
     role: partial.role,
     url: partial.url,
     jd: partial.jd,
-    jdSummary: partial.jdSummary ?? summarizeJobDescription(partial.jd),
+    jdSummary: partial.jdSummary ?? '',
     status: 'Pending',
     score: null,
     category: null,
@@ -576,6 +744,7 @@ export async function evaluateAndPersistJob(job: Job): Promise<Job> {
 
   const updated: Job = {
     ...job,
+    jdSummary: formatJobSummary(result),
     status: 'Evaluated',
     score: result.score,
     category: result.category,
@@ -583,6 +752,7 @@ export async function evaluateAndPersistJob(job: Job): Promise<Job> {
     reportPath: null,
   };
   db.updateJob(job.id, {
+    jdSummary: updated.jdSummary,
     status: updated.status,
     score: updated.score,
     category: updated.category,

@@ -480,6 +480,8 @@ interface Props {
   onChooseManualOnboarding: () => void;
   onAddUrl: (url: string) => Promise<void>;
   onAddJd: (jd: string) => Promise<void>;
+  addUrlFailureMessage?: string | null;
+  onRetryAddManually: () => void;
   onOverlayChange: (overlay: Overlay) => void;
   onCloseOverlay: () => void;
 }
@@ -536,6 +538,8 @@ export default function DashboardScreen({
   onChooseManualOnboarding,
   onAddUrl,
   onAddJd,
+  addUrlFailureMessage,
+  onRetryAddManually,
   onOverlayChange,
   onCloseOverlay,
 }: Props) {
@@ -604,6 +608,8 @@ export default function DashboardScreen({
           ? 'Paste Job Link'
           : overlay === 'add-jd'
             ? 'Paste Job Description'
+            : overlay === 'add-crawl-failed'
+              ? 'Crawl Failed'
             : 'Evaluating Job'
       : selectedJob && isAnswering
         ? `Answer #${selectedJob.id}`
@@ -843,8 +849,10 @@ export default function DashboardScreen({
                   width={Math.max(20, detailWidth - 6)}
                   height={detailHeight - 2}
                   evaluatingMessage={evaluatingMessage}
+                  addUrlFailureMessage={addUrlFailureMessage}
                   onAddUrl={onAddUrl}
                   onAddJd={onAddJd}
+                  onRetryAddManually={onRetryAddManually}
                   onOverlayChange={onOverlayChange}
                   onClose={onCloseOverlay}
                 />

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseEvaluationResult, buildEvalPrompt } from './evaluation.js';
+import { parseEvaluationResult, buildEvalPrompt, formatJobSummary } from './evaluation.js';
 
 describe('parseEvaluationResult', () => {
   it('parses valid evaluation JSON', () => {
@@ -8,6 +8,11 @@ describe('parseEvaluationResult', () => {
       category: 'engineering',
       focus: 'platform',
       recommendation: 'apply',
+      jobSummary: {
+        company: 'Acme builds developer infrastructure software for enterprise teams.',
+        alignments: ['Strong TypeScript and platform fit.', 'Comp is within target range.'],
+        gaps: ['Hybrid expectation may conflict with full-remote preference.'],
+      },
       blockA: {
         tldr: 'Senior platform role',
         domain: 'platform',
@@ -31,6 +36,7 @@ describe('parseEvaluationResult', () => {
     expect(result.category).toBe('engineering');
     expect(result.focus).toBe('platform');
     expect(result.recommendation).toBe('apply');
+    expect(result.jobSummary.alignments).toHaveLength(2);
     expect(result.blockB.matches).toHaveLength(1);
   });
 
@@ -40,6 +46,22 @@ describe('parseEvaluationResult', () => {
 
   it('throws on invalid JSON', () => {
     expect(() => parseEvaluationResult('not json')).toThrow();
+  });
+});
+
+describe('formatJobSummary', () => {
+  it('formats the structured job summary for dashboard display', () => {
+    const summary = formatJobSummary({
+      jobSummary: {
+        company: 'Acme builds workflow automation software for security teams.',
+        alignments: ['Strong backend and TypeScript fit.', 'Salary is within target range.'],
+        gaps: ['Hybrid expectation may be a mismatch.'],
+      },
+    });
+
+    expect(summary).toContain('Acme builds workflow automation software for security teams.');
+    expect(summary).toContain('Alignments: Strong backend and TypeScript fit. Salary is within target range.');
+    expect(summary).toContain('Gaps: Hybrid expectation may be a mismatch.');
   });
 });
 

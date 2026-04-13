@@ -17,6 +17,7 @@ function isTextareaSubmitKey(key: KeyEvent): boolean {
 function overlayTitle(overlay: Overlay): string {
   if (overlay === 'add-url') return 'Submit a Job Link';
   if (overlay === 'add-jd') return 'Submit your Job Description (ctrl-o)';
+  if (overlay === 'add-crawl-failed') return 'Could Not Crawl Job';
   if (overlay === 'add-evaluating') return 'Evaluating Job';
   return 'Choose an Intake Mode';
 }
@@ -27,8 +28,10 @@ interface Props {
   width: number;
   height: number;
   evaluatingMessage?: string | null;
+  addUrlFailureMessage?: string | null;
   onAddUrl: (url: string) => Promise<void>;
   onAddJd: (jd: string) => Promise<void>;
+  onRetryAddManually: () => void;
   onOverlayChange: (overlay: Overlay) => void;
   onClose: () => void;
 }
@@ -39,8 +42,10 @@ export default function DashboardOverlay({
   width,
   height,
   evaluatingMessage,
+  addUrlFailureMessage,
   onAddUrl,
   onAddJd,
+  onRetryAddManually,
   onOverlayChange,
   onClose,
 }: Props) {
@@ -75,6 +80,8 @@ export default function DashboardOverlay({
               ? 'Paste a job URL and press Enter. esc=back'
               : overlay === 'add-jd'
                 ? 'Paste a job description. ctrl-o=submit, esc=back'
+                : overlay === 'add-crawl-failed'
+                  ? 'We could not crawl that job page. Choose the next step. esc=back'
                 : 'Please wait while the job is evaluated.'
         }
       />
@@ -138,6 +145,51 @@ export default function DashboardOverlay({
             onContentChange={() => setAddJd(jdInput.current?.plainText ?? '')}
             onSubmit={() => void onAddJd(jdInput.current?.plainText ?? '')}
             focused
+          />
+        </box>
+      )}
+
+      {overlay === 'add-crawl-failed' && (
+        <box
+          flexDirection="column"
+          marginTop={1}
+          width={Math.max(20, width)}
+          rowGap={1}
+        >
+          <text fg={theme.heading} content="Could not crawl this job page" />
+          <text
+            fg={theme.muted}
+            content={
+              addUrlFailureMessage ??
+              "We couldn't extract enough job details from that site."
+            }
+          />
+          <select
+            height={6}
+            width={Math.max(20, width)}
+            focused
+            options={[
+              {
+                name: 'Paste job description',
+                description: 'Add the job manually instead',
+                value: 'manual',
+              },
+              {
+                name: 'Back to add menu',
+                description: 'Try another link or cancel',
+                value: 'add',
+              },
+            ]}
+            backgroundColor={theme.transparent}
+            focusedBackgroundColor={theme.transparent}
+            selectedBackgroundColor={theme.transparent}
+            onSelect={(_, option) => {
+              if (option?.value === 'manual') {
+                onRetryAddManually();
+                return;
+              }
+              onOverlayChange('add');
+            }}
           />
         </box>
       )}

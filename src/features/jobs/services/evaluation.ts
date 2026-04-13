@@ -54,6 +54,13 @@ export function parseEvaluationResult(text: string): EvaluationResult {
   if (typeof parsed.score !== 'number') throw new Error('Missing score in evaluation result');
   if (!parsed.category) throw new Error('Missing category in evaluation result');
   if (!parsed.recommendation) throw new Error('Missing recommendation in evaluation result');
+  if (!parsed.jobSummary) throw new Error('Missing jobSummary in evaluation result');
+  if (typeof parsed.jobSummary.company !== 'string')
+    throw new Error('Missing company summary in evaluation result');
+  if (!Array.isArray(parsed.jobSummary.alignments))
+    throw new Error('Missing alignments in evaluation result');
+  if (!Array.isArray(parsed.jobSummary.gaps))
+    throw new Error('Missing gaps in evaluation result');
   if (!parsed.blockA) throw new Error('Missing blockA in evaluation result');
   if (!parsed.blockB) throw new Error('Missing blockB in evaluation result');
   if (!parsed.blockE) throw new Error('Missing blockE in evaluation result');
@@ -121,4 +128,24 @@ ${responseText}`;
       throw error;
     }
   }
+}
+
+export function formatJobSummary(result: Pick<EvaluationResult, 'jobSummary'>): string {
+  const company = result.jobSummary.company.trim();
+  const alignments = result.jobSummary.alignments
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const gaps = result.jobSummary.gaps
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const lines: string[] = [];
+  if (company) lines.push(company);
+  if (alignments.length > 0) {
+    lines.push('', `Alignments: ${alignments.join(' ')}`);
+  }
+  if (gaps.length > 0) {
+    lines.push('', `Gaps: ${gaps.join(' ')}`);
+  }
+  return lines.join('\n').trim();
 }

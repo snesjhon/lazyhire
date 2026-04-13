@@ -13,6 +13,17 @@ Output format:
   "category": "<one of: engineering | product | design | data | architecture | research | consulting | operations | leadership | go_to_market>",
   "focus": "<short normalized label such as platform | frontend | backend | full_stack | forward_deployed | product_design | technical_pm | ux_research | analytics | ai | developer_relations | solutions_architecture, or null>",
   "recommendation": "<apply | consider | discard>",
+  "jobSummary": {
+    "company": "<one short sentence about the company and what it does>",
+    "alignments": [
+      "<specific way this role fits the candidate's target role, stack, level, comp, remote preference, or interests>",
+      "<second specific alignment>"
+    ],
+    "gaps": [
+      "<specific way this role does not fit the candidate's criteria or has uncertainty>",
+      "<second specific gap, if any>"
+    ]
+  },
   "blockA": {
     "tldr": "<one sentence summary of the role>",
     "domain": "<domain area>",
@@ -63,6 +74,9 @@ Weight each dimension:
 - Be direct and specific — no corporate speak
 - Short sentences, action verbs, no passive voice
 - If comp is not mentioned: note it as a gap, do not estimate
+- For `jobSummary.company`, describe the company, not the role
+- For `jobSummary.alignments` and `jobSummary.gaps`, ground each point in the candidate config or CV fit
+- Keep `jobSummary.alignments` and `jobSummary.gaps` concise; 1-3 items each
 
 ## Inputs
 

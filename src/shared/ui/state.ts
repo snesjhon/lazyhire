@@ -14,5 +14,6 @@ export type Overlay =
   | 'add'
   | 'add-url'
   | 'add-jd'
+  | 'add-crawl-failed'
   | 'add-evaluating';
 export type Flash = { message: string; variant: FlashVariant };
