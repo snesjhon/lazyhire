@@ -3,6 +3,7 @@ import puppeteer from 'puppeteer-core';
 import { findChrome } from '../../../shared/lib/chrome.js';
 import { db } from '../../../shared/data/db.js';
 import { loadProfile } from '../../../shared/models/profile.js';
+import { DATA_DIR } from '../../../shared/lib/paths.js';
 import { evaluateJob } from './evaluation.js';
 import {
   DEFAULT_CV_BULLET_WORD_RANGE,
@@ -608,7 +609,7 @@ export async function generateAndPersistPdf(
 
   const theme = 'resume' as const;
   const filename = buildResumeFilename(profile.candidate.name, job.company);
-  const pdfPath = join(process.cwd(), 'output', filename);
+  const pdfPath = join(DATA_DIR, 'output', filename);
   await renderPDF(cv, pdfPath, textSizeScale);
 
   const updated: Job = { ...job, pdfPath, theme };
@@ -636,7 +637,7 @@ export async function generateAndPersistCoverLetterPdf(
   );
 
   const filename = `${job.id}-${slugify(job.company)}-cover-letter.pdf`;
-  const coverLetterPdfPath = join(process.cwd(), 'output', filename);
+  const coverLetterPdfPath = join(DATA_DIR, 'output', filename);
   await renderCoverLetterPDF(coverLetter, coverLetterPdfPath);
 
   const updated: Job = { ...job, coverLetterPdfPath, theme: 'cover-letter' };

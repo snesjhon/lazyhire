@@ -2,10 +2,15 @@
 import { createCliRenderer } from '@opentui/core';
 import { createRoot } from '@opentui/react';
 import App from './app.js';
-import { runInstall } from './install.js';
+import { runInstall, runUninstall } from './install.js';
 
 if (process.argv[2] === 'install') {
   await runInstall();
+  process.exit(0);
+}
+
+if (process.argv[2] === 'uninstall') {
+  await runUninstall();
   process.exit(0);
 }
 

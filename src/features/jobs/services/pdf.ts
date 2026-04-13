@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
+import { DATA_DIR } from '../../../shared/lib/paths.js';
 import resumeTemplate from '../templates/resume.html' with { type: 'text' };
 import coverLetterTemplate from '../templates/cover-letter.html' with { type: 'text' };
 import puppeteer from 'puppeteer-core';
@@ -123,7 +124,7 @@ async function renderHtmlToPdf(
   outputPath: string,
 ): Promise<void> {
   mkdirSync(dirname(outputPath), { recursive: true });
-  const tmpHtml = join(process.cwd(), 'output', `_tmp-${Date.now()}.html`);
+  const tmpHtml = join(DATA_DIR, 'output', `_tmp-${Date.now()}.html`);
   writeFileSync(tmpHtml, html, 'utf8');
 
   const browser = await puppeteer.launch({ headless: true, executablePath: findChrome() });

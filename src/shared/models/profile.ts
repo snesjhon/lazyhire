@@ -2,9 +2,9 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import type { Profile } from './types.js';
 import { normalizeTargetPreferences } from './taxonomy.js';
+import { DATA_DIR } from '../lib/paths.js';
 
-const DATA_DIR = '.lazyhire';
-const CANDIDATE_FILE = 'candidate.json';
+const PROFILE_FILE = 'profile.json';
 
 export function createEmptyProfile(): Profile {
   return {
@@ -73,7 +73,7 @@ export function createProfileStore(profilePath: string) {
   return { exists, load, loadOrDefault, save };
 }
 
-const DEFAULT_PATH = join(process.cwd(), DATA_DIR, CANDIDATE_FILE);
+const DEFAULT_PATH = join(DATA_DIR, PROFILE_FILE);
 const defaultStore = createProfileStore(DEFAULT_PATH);
 export const hasProfile = defaultStore.exists;
 export const loadProfile = defaultStore.load;

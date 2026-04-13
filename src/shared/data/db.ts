@@ -2,10 +2,9 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import type { AnswerEntry, Job } from '../models/types.js';
 import { normalizeJobClassification } from '../models/taxonomy.js';
+import { DATA_DIR } from '../lib/paths.js';
 
-const DATA_DIR = '.lazyhire';
-
-const DEFAULT_PATH = join(process.cwd(), DATA_DIR, 'jobs.json');
+const DEFAULT_PATH = join(DATA_DIR, 'jobs.json');
 
 export function createDb(dbPath = DEFAULT_PATH) {
   function readJobs(): Job[] {
@@ -59,7 +58,7 @@ export function createDb(dbPath = DEFAULT_PATH) {
 // Default singleton — used by the app
 export const db = createDb();
 
-const DEFAULT_ANSWERS_PATH = join(process.cwd(), DATA_DIR, 'answers.json');
+const DEFAULT_ANSWERS_PATH = join(DATA_DIR, 'answers.json');
 
 export function createAnswersDb(dbPath = DEFAULT_ANSWERS_PATH) {
   function readAnswers(): AnswerEntry[] {
