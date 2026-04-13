@@ -18,6 +18,7 @@ import {
 
 export type JobActionView =
   | 'menu'
+  | 'edit-job'
   | 'edit-company'
   | 'edit-role'
   | 'edit-url'
@@ -42,6 +43,10 @@ export interface GenerateCvDraft {
   phase: GenerateCvEditingPhase;
 }
 
+export interface GenerateCoverLetterDraft {
+  guidance: string;
+}
+
 type GenerateCvState =
   | { step: 'editing' }
   | { step: 'submitting' }
@@ -49,6 +54,19 @@ type GenerateCvState =
   | { step: 'error'; message: string };
 
 type GenerateArtifact = 'cv' | 'cover-letter';
+
+function parentViewFor(view: JobActionView): JobActionView {
+  if (
+    view === 'edit-company' ||
+    view === 'edit-role' ||
+    view === 'edit-url' ||
+    view === 'edit-notes' ||
+    view === 'edit-jd'
+  ) {
+    return 'edit-job';
+  }
+  return 'menu';
+}
 
 interface Props {
   theme: UiTheme;
@@ -58,6 +76,8 @@ interface Props {
   initialView: JobActionView;
   generateCvDraft: GenerateCvDraft;
   onGenerateCvDraftChange: (draft: GenerateCvDraft) => void;
+  generateCoverLetterDraft: GenerateCoverLetterDraft;
+  onGenerateCoverLetterDraftChange: (draft: GenerateCoverLetterDraft) => void;
   onClose: () => void;
   onStartAnswer: () => void;
   onEvaluate: () => void;
@@ -86,6 +106,8 @@ export default function JobActionWorkspace({
   initialView,
   generateCvDraft,
   onGenerateCvDraftChange,
+  generateCoverLetterDraft,
+  onGenerateCoverLetterDraftChange,
   onClose,
   onStartAnswer,
   onEvaluate,
@@ -132,6 +154,13 @@ export default function JobActionWorkspace({
   function updateGenerateCvDraft(patch: Partial<GenerateCvDraft>) {
     onGenerateCvDraftChange({
       ...generateCvDraft,
+      ...patch,
+    });
+  }
+
+  function updateGenerateCoverLetterDraft(patch: Partial<GenerateCoverLetterDraft>) {
+    onGenerateCoverLetterDraftChange({
+      ...generateCoverLetterDraft,
       ...patch,
     });
   }
@@ -194,7 +223,7 @@ export default function JobActionWorkspace({
     if (view === 'edit-role') onSaveMetadata({ role: value });
     if (view === 'edit-url') onSaveMetadata({ url: value });
     if (view === 'edit-notes') onSaveMetadata({ notes: value });
-    setView('menu');
+    setView(parentViewFor(view));
   }
 
   const menuOptions: SelectOption[] = [
@@ -219,29 +248,9 @@ export default function JobActionWorkspace({
       value: 'generate-cover-letter',
     },
     {
-      name: 'Edit company',
-      description: job.company || 'Unknown Company',
-      value: 'edit-company',
-    },
-    {
-      name: 'Edit role',
-      description: job.role || 'Untitled Role',
-      value: 'edit-role',
-    },
-    {
-      name: 'Edit URL',
-      description: job.url || 'No job URL saved',
-      value: 'edit-url',
-    },
-    {
-      name: 'Edit notes',
-      description: job.notes || 'No notes saved',
-      value: 'edit-notes',
-    },
-    {
-      name: 'Edit job description',
-      description: 'Update the saved JD text',
-      value: 'edit-jd',
+      name: 'Edit job',
+      description: job.role || 'Company, role, link, notes, and JD',
+      value: 'edit-job',
     },
     {
       name: 'Update status',
@@ -283,6 +292,39 @@ export default function JobActionWorkspace({
     },
   ];
 
+  const editJobOptions: SelectOption[] = [
+    {
+      name: 'Edit company',
+      description: job.company || 'Unknown Company',
+      value: 'edit-company',
+    },
+    {
+      name: 'Edit role',
+      description: job.role || 'Untitled Role',
+      value: 'edit-role',
+    },
+    {
+      name: 'Edit URL',
+      description: job.url || 'No job URL saved',
+      value: 'edit-url',
+    },
+    {
+      name: 'Edit notes',
+      description: job.notes || 'No notes saved',
+      value: 'edit-notes',
+    },
+    {
+      name: 'Edit job description',
+      description: 'Update the saved JD text',
+      value: 'edit-jd',
+    },
+    {
+      name: 'Back to actions',
+      description: 'Return to the main action list',
+      value: 'back',
+    },
+  ];
+
   useKeyboard((key) => {
     if (key.name !== 'escape') return;
     if (
@@ -307,7 +349,7 @@ export default function JobActionWorkspace({
     }
     else {
       setGenerateCvState({ step: 'editing' });
-      setView('menu');
+      setView(parentViewFor(view));
     }
   });
 
@@ -325,6 +367,8 @@ export default function JobActionWorkspace({
         content={
           view === 'menu'
             ? `Actions for #${job.id}. Enter to run, esc to return.`
+            : view === 'edit-job'
+              ? `Job details for #${job.id}. Enter to edit, esc to return.`
             : (view === 'generate-cv' || view === 'generate-cover-letter') &&
                 generateCvState.step === 'editing'
               ? generateArtifact === 'cv' &&
@@ -363,17 +407,39 @@ export default function JobActionWorkspace({
               if (value === 'evaluate') onEvaluate();
               if (value === 'generate-cv') setView('generate-cv');
               if (value === 'generate-cover-letter') setView('generate-cover-letter');
+              if (value === 'edit-job') setView('edit-job');
               if (value === 'edit-company') setView('edit-company');
-              if (value === 'edit-role') setView('edit-role');
-              if (value === 'edit-url') setView('edit-url');
-              if (value === 'edit-notes') setView('edit-notes');
-              if (value === 'edit-jd') setView('edit-jd');
               if (value === 'status') setView('status');
               if (value === 'open-cv') onOpenCv();
               if (value === 'open-cover-letter') onOpenCoverLetter();
               if (value === 'open-link') onOpenLink();
               if (value === 'delete') setView('delete');
               if (value === 'close') onClose();
+            }}
+          />
+        ) : null}
+
+        {view === 'edit-job' ? (
+          <select
+            height={Math.max(6, height - 2)}
+            width={Math.max(20, width)}
+            focused
+            options={editJobOptions}
+            showDescription
+            itemSpacing={0}
+            backgroundColor={theme.transparent}
+            focusedBackgroundColor={theme.transparent}
+            selectedBackgroundColor={theme.transparent}
+            selectedTextColor={theme.brand}
+            selectedDescriptionColor={theme.muted}
+            onSelect={(_, option) => {
+              const value = String(option?.value ?? '');
+              if (value === 'edit-company') setView('edit-company');
+              if (value === 'edit-role') setView('edit-role');
+              if (value === 'edit-url') setView('edit-url');
+              if (value === 'edit-notes') setView('edit-notes');
+              if (value === 'edit-jd') setView('edit-jd');
+              if (value === 'back') setView('menu');
             }}
           />
         ) : null}
@@ -412,7 +478,7 @@ export default function JobActionWorkspace({
             onContentChange={() => setEditJdDraft(editJdInputRef.current?.plainText ?? '')}
             onSubmit={() => {
               onSaveEditJd(editJdInputRef.current?.plainText.trim() ?? '');
-              setView('menu');
+              setView(parentViewFor(view));
             }}
             focused
           />
@@ -434,6 +500,14 @@ export default function JobActionWorkspace({
                   <text
                     fg={currentCvPhase === 'guidance' ? theme.brand : theme.text}
                     content={`3. Guidance         ${generateCvDraft.guidance.trim() ? 'Custom notes added' : 'No extra notes'}`}
+                  />
+                </box>
+              ) : generateArtifact === 'cover-letter' ? (
+                <box flexDirection="column" marginBottom={1}>
+                  <text fg={theme.brand} content="1. Guidance         Optional notes for this role" />
+                  <text
+                    fg={theme.text}
+                    content={generateCoverLetterDraft.guidance.trim() ? 'Current state: custom notes added' : 'Current state: no extra notes'}
                   />
                 </box>
               ) : null}
@@ -526,7 +600,11 @@ export default function JobActionWorkspace({
                 <textarea
                   ref={guidanceInputRef}
                   height={Math.max(6, height - (generateArtifact === 'cv' ? 10 : 5))}
-                  initialValue={generateArtifact === 'cv' ? generateCvDraft.guidance : ''}
+                  initialValue={
+                    generateArtifact === 'cv'
+                      ? generateCvDraft.guidance
+                      : generateCoverLetterDraft.guidance
+                  }
                   placeholder={
                     generateArtifact === 'cover-letter'
                       ? 'Optional cover letter guidance.'
@@ -534,10 +612,13 @@ export default function JobActionWorkspace({
                   }
                   keyBindings={TEXTAREA_SUBMIT_KEY_BINDINGS}
                   onContentChange={() => {
-                    if (generateArtifact !== 'cv') return;
-                    updateGenerateCvDraft({
-                      guidance: guidanceInputRef.current?.plainText ?? '',
-                    });
+                    const guidance = guidanceInputRef.current?.plainText ?? '';
+                    if (generateArtifact === 'cv') {
+                      updateGenerateCvDraft({ guidance });
+                    }
+                    if (generateArtifact === 'cover-letter') {
+                      updateGenerateCoverLetterDraft({ guidance });
+                    }
                   }}
                   onSubmit={async () => {
                     setGenerateCvState({ step: 'submitting' });
@@ -545,6 +626,9 @@ export default function JobActionWorkspace({
                       const guidance = guidanceInputRef.current?.plainText ?? '';
                       if (generateArtifact === 'cv') {
                         updateGenerateCvDraft({ guidance, phase: 'guidance' });
+                      }
+                      if (generateArtifact === 'cover-letter') {
+                        updateGenerateCoverLetterDraft({ guidance });
                       }
                       const updated = generateArtifact === 'cover-letter'
                         ? await onGenerateCoverLetter(guidance)
@@ -608,7 +692,7 @@ export default function JobActionWorkspace({
                       : 'Generated CV is ready to open'),
                   value: generateArtifact === 'cover-letter' ? 'open-cover-letter' : 'open-cv',
                 },
-                ...(generateArtifact === 'cv'
+                ...((generateArtifact === 'cv' || generateArtifact === 'cover-letter')
                   ? [
                       {
                         name: 'Edit and regenerate',
@@ -630,7 +714,9 @@ export default function JobActionWorkspace({
                 if (option?.value === 'open-cv') onOpenCv();
                 if (option?.value === 'open-cover-letter') onOpenCoverLetter();
                 if (option?.value === 'edit') {
-                  updateGenerateCvDraft({ phase: 'guidance' });
+                  if (generateArtifact === 'cv') {
+                    updateGenerateCvDraft({ phase: 'guidance' });
+                  }
                   setGenerateCvState({ step: 'editing' });
                 }
                 if (option?.value === 'back') onClose();

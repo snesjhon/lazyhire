@@ -26,8 +26,10 @@ import InitWorkspace from './features/init/ui/InitWorkspace.js';
 import ProfileActionWorkspace from './features/profile/ui/ProfileActionWorkspace.js';
 import type { Flash, FocusTarget, Overlay } from './shared/ui/state.js';
 import { scoreDisplay, type FlashVariant } from './shared/lib/utils.js';
+import type { AnswerDraft } from './features/answers/ui/AnswerWorkspace.js';
 import type {
   GenerateCvDraft,
+  GenerateCoverLetterDraft,
   JobActionView,
 } from './features/jobs/ui/JobActionWorkspace.js';
 import type { ProfileActionView } from './features/profile/ui/ProfileActionWorkspace.js';
@@ -68,6 +70,26 @@ function createDefaultGenerateCvDraft(): GenerateCvDraft {
   };
 }
 
+function createDefaultGenerateCoverLetterDraft(): GenerateCoverLetterDraft {
+  return {
+    guidance: '',
+  };
+}
+
+function createDefaultAnswerDraft(job: Pick<Job, 'company'>): AnswerDraft {
+  return {
+    step: 'ask-question',
+    question: '',
+    questionDraft: '',
+    category: 'other',
+    tone: '',
+    contextDraft: '',
+    refineDraft: '',
+    generatedAnswer: '',
+    statusLine: `Write a question for ${job.company || 'this company'}.`,
+  };
+}
+
 function browserCommand(
   target: string,
 ): { command: string; args: string[] } | null {
@@ -101,8 +123,14 @@ export default function App() {
     jobId: string;
     view: JobActionView;
   } | null>(null);
+  const [answerDrafts, setAnswerDrafts] = useState<Record<string, AnswerDraft>>(
+    {},
+  );
   const [generateCvDrafts, setGenerateCvDrafts] = useState<
     Record<string, GenerateCvDraft>
+  >({});
+  const [generateCoverLetterDrafts, setGenerateCoverLetterDrafts] = useState<
+    Record<string, GenerateCoverLetterDraft>
   >({});
   const [profileActionView, setProfileActionView] =
     useState<ProfileActionView | null>(null);
@@ -482,6 +510,13 @@ export default function App() {
     setFocus('jobs');
   }
 
+  function updateAnswerDraft(jobId: string, draft: AnswerDraft) {
+    setAnswerDrafts((current) => ({
+      ...current,
+      [jobId]: draft,
+    }));
+  }
+
   function openJobActions(view: JobActionView = 'menu') {
     if (!selectedJob) return;
     setOverlay('none');
@@ -498,6 +533,16 @@ export default function App() {
 
   function updateGenerateCvDraft(jobId: string, draft: GenerateCvDraft) {
     setGenerateCvDrafts((current) => ({
+      ...current,
+      [jobId]: draft,
+    }));
+  }
+
+  function updateGenerateCoverLetterDraft(
+    jobId: string,
+    draft: GenerateCoverLetterDraft,
+  ) {
+    setGenerateCoverLetterDrafts((current) => ({
       ...current,
       [jobId]: draft,
     }));
@@ -749,6 +794,16 @@ export default function App() {
         }
         onOpenActions={() => openJobActions('menu')}
         onCloseAnswer={closeAnswerWorkspace}
+        answerDraft={
+          selectedJob
+            ? (answerDrafts[selectedJob.id] ??
+              createDefaultAnswerDraft(selectedJob))
+            : null
+        }
+        onAnswerDraftChange={(draft) => {
+          if (!selectedJob) return;
+          updateAnswerDraft(selectedJob.id, draft);
+        }}
         onAnswerSaved={(message) => {
           refreshJobs();
           closeAnswerWorkspace();
@@ -765,6 +820,16 @@ export default function App() {
         onGenerateCvDraftChange={(draft) => {
           if (!selectedJob) return;
           updateGenerateCvDraft(selectedJob.id, draft);
+        }}
+        generateCoverLetterDraft={
+          selectedJob
+            ? (generateCoverLetterDrafts[selectedJob.id] ??
+              createDefaultGenerateCoverLetterDraft())
+            : null
+        }
+        onGenerateCoverLetterDraftChange={(draft) => {
+          if (!selectedJob) return;
+          updateGenerateCoverLetterDraft(selectedJob.id, draft);
         }}
         onEvaluateJob={() => selectedJob && void runEvaluate(selectedJob)}
         onOpenJobLink={() =>

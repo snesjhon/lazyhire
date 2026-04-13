@@ -21,7 +21,7 @@ import {
 import type { UiTheme } from '../../../shared/ui/theme.js';
 import type { AnswerCategory, Job } from '../../../shared/models/types.js';
 
-type Step =
+export type AnswerStep =
   | 'ask-question'
   | 'detecting'
   | 'ask-tone'
@@ -30,6 +30,18 @@ type Step =
   | 'review'
   | 'ask-refine'
   | 'refining';
+
+export interface AnswerDraft {
+  step: AnswerStep;
+  question: string;
+  questionDraft: string;
+  category: AnswerCategory;
+  tone: string;
+  contextDraft: string;
+  refineDraft: string;
+  generatedAnswer: string;
+  statusLine: string;
+}
 
 const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<TextareaOptions['keyBindings']> = [
   { name: 'o', ctrl: true, action: 'submit' },
@@ -55,6 +67,8 @@ interface Props {
   job: Job;
   width: number;
   height: number;
+  draft: AnswerDraft;
+  onDraftChange: (draft: AnswerDraft) => void;
   onClose: () => void;
   onSaved: (message: string) => void;
 }
@@ -64,47 +78,35 @@ export default function AnswerWorkspace({
   job,
   width,
   height,
+  draft,
+  onDraftChange,
   onClose,
   onSaved,
 }: Props) {
-  const [step, setStep] = useState<Step>('ask-question');
   const [copyFlash, setCopyFlash] = useState(false);
-  const [question, setQuestion] = useState('');
-  const [questionDraft, setQuestionDraft] = useState('');
-  const [category, setCategory] = useState<AnswerCategory>('other');
-  const [tone, setTone] = useState('');
-  const [contextDraft, setContextDraft] = useState('');
-  const [refineDraft, setRefineDraft] = useState('');
-  const [generatedAnswer, setGeneratedAnswer] = useState('');
-  const [statusLine, setStatusLine] = useState(
-    `Write a question for ${job.company || 'this company'}.`,
-  );
 
   const questionInputRef = useRef<InputRenderable>(null);
   const contextInputRef = useRef<TextareaRenderable>(null);
   const refineInputRef = useRef<InputRenderable>(null);
 
-  const isInputStep = step === 'ask-question' || step === 'ask-context' || step === 'ask-refine';
-  const isSpinning = step === 'detecting' || step === 'generating' || step === 'refining';
+  const isInputStep =
+    draft.step === 'ask-question' || draft.step === 'ask-context' || draft.step === 'ask-refine';
+  const isSpinning =
+    draft.step === 'detecting' || draft.step === 'generating' || draft.step === 'refining';
   const scrollHeight = Math.max(6, height - 10);
 
-  useEffect(() => {
-    setStep('ask-question');
-    setQuestion('');
-    setQuestionDraft('');
-    setCategory('other');
-    setTone('');
-    setContextDraft('');
-    setRefineDraft('');
-    setGeneratedAnswer('');
-    setStatusLine(`Write a question for ${job.company || 'this company'}.`);
-  }, [job.id, job.company]);
+  function updateDraft(patch: Partial<AnswerDraft>) {
+    onDraftChange({
+      ...draft,
+      ...patch,
+    });
+  }
 
   useEffect(() => {
-    if (step === 'ask-question') questionInputRef.current?.focus();
-    if (step === 'ask-context') contextInputRef.current?.focus();
-    if (step === 'ask-refine') refineInputRef.current?.focus();
-  }, [step]);
+    if (draft.step === 'ask-question') questionInputRef.current?.focus();
+    if (draft.step === 'ask-context') contextInputRef.current?.focus();
+    if (draft.step === 'ask-refine') refineInputRef.current?.focus();
+  }, [draft.step]);
 
   function copyToClipboard(text: string) {
     try {
@@ -119,64 +121,85 @@ export default function AnswerWorkspace({
   async function handleQuestionSubmit(value: string) {
     const nextQuestion = value.trim();
     if (!nextQuestion) return;
-    setQuestion(nextQuestion);
-    setQuestionDraft('');
-    setStatusLine(`Detecting category for: "${clip(nextQuestion, 50)}"...`);
-    setStep('detecting');
+    updateDraft({
+      question: nextQuestion,
+      questionDraft: nextQuestion,
+      statusLine: `Detecting category for: "${clip(nextQuestion, 50)}"...`,
+      step: 'detecting',
+    });
 
     try {
       const detected = await detectCategory(nextQuestion);
-      setCategory(detected);
-      setStatusLine(`Categorized as ${CATEGORY_LABEL[detected]}. What tone would you like?`);
+      updateDraft({
+        category: detected,
+        statusLine: `Categorized as ${CATEGORY_LABEL[detected]}. What tone would you like?`,
+        step: 'ask-tone',
+      });
     } catch {
-      setCategory('other');
-      setStatusLine('What tone would you like?');
+      updateDraft({
+        category: 'other',
+        statusLine: 'What tone would you like?',
+        step: 'ask-tone',
+      });
     }
-
-    setStep('ask-tone');
   }
 
   function handleToneSelect(selected: string) {
-    setTone(selected);
-    setContextDraft('');
-    setStatusLine(`Any extra angle to include? Ctrl+O skips. ${job.company || ''}`.trim());
-    setStep('ask-context');
+    updateDraft({
+      tone: selected,
+      statusLine: `Any extra angle to include? Ctrl+O skips. ${job.company || ''}`.trim(),
+      step: 'ask-context',
+    });
   }
 
   async function handleContextSubmit(value: string) {
     const context = value.trim();
-    setContextDraft(context);
-    setStatusLine('Generating your answer...');
-    setStep('generating');
+    updateDraft({
+      contextDraft: context,
+      statusLine: 'Generating your answer...',
+      step: 'generating',
+    });
 
     try {
       const profile = loadProfile();
-      const answer = await generateAnswer(question, category, tone, context, profile, job);
-      setGeneratedAnswer(answer);
-      setStatusLine('Answer ready. s=save  r=refine  c=copy  esc=discard');
-      setStep('review');
+      const answer = await generateAnswer(draft.question, draft.category, draft.tone, context, profile, job);
+      updateDraft({
+        contextDraft: context,
+        generatedAnswer: answer,
+        statusLine: 'Answer ready. s=save  r=refine  c=copy  1-4=jump  esc=close',
+        step: 'review',
+      });
     } catch (error) {
-      setStatusLine(`Generation failed: ${String(error)}. Esc to exit.`);
-      setStep('ask-question');
+      updateDraft({
+        statusLine: `Generation failed: ${String(error)}. 1-3=edit  esc=close`,
+        step: 'ask-context',
+      });
     }
   }
 
   async function handleRefineSubmit(value: string) {
     const request = value.trim();
     if (!request) return;
-    setRefineDraft('');
-    setStatusLine('Refining...');
-    setStep('refining');
+    updateDraft({
+      refineDraft: request,
+      statusLine: 'Refining...',
+      step: 'refining',
+    });
 
     try {
       const profile = loadProfile();
-      const refined = await refineAnswer(question, generatedAnswer, request, profile, job);
-      setGeneratedAnswer(refined);
-      setStatusLine('Refined. s=save  r=refine again  c=copy  esc=discard');
-      setStep('review');
+      const refined = await refineAnswer(draft.question, draft.generatedAnswer, request, profile, job);
+      updateDraft({
+        refineDraft: '',
+        generatedAnswer: refined,
+        statusLine: 'Refined. s=save  r=refine again  c=copy  1-4=jump  esc=close',
+        step: 'review',
+      });
     } catch (error) {
-      setStatusLine(`Refinement failed: ${String(error)}.`);
-      setStep('review');
+      updateDraft({
+        statusLine: `Refinement failed: ${String(error)}.`,
+        step: 'ask-refine',
+      });
     }
   }
 
@@ -184,11 +207,11 @@ export default function AnswerWorkspace({
     const id = answersDb.nextAnswerId();
     answersDb.addAnswer({
       id,
-      question,
-      category,
-      answer: generatedAnswer,
-      tone,
-      context: contextDraft,
+      question: draft.question,
+      category: draft.category,
+      answer: draft.generatedAnswer,
+      tone: draft.tone,
+      context: draft.contextDraft,
       originJobId: job.id,
       company: job.company || null,
       role: job.role || null,
@@ -202,24 +225,62 @@ export default function AnswerWorkspace({
   useKeyboard((key) => {
     if (isSpinning) return;
 
-    if (isInputStep || step === 'ask-tone') {
-      if (key.name === 'escape') onClose();
-      return;
-    }
-
     if (key.name === 'escape') {
+      if (draft.step === 'ask-refine') {
+        updateDraft({ step: 'review', refineDraft: '' });
+        return;
+      }
+      if (draft.step === 'ask-context') {
+        updateDraft({ step: 'ask-tone' });
+        return;
+      }
+      if (draft.step === 'ask-tone') {
+        updateDraft({
+          step: 'ask-question',
+          statusLine: `Write a question for ${job.company || 'this company'}.`,
+        });
+        return;
+      }
       onClose();
       return;
     }
 
-    if (step === 'review') {
+    if (key.name === '1') {
+      updateDraft({
+        step: 'ask-question',
+        statusLine: `Write a question for ${job.company || 'this company'}.`,
+      });
+      return;
+    }
+    if (key.name === '2' && draft.question.trim()) {
+      updateDraft({ step: 'ask-tone', statusLine: 'What tone would you like?' });
+      return;
+    }
+    if (key.name === '3' && draft.question.trim() && draft.tone.trim()) {
+      updateDraft({
+        step: 'ask-context',
+        statusLine: `Any extra angle to include? Ctrl+O skips. ${job.company || ''}`.trim(),
+      });
+      return;
+    }
+    if (key.name === '4' && draft.generatedAnswer.trim()) {
+      updateDraft({
+        step: 'review',
+        statusLine: 'Answer ready. s=save  r=refine  c=copy  1-4=jump  esc=close',
+      });
+      return;
+    }
+
+    if (draft.step === 'review') {
       if (key.name === 's') handleSave();
       if (key.name === 'r') {
-        setRefineDraft('');
-        setStatusLine('How should this be refined?');
-        setStep('ask-refine');
+        updateDraft({
+          refineDraft: '',
+          statusLine: 'How should this be refined?',
+          step: 'ask-refine',
+        });
       }
-      if (key.name === 'c') copyToClipboard(generatedAnswer);
+      if (key.name === 'c') copyToClipboard(draft.generatedAnswer);
     }
   });
 
@@ -230,21 +291,39 @@ export default function AnswerWorkspace({
   }));
 
   const spinnerLabel =
-    step === 'detecting'
+    draft.step === 'detecting'
       ? 'Detecting category...'
-      : step === 'generating'
+      : draft.step === 'generating'
         ? 'Generating answer...'
         : 'Refining...';
 
   return (
     <box flexDirection="column" overflow="hidden">
       <text fg={theme.brand} content={`${job.company || 'Unknown Company'} · ${job.role || 'Untitled Role'}`} />
-      {statusLine ? <text fg={theme.muted} content={statusLine} /> : null}
-      {question && step !== 'ask-question' ? (
-        <text fg={theme.answerCategoryColors[category]} content={`Question: ${clip(question, width - 6)}`} />
+      {draft.statusLine ? <text fg={theme.muted} content={draft.statusLine} /> : null}
+      <box flexDirection="column" marginTop={1}>
+        <text
+          fg={draft.step === 'ask-question' || draft.step === 'detecting' ? theme.brand : theme.text}
+          content={`1. Question   ${draft.question.trim() ? clip(draft.question, width - 18) : 'Not set'}`}
+        />
+        <text
+          fg={draft.step === 'ask-tone' ? theme.brand : theme.text}
+          content={`2. Tone       ${draft.tone || 'Not set'}`}
+        />
+        <text
+          fg={draft.step === 'ask-context' || draft.step === 'generating' ? theme.brand : theme.text}
+          content={`3. Context    ${draft.contextDraft.trim() ? 'Custom notes added' : 'No extra notes'}`}
+        />
+        <text
+          fg={draft.step === 'review' || draft.step === 'ask-refine' || draft.step === 'refining' ? theme.brand : theme.text}
+          content={`4. Answer     ${draft.generatedAnswer.trim() ? 'Generated' : 'Not generated'}`}
+        />
+      </box>
+      {draft.question && draft.step !== 'ask-question' ? (
+        <text fg={theme.answerCategoryColors[draft.category]} content={`Question: ${clip(draft.question, width - 6)}`} />
       ) : null}
 
-      {step === 'review' && generatedAnswer ? (
+      {draft.step === 'review' && draft.generatedAnswer ? (
         <scrollbox
           height={scrollHeight}
           width="100%"
@@ -261,7 +340,7 @@ export default function AnswerWorkspace({
             width={Math.max(20, width - 4)}
             maxWidth={Math.max(20, width - 4)}
             wrapMode="char"
-            content={generatedAnswer}
+            content={draft.generatedAnswer}
           />
         </scrollbox>
       ) : null}
@@ -273,14 +352,14 @@ export default function AnswerWorkspace({
         </box>
       ) : null}
 
-      {step === 'ask-question' ? (
+      {draft.step === 'ask-question' ? (
         <box flexDirection="column" marginTop={1}>
           <text fg={theme.heading} content="Question" />
           <input
             ref={questionInputRef}
-            value={questionDraft}
+            value={draft.questionDraft}
             placeholder="e.g. Why do you want to work here?"
-            onInput={setQuestionDraft}
+            onInput={(value) => updateDraft({ questionDraft: value })}
             focused
             onSubmit={(value: unknown) => {
               if (typeof value === 'string') void handleQuestionSubmit(value);
@@ -289,12 +368,13 @@ export default function AnswerWorkspace({
         </box>
       ) : null}
 
-      {step === 'ask-tone' ? (
+      {draft.step === 'ask-tone' ? (
         <box flexDirection="column" marginTop={1}>
           <select
             height={Math.min(5, TONE_OPTIONS.length + 1)}
             width="100%"
             options={toneOptions}
+            selectedIndex={Math.max(0, TONE_OPTIONS.indexOf(draft.tone as (typeof TONE_OPTIONS)[number]))}
             focused
             backgroundColor={theme.transparent}
             focusedBackgroundColor={theme.transparent}
@@ -307,30 +387,30 @@ export default function AnswerWorkspace({
         </box>
       ) : null}
 
-      {step === 'ask-context' ? (
+      {draft.step === 'ask-context' ? (
         <box flexDirection="column" marginTop={1}>
           <text fg={theme.heading} content="Context (optional)" />
           <textarea
             ref={contextInputRef}
             height={4}
-            initialValue={contextDraft}
+            initialValue={draft.contextDraft}
             placeholder="Company values, examples, or the angle to emphasize..."
             keyBindings={TEXTAREA_SUBMIT_KEY_BINDINGS}
-            onContentChange={() => setContextDraft(contextInputRef.current?.plainText ?? '')}
+            onContentChange={() => updateDraft({ contextDraft: contextInputRef.current?.plainText ?? '' })}
             onSubmit={() => void handleContextSubmit(contextInputRef.current?.plainText ?? '')}
             focused
           />
         </box>
       ) : null}
 
-      {step === 'ask-refine' ? (
+      {draft.step === 'ask-refine' ? (
         <box flexDirection="column" marginTop={1}>
           <text fg={theme.heading} content="Refinement request" />
           <input
             ref={refineInputRef}
-            value={refineDraft}
+            value={draft.refineDraft}
             placeholder="e.g. Make it shorter and more specific."
-            onInput={setRefineDraft}
+            onInput={(value) => updateDraft({ refineDraft: value })}
             focused
             onSubmit={(value: unknown) => {
               if (typeof value === 'string') void handleRefineSubmit(value);
@@ -344,12 +424,14 @@ export default function AnswerWorkspace({
           <text fg={theme.success} content="Copied!" />
         ) : (
           <>
-            {step === 'review' ? <text fg={theme.footer} content="s=save" /> : null}
-            {step === 'review' ? <text fg={theme.muted} content="|" /> : null}
-            {step === 'review' ? <text fg={theme.footer} content="r=refine" /> : null}
-            {step === 'review' ? <text fg={theme.muted} content="|" /> : null}
-            {step === 'review' ? <text fg={theme.footer} content="c=copy" /> : null}
-            {step === 'review' ? <text fg={theme.muted} content="|" /> : null}
+            {draft.step === 'review' ? <text fg={theme.footer} content="s=save" /> : null}
+            {draft.step === 'review' ? <text fg={theme.muted} content="|" /> : null}
+            {draft.step === 'review' ? <text fg={theme.footer} content="r=refine" /> : null}
+            {draft.step === 'review' ? <text fg={theme.muted} content="|" /> : null}
+            {draft.step === 'review' ? <text fg={theme.footer} content="c=copy" /> : null}
+            {draft.step === 'review' ? <text fg={theme.muted} content="|" /> : null}
+            <text fg={theme.footer} content="1-4=jump" />
+            <text fg={theme.muted} content="|" />
             <text fg={theme.footer} content="esc=back" />
           </>
         )}

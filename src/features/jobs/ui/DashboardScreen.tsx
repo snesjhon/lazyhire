@@ -12,8 +12,10 @@ import {
   type CvTextSizeScale,
 } from '../services/generate.js';
 import AnswerWorkspace from '../../answers/ui/AnswerWorkspace.js';
+import type { AnswerDraft } from '../../answers/ui/AnswerWorkspace.js';
 import DashboardOverlay from './DashboardOverlay.js';
 import JobActionWorkspace, {
+  type GenerateCoverLetterDraft,
   type GenerateCvDraft,
   type JobActionView,
 } from './JobActionWorkspace.js';
@@ -300,10 +302,14 @@ interface Props {
   onOpenActions: () => void;
   onCloseAnswer: () => void;
   onAnswerSaved: (message: string) => void;
+  answerDraft: AnswerDraft | null;
+  onAnswerDraftChange: (draft: AnswerDraft) => void;
   onCloseJobActions: () => void;
   onStartAnswer: () => void;
   generateCvDraft: GenerateCvDraft | null;
   onGenerateCvDraftChange: (draft: GenerateCvDraft) => void;
+  generateCoverLetterDraft: GenerateCoverLetterDraft | null;
+  onGenerateCoverLetterDraftChange: (draft: GenerateCoverLetterDraft) => void;
   onEvaluateJob: () => void;
   onOpenJobLink: () => void;
   onOpenGeneratedCv: () => void;
@@ -358,10 +364,14 @@ export default function DashboardScreen({
   onOpenActions,
   onCloseAnswer,
   onAnswerSaved,
+  answerDraft,
+  onAnswerDraftChange,
   onCloseJobActions,
   onStartAnswer,
   generateCvDraft,
   onGenerateCvDraftChange,
+  generateCoverLetterDraft,
+  onGenerateCoverLetterDraftChange,
   onEvaluateJob,
   onOpenJobLink,
   onOpenGeneratedCv,
@@ -692,6 +702,18 @@ export default function DashboardScreen({
                   job={selectedJob}
                   width={Math.max(20, detailWidth - 6)}
                   height={detailHeight - 2}
+                  draft={answerDraft ?? {
+                    step: 'ask-question',
+                    question: '',
+                    questionDraft: '',
+                    category: 'other',
+                    tone: '',
+                    contextDraft: '',
+                    refineDraft: '',
+                    generatedAnswer: '',
+                    statusLine: `Write a question for ${selectedJob.company || 'this company'}.`,
+                  }}
+                  onDraftChange={onAnswerDraftChange}
                   onClose={onCloseAnswer}
                   onSaved={onAnswerSaved}
                 />
@@ -711,6 +733,10 @@ export default function DashboardScreen({
                     phase: 'bullet-preset',
                   }}
                   onGenerateCvDraftChange={onGenerateCvDraftChange}
+                  generateCoverLetterDraft={generateCoverLetterDraft ?? {
+                    guidance: '',
+                  }}
+                  onGenerateCoverLetterDraftChange={onGenerateCoverLetterDraftChange}
                   onClose={onCloseJobActions}
                   onStartAnswer={onStartAnswer}
                   onEvaluate={onEvaluateJob}
