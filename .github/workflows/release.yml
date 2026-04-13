@@ -28,6 +28,11 @@ jobs:
       - name: Build binary
         run: bun build --compile src/index.tsx --outfile lazyhire-mac-arm64
 
+      - name: Verify binary
+        run: |
+          file lazyhire-mac-arm64
+          ls -lh lazyhire-mac-arm64
+
       - name: Import signing certificate
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -48,18 +53,14 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          cat > entitlements.plist <<'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-            <true/>
-            <key>com.apple.security.cs.disable-library-validation</key>
-            <true/>
-          </dict>
-          </plist>
-          EOF
+          printf '%s\n' \
+            '<?xml version="1.0" encoding="UTF-8"?>' \
+            '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+            '<plist version="1.0"><dict>' \
+            '  <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>' \
+            '  <key>com.apple.security.cs.disable-library-validation</key><true/>' \
+            '</dict></plist>' > entitlements.plist
+          cat entitlements.plist
           codesign --sign "Developer ID Application: Jhonatan Paredes ($APPLE_TEAM_ID)" \
             --options runtime \
             --timestamp \
