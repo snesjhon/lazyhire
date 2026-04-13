@@ -1,5 +1,5 @@
 {
-  "name": "open-positions",
+  "name": "lazyhire",
   "version": "1.0.0",
   "packageManager": "pnpm@10.32.1",
   "type": "module",
@@ -16,7 +16,7 @@
     "@types/pdf-parse": "^1.1.5",
     "opentui-spinner": "^0.0.6",
     "pdf-parse": "^2.4.5",
-    "puppeteer": "^22.0.0",
+    "puppeteer-core": "^22.0.0",
     "react": "^19.2.0"
   },
   "devDependencies": {

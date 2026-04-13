@@ -1,6 +1,9 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
-import puppeteer from 'puppeteer';
+import resumeTemplate from '../templates/resume.html' with { type: 'text' };
+import coverLetterTemplate from '../templates/cover-letter.html' with { type: 'text' };
+import puppeteer from 'puppeteer-core';
+import { findChrome } from '../../../shared/lib/chrome.js';
 import type { GeneratedCV, GeneratedCoverLetter } from '../../../shared/models/types.js';
 import {
   DEFAULT_CV_TEXT_SIZE_SCALE,
@@ -123,7 +126,7 @@ async function renderHtmlToPdf(
   const tmpHtml = join(process.cwd(), 'output', `_tmp-${Date.now()}.html`);
   writeFileSync(tmpHtml, html, 'utf8');
 
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await puppeteer.launch({ headless: true, executablePath: findChrome() });
   const page = await browser.newPage();
   await page.setViewport({ width: 816, height: 1056, deviceScaleFactor: 1 });
   await page.goto(`file://${tmpHtml}`, { waitUntil: 'networkidle0' });
@@ -150,16 +153,12 @@ export async function renderPDF(
   outputPath: string,
   textSizeScale: CvTextSizeScale = DEFAULT_CV_TEXT_SIZE_SCALE,
 ): Promise<void> {
-  const templatePath = join(process.cwd(), 'src', 'features', 'jobs', 'templates', 'resume.html');
-  const template = readFileSync(templatePath, 'utf8');
-  await renderHtmlToPdf(injectCVWithTextSize(template, cv, textSizeScale), outputPath);
+  await renderHtmlToPdf(injectCVWithTextSize(resumeTemplate, cv, textSizeScale), outputPath);
 }
 
 export async function renderCoverLetterPDF(
   coverLetter: GeneratedCoverLetter,
   outputPath: string,
 ): Promise<void> {
-  const templatePath = join(process.cwd(), 'src', 'features', 'jobs', 'templates', 'cover-letter.html');
-  const template = readFileSync(templatePath, 'utf8');
-  await renderHtmlToPdf(injectCoverLetter(template, coverLetter), outputPath);
+  await renderHtmlToPdf(injectCoverLetter(coverLetterTemplate, coverLetter), outputPath);
 }

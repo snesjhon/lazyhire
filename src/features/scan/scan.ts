@@ -6,7 +6,8 @@ import { fetchRemoteOK } from './sources/remoteok.js';
 import { fetchRemotive } from './sources/remotive.js';
 import { fetchHNHiring } from './sources/hnhiring.js';
 import { fetchWebSearch } from './sources/websearch.js';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import { findChrome } from '../../shared/lib/chrome.js';
 import type { Portal } from './portals.js';
 import type { ScanJob, Profile } from '../../shared/models/types.js';
 
@@ -522,7 +523,7 @@ async function validateJobs(
     onProgress?.({ name: 'Validation', state, count });
 
   update('running');
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await puppeteer.launch({ headless: true, executablePath: findChrome() });
 
   try {
     for (let i = 0; i < jobs.length; i += VALIDATION_BATCH_SIZE) {

@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build binary
+        run: bun build --compile src/index.tsx --outfile lazyhire-mac-arm64
+
+      - name: Compute SHA256
+        id: sha256
+        run: |
+          HASH=$(shasum -a 256 lazyhire-mac-arm64 | cut -d' ' -f1)
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Write release files
+        run: |
+          TAG="${{ github.ref_name }}"
+          echo "$TAG" > latest.txt
+          cat > manifest.json <<EOF
+          {
+            "version": "$TAG",
+            "url": "https://github.com/${{ github.repository }}/releases/download/$TAG/lazyhire-mac-arm64",
+            "sha256": "${{ steps.sha256.outputs.hash }}"
+          }
+          EOF
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            lazyhire-mac-arm64 \
+            manifest.json \
+            latest.txt \
+            --title "${{ github.ref_name }}" \
+            --generate-notes

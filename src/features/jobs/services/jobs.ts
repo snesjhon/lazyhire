@@ -1,5 +1,6 @@
 import { join } from 'path';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import { findChrome } from '../../../shared/lib/chrome.js';
 import { db } from '../../../shared/data/db.js';
 import { loadProfile } from '../../../shared/models/profile.js';
 import { evaluateJob } from './evaluation.js';
@@ -421,7 +422,7 @@ export function inferFromJdText(jd: string): { company: string; role: string } {
 export async function hydrateJobFromUrl(
   url: string,
 ): Promise<Pick<Job, 'company' | 'role' | 'url' | 'jd' | 'jdSummary'>> {
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await puppeteer.launch({ headless: true, executablePath: findChrome() });
   const page = await browser.newPage();
 
   try {
