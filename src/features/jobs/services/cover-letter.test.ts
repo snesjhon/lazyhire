@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AnswerEntry, Profile } from '../../../shared/models/types.js';
 import {
+  DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT,
   buildGenerateCoverLetterPrompt,
   parseGeneratedCoverLetter,
 } from './cover-letter.js';
@@ -71,8 +72,27 @@ describe('cover-letter prompt builder', () => {
     expect(prompt).toContain('## Saved Answers Voice Reference');
     expect(prompt).toContain('Tone: Concise');
     expect(prompt).toContain('Keep me direct and not overly flattering.');
-    expect(prompt).toContain('exactly 2 paragraphs');
-    expect(prompt).toContain('about 100 words total');
+    expect(prompt).toContain('Write 3-4 paragraphs');
+    expect(prompt).toContain(
+      `about ${DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT.target} words total`,
+    );
+  });
+
+  it('replaces the total word count with the selected value', () => {
+    const prompt = buildGenerateCoverLetterPrompt({
+      job: {
+        company: 'Acme',
+        role: 'Senior Product Engineer',
+        url: 'https://acme.test/jobs/1',
+        jd: 'Build frontend systems for customers.',
+        jdSummary: 'Frontend role focused on customer-facing systems.',
+      },
+      profile,
+      totalWordCount: { target: 300 },
+    }, answers);
+
+    expect(prompt).toContain('about 300 words total');
+    expect(prompt).not.toContain('{{TOTAL_WORD_COUNT}}');
   });
 });
 
@@ -89,11 +109,12 @@ describe('cover-letter parser', () => {
       "role": "Senior Product Engineer",
       "paragraphs": [
         "I am excited about this role.",
+        "My background lines up with the product and technical needs of the team.",
         "I would bring strong product judgment."
       ]
     }`);
 
     expect(parsed.company).toBe('Acme');
-    expect(parsed.paragraphs).toHaveLength(2);
+    expect(parsed.paragraphs).toHaveLength(3);
   });
 });

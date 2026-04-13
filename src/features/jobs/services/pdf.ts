@@ -101,6 +101,10 @@ export function injectCoverLetter(
   template: string,
   coverLetter: GeneratedCoverLetter,
 ): string {
+  const paragraphsHtml = coverLetter.paragraphs
+    .map((paragraph) => `<p>${renderInlineMarkup(paragraph)}</p>`)
+    .join('\n      ');
+
   return template
     .replace(/\{\{NAME\}\}/g, renderInlineMarkup(coverLetter.name))
     .replace(/\{\{EMAIL\}\}/g, renderInlineMarkup(coverLetter.contact.email))
@@ -108,8 +112,7 @@ export function injectCoverLetter(
     .replace(/\{\{SITE\}\}/g, renderInlineMarkup(coverLetter.contact.site))
     .replace(/\{\{COMPANY\}\}/g, renderInlineMarkup(coverLetter.company))
     .replace(/\{\{ROLE\}\}/g, renderInlineMarkup(coverLetter.role))
-    .replace(/\{\{PARAGRAPH_ONE\}\}/g, renderInlineMarkup(coverLetter.paragraphs[0]))
-    .replace(/\{\{PARAGRAPH_TWO\}\}/g, renderInlineMarkup(coverLetter.paragraphs[1]));
+    .replace(/\{\{PARAGRAPHS\}\}/g, paragraphsHtml);
 }
 
 async function renderHtmlToPdf(

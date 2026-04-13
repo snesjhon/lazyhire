@@ -12,7 +12,11 @@ import {
 } from './generate.js';
 import { renderPDF } from './pdf.js';
 import { renderCoverLetterPDF } from './pdf.js';
-import { generateCoverLetter } from './cover-letter.js';
+import {
+  DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT,
+  generateCoverLetter,
+  type CoverLetterTotalWordCount,
+} from './cover-letter.js';
 import type { Job } from '../../../shared/models/types.js';
 
 type JobSignals = {
@@ -614,6 +618,7 @@ export async function generateAndPersistPdf(
 export async function generateAndPersistCoverLetterPdf(
   job: Job,
   tailoringNotes = '',
+  totalWordCount: CoverLetterTotalWordCount = DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT,
 ): Promise<Job> {
   const profile = loadProfile();
   const coverLetter = await generateCoverLetter(
@@ -626,6 +631,7 @@ export async function generateAndPersistCoverLetterPdf(
     },
     profile,
     tailoringNotes,
+    totalWordCount,
   );
 
   const filename = `${job.id}-${slugify(job.company)}-cover-letter.pdf`;

@@ -11,6 +11,10 @@ import {
   type CvBulletWordRange,
   type CvTextSizeScale,
 } from '../services/generate.js';
+import {
+  DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT,
+  type CoverLetterTotalWordCount,
+} from '../services/cover-letter.js';
 import AnswerWorkspace from '../../answers/ui/AnswerWorkspace.js';
 import type { AnswerDraft } from '../../answers/ui/AnswerWorkspace.js';
 import DashboardOverlay from './DashboardOverlay.js';
@@ -325,7 +329,10 @@ interface Props {
     bulletWordRange: CvBulletWordRange,
     textSizeScale: CvTextSizeScale,
   ) => Promise<Job>;
-  onGenerateCoverLetter: (guidance: string) => Promise<Job>;
+  onGenerateCoverLetter: (
+    guidance: string,
+    totalWordCount: CoverLetterTotalWordCount,
+  ) => Promise<Job>;
   onOpenProfileActions: (view: ProfileActionView) => void;
   onCloseProfileActions: () => void;
   onSaveProfile: (profile: Profile, message: string) => void;
@@ -735,6 +742,9 @@ export default function DashboardScreen({
                   onGenerateCvDraftChange={onGenerateCvDraftChange}
                   generateCoverLetterDraft={generateCoverLetterDraft ?? {
                     guidance: '',
+                    totalWordCount: DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT,
+                    selectedLengthPresetId: 'balanced',
+                    phase: 'length-preset',
                   }}
                   onGenerateCoverLetterDraftChange={onGenerateCoverLetterDraftChange}
                   onClose={onCloseJobActions}

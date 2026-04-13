@@ -91,7 +91,7 @@ export interface GeneratedCoverLetter {
   };
   company: string;
   role: string;
-  paragraphs: [string, string];
+  paragraphs: string[];
 }
 
 export interface Experience {

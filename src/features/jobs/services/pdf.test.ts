@@ -35,7 +35,8 @@ const coverLetter: GeneratedCoverLetter = {
   role: 'Senior Product Engineer',
   paragraphs: [
     'I am excited to apply for the Senior Product Engineer role at Acme.',
-    'I would bring product judgment, technical depth, and clear communication.',
+    'My background combines product judgment, execution discipline, and strong collaboration.',
+    'I would bring technical depth, clear communication, and practical impact.',
   ],
 };
 
@@ -115,8 +116,7 @@ describe('injectCoverLetter', () => {
     const template = `<body>
 <h1>{{NAME}}</h1>
 <div>{{COMPANY}} / {{ROLE}}</div>
-<p>{{PARAGRAPH_ONE}}</p>
-<p>{{PARAGRAPH_TWO}}</p>
+{{PARAGRAPHS}}
 </body>`;
 
     const html = injectCoverLetter(template, coverLetter);
@@ -132,8 +132,7 @@ describe('injectCoverLetter', () => {
       join(process.cwd(), 'src', 'features', 'jobs', 'templates', 'cover-letter.html'),
       'utf8',
     );
-    expect(template).toContain('{{PARAGRAPH_ONE}}');
-    expect(template).toContain('{{PARAGRAPH_TWO}}');
+    expect(template).toContain('{{PARAGRAPHS}}');
     expect(template).toContain('{{COMPANY}}');
     expect(template).toContain('Dear {{COMPANY}} Hiring Team,');
     expect(template).toContain('Thank you for your time and consideration,');

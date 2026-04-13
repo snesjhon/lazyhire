@@ -11,6 +11,43 @@ const GENERATE_PROMPT = readFileSync(
   join(__dirname, 'prompts', 'generate-cover-letter.md'),
   'utf8',
 );
+const TOTAL_WORD_COUNT_TOKEN = '{{TOTAL_WORD_COUNT}}';
+
+export interface CoverLetterTotalWordCount {
+  target: number;
+}
+
+export interface CoverLetterLengthPreset {
+  id: 'tight' | 'balanced' | 'extended';
+  name: string;
+  description: string;
+  totalWordCount: CoverLetterTotalWordCount;
+}
+
+export const DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT: CoverLetterTotalWordCount = {
+  target: 200,
+};
+
+export const COVER_LETTER_LENGTH_PRESETS: CoverLetterLengthPreset[] = [
+  {
+    id: 'tight',
+    name: 'Tight',
+    description: 'Shorter letter, about 100 words total',
+    totalWordCount: { target: 100 },
+  },
+  {
+    id: 'balanced',
+    name: 'Balanced',
+    description: 'Default letter, about 200 words total',
+    totalWordCount: DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT,
+  },
+  {
+    id: 'extended',
+    name: 'Extended',
+    description: 'Longer letter, about 300 words total',
+    totalWordCount: { target: 300 },
+  },
+];
 
 function buildProfileSummary(profile: Profile): string {
   const recentRoles = profile.experiences
@@ -82,6 +119,7 @@ export interface GenerateCoverLetterInput {
   job: Pick<Job, 'company' | 'role' | 'jdSummary' | 'jd' | 'url'>;
   profile: Profile;
   tailoringNotes?: string;
+  totalWordCount?: CoverLetterTotalWordCount;
 }
 
 export function buildGenerateCoverLetterPrompt(
@@ -89,8 +127,14 @@ export function buildGenerateCoverLetterPrompt(
   answers = answersDb.readAnswers(),
 ): string {
   const relevantAnswers = selectRelevantAnswers(answers, input.job);
+  const totalWordCount =
+    input.totalWordCount ?? DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT;
+  const promptTemplate = GENERATE_PROMPT.replace(
+    TOTAL_WORD_COUNT_TOKEN,
+    String(totalWordCount.target),
+  );
 
-  return `${GENERATE_PROMPT}
+  return `${promptTemplate}
 
 ---
 
@@ -135,13 +179,13 @@ export function parseGeneratedCoverLetter(text: string): GeneratedCoverLetter {
   if (!parsed.contact?.email) throw new Error('Missing contact in generated cover letter');
   if (!parsed.company) throw new Error('Missing company in generated cover letter');
   if (!parsed.role) throw new Error('Missing role in generated cover letter');
-  if (!Array.isArray(parsed.paragraphs) || parsed.paragraphs.length !== 2) {
-    throw new Error('Generated cover letter must contain exactly two paragraphs');
+  if (!Array.isArray(parsed.paragraphs) || parsed.paragraphs.length < 3 || parsed.paragraphs.length > 4) {
+    throw new Error('Generated cover letter must contain 3-4 paragraphs');
   }
 
   return {
     ...parsed,
-    paragraphs: [parsed.paragraphs[0]!, parsed.paragraphs[1]!],
+    paragraphs: parsed.paragraphs.map((paragraph) => String(paragraph)),
   } as GeneratedCoverLetter;
 }
 
@@ -149,11 +193,13 @@ export async function generateCoverLetter(
   job: Pick<Job, 'company' | 'role' | 'jdSummary' | 'jd' | 'url'>,
   profile: Profile,
   tailoringNotes = '',
+  totalWordCount: CoverLetterTotalWordCount = DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT,
 ): Promise<GeneratedCoverLetter> {
   const prompt = buildGenerateCoverLetterPrompt({
     job,
     profile,
     tailoringNotes,
+    totalWordCount,
   });
 
   let responseText = '';

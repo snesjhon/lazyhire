@@ -47,6 +47,10 @@ import {
   DEFAULT_CV_BULLET_WORD_RANGE,
   DEFAULT_CV_TEXT_SIZE_SCALE,
 } from './features/jobs/services/generate.js';
+import {
+  DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT,
+  type CoverLetterTotalWordCount,
+} from './features/jobs/services/cover-letter.js';
 
 const JOB_FILTERS = [
   'Queue',
@@ -73,6 +77,9 @@ function createDefaultGenerateCvDraft(): GenerateCvDraft {
 function createDefaultGenerateCoverLetterDraft(): GenerateCoverLetterDraft {
   return {
     guidance: '',
+    totalWordCount: DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT,
+    selectedLengthPresetId: 'balanced',
+    phase: 'length-preset',
   };
 }
 
@@ -438,10 +445,18 @@ export default function App() {
     return updated;
   }
 
-  async function runGenerateCoverLetter(job: Job, guidance: string) {
+  async function runGenerateCoverLetter(
+    job: Job,
+    guidance: string,
+    totalWordCount: CoverLetterTotalWordCount,
+  ) {
     setOverlay('none');
     setFocus('jobs');
-    const updated = await generateAndPersistCoverLetterPdf(job, guidance);
+    const updated = await generateAndPersistCoverLetterPdf(
+      job,
+      guidance,
+      totalWordCount,
+    );
     refreshJobs();
     setSelectedJobId(updated.id);
     return updated;
@@ -871,9 +886,9 @@ export default function App() {
             ? runGenerate(selectedJob, guidance, bulletWordRange, textSizeScale)
             : Promise.reject(new Error('No job selected'))
         }
-        onGenerateCoverLetter={(guidance) =>
+        onGenerateCoverLetter={(guidance, totalWordCount) =>
           selectedJob
-            ? runGenerateCoverLetter(selectedJob, guidance)
+            ? runGenerateCoverLetter(selectedJob, guidance, totalWordCount)
             : Promise.reject(new Error('No job selected'))
         }
         onOpenProfileActions={openProfileActions}
