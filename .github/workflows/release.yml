@@ -62,13 +62,14 @@ jobs:
             '</dict></plist>' > entitlements.plist
           cat entitlements.plist
           codesign --sign "Developer ID Application: Jhonatan Paredes ($APPLE_TEAM_ID)" \
-            --options runtime \
             --timestamp \
             --force \
             --entitlements entitlements.plist \
             lazyhire-mac-arm64
+          codesign --verify --verbose lazyhire-mac-arm64
 
       - name: Notarize binary
+        if: false
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
