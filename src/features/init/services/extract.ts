@@ -36,6 +36,10 @@ export interface FinalizeProfileInput {
   extraExperience: string[];
 }
 
+function hasRefinementRequests(input: FinalizeProfileInput): boolean {
+  return input.corrections.trim().length > 0 || input.extraExperience.length > 0;
+}
+
 const EXTRACTION_PROMPT = `You are parsing a resume to extract structured data for a job search tool.
 
 Extract the following from the resume text provided and return ONLY valid JSON matching this exact schema:
@@ -360,6 +364,32 @@ ${JSON.stringify(input.targets, null, 2)}
 ${extraExperience}`;
 }
 
+export function buildProfileFromExtraction(input: FinalizeProfileInput): Profile {
+  return {
+    candidate: { ...input.extracted.candidate },
+    headline: input.extracted.headline,
+    summary: input.extracted.summary,
+    cv: input.rawText,
+    targets: {
+      roles: [...input.targets.roles],
+      salaryMin: input.targets.salaryMin,
+      salaryMax: input.targets.salaryMax,
+      remote: input.targets.remote,
+      dealBreakers: [...input.targets.dealBreakers],
+      categories: [...input.targets.categories],
+      focuses: [...input.targets.focuses],
+    },
+    experiences: input.extracted.experiences.map((experience) => ({
+      ...experience,
+      period: { ...experience.period },
+      tags: [...experience.tags],
+      bullets: [...experience.bullets],
+    })),
+    education: input.extracted.education.map((entry) => ({ ...entry })),
+    skills: [...input.extracted.skills],
+  };
+}
+
 export async function extractProfileFromText(resumeText: string): Promise<ExtractionResult> {
   assertSupportedClaudeRuntime();
 
@@ -368,6 +398,10 @@ export async function extractProfileFromText(resumeText: string): Promise<Extrac
 }
 
 export async function finalizeProfileFromIntake(input: FinalizeProfileInput): Promise<Profile> {
+  if (!hasRefinementRequests(input)) {
+    return buildProfileFromExtraction(input);
+  }
+
   assertSupportedClaudeRuntime();
 
   const prompt = buildFinalizeProfilePrompt(input);

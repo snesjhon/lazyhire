@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
+  buildProfileFromExtraction,
   buildSuggestedTargets,
   buildFinalizeProfilePrompt,
+  finalizeProfileFromIntake,
   parseExtractionResult,
   parseProfileResult,
 } from './extract.js';
@@ -101,6 +103,66 @@ describe('final profile generation helpers', () => {
     expect(prompt).toContain('Led a migration across 4 teams');
     expect(prompt).toContain('"suggestedCategories"');
     expect(prompt).toContain('"suggestedFocuses"');
+  });
+
+  it('buildProfileFromExtraction constructs a valid profile without another model pass', () => {
+    const result = buildProfileFromExtraction({
+      rawText: 'Resume body',
+      extracted: extraction,
+      corrections: '',
+      targets: {
+        roles: ['Senior Frontend Engineer'],
+        salaryMin: 180000,
+        salaryMax: 220000,
+        remote: 'full',
+        dealBreakers: ['No relocation'],
+        categories: ['engineering'],
+        focuses: ['platform'],
+      },
+      extraExperience: [],
+    });
+
+    expect(result).toEqual({
+      candidate,
+      headline,
+      summary,
+      cv: 'Resume body',
+      targets: {
+        roles: ['Senior Frontend Engineer'],
+        salaryMin: 180000,
+        salaryMax: 220000,
+        remote: 'full',
+        dealBreakers: ['No relocation'],
+        categories: ['engineering'],
+        focuses: ['platform'],
+      },
+      experiences,
+      education,
+      skills,
+    });
+  });
+
+  it('finalizeProfileFromIntake returns the local profile when there are no refinements', async () => {
+    const result = await finalizeProfileFromIntake({
+      rawText: 'Resume body',
+      extracted: extraction,
+      corrections: '',
+      targets: {
+        roles: ['Senior Frontend Engineer'],
+        salaryMin: 180000,
+        salaryMax: 220000,
+        remote: 'full',
+        dealBreakers: ['No relocation'],
+        categories: ['engineering'],
+        focuses: ['platform'],
+      },
+      extraExperience: [],
+    });
+
+    expect(result.cv).toBe('Resume body');
+    expect(result.summary).toBe(summary);
+    expect(result.targets.roles).toEqual(['Senior Frontend Engineer']);
+    expect(result.experiences).toEqual(experiences);
   });
 
   it('parseProfileResult parses valid profile json', () => {
