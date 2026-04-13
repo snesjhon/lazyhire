@@ -133,16 +133,7 @@ export default function InitWorkspace({
   const menuWidth = Math.max(34, Math.min(contentWidth, 58));
   const heroWidth = Math.max(menuWidth, 74);
   const subtitle = 'AI-Driven tools to help you land your next job';
-  const subtitlePadding = Math.max(
-    0,
-    Math.floor((heroWidth - subtitle.length) / 2),
-  );
-
   const author = 'Jhonatan Salazar';
-  const authorPadding = Math.max(
-    0,
-    Math.floor((heroWidth - author.length) / 2),
-  );
 
   return (
     <box flexDirection="column" overflow="hidden" width={width} height={height}>
@@ -154,21 +145,20 @@ export default function InitWorkspace({
         {view === 'menu' && (
           <box flexDirection="row" justifyContent="center" width={contentWidth}>
             <box flexDirection="column" width={heroWidth} overflow="hidden">
-              <BrandLogo theme={theme} variant="hero" width={heroWidth} />
               <box marginTop={1}>
-                <text fg={theme.muted} marginBottom={1}>
-                  <strong>
-                    {' '.repeat(subtitlePadding)} {subtitle}
-                  </strong>
+                <BrandLogo theme={theme} variant="hero" width={heroWidth} />
+              </box>
+              <box alignItems="center">
+                <text fg={theme.muted} marginX="auto" marginY={1}>
+                  <strong>{subtitle}</strong>
                 </text>
-                <text
-                  fg={theme.muted}
-                  content={`${' '.repeat(authorPadding)}${author}`}
-                />
+                <text fg={theme.muted} content={author} />
               </box>
               <box marginTop={2} flexDirection="row" justifyContent="center">
                 <box width={menuWidth} flexDirection="column" overflow="hidden">
-                  <text fg={theme.subtext} content="Choose how to start" />
+                  <text fg={theme.subtext} marginBottom={1}>
+                    <strong>Choose how to start</strong>
+                  </text>
                   <select
                     focused
                     height={Math.max(5, height - 12)}
@@ -196,22 +186,34 @@ export default function InitWorkspace({
         )}
 
         {view === 'url' && (
-          <box flexDirection="column" width={Math.max(20, width)}>
-            <text
-              fg={theme.muted}
-              content="Paste a resume PDF URL and press Enter. esc=back"
-            />
-            <text fg={theme.heading} content="Resume PDF URL" />
-            <input
-              ref={urlInputRef}
-              value={url}
-              placeholder="https://example.com/resume.pdf"
-              onInput={setUrl}
-              onSubmit={(value: unknown) => {
-                if (typeof value === 'string') void handleUrlSubmit(value);
-              }}
-              focused
-            />
+          <box flexDirection="row" justifyContent="center" width={contentWidth}>
+            <box flexDirection="column" width={heroWidth} overflow="hidden">
+              <BrandLogo theme={theme} variant="hero" width={heroWidth} />
+              <box alignItems="center">
+                <text fg={theme.muted} marginX="auto" marginY={1}>
+                  <strong>{subtitle}</strong>
+                </text>
+                <text fg={theme.muted} content={author} />
+              </box>
+              <box marginTop={2} flexDirection="row" justifyContent="center">
+                <box width={menuWidth} flexDirection="column" overflow="hidden">
+                  <text marginBottom={1} fg={theme.subtext}>
+                    <strong>Paste a resume PDF URL and press Enter</strong>
+                  </text>
+                  <input
+                    ref={urlInputRef}
+                    value={url}
+                    placeholder="https://example.com/resume.pdf"
+                    onInput={setUrl}
+                    onSubmit={(value: unknown) => {
+                      if (typeof value === 'string')
+                        void handleUrlSubmit(value);
+                    }}
+                    focused
+                  />
+                </box>
+              </box>
+            </box>
           </box>
         )}
 
