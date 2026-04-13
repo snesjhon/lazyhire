@@ -5,3 +5,6 @@ output/
 .lazyhire/
 *.env
 .DS_Store
+*.bun-build
+*.cer
+lazyhire-mac-arm64
