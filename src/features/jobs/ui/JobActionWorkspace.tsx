@@ -317,11 +317,6 @@ export default function JobActionWorkspace({
       description: `Remove #${job.id} from the queue`,
       value: 'delete',
     },
-    {
-      name: 'Back to detail',
-      description: 'Close actions and return to job detail',
-      value: 'close',
-    },
   ];
 
   const editJobOptions: SelectOption[] = [
@@ -406,11 +401,10 @@ export default function JobActionWorkspace({
 
   return (
     <box flexDirection="column" overflow="hidden">
-      <text
-        fg={theme.muted}
-        content={
-          view === 'menu'
-            ? `Actions for #${job.id}. Enter to run, esc to return.`
+      <text fg={theme.brand} marginBottom={1}>
+        <strong>
+          {view === 'menu'
+            ? `Company: ${job.company}`
             : view === 'edit-job'
               ? `Job details for #${job.id}. Enter to edit, esc to return.`
               : (view === 'generate-cv' || view === 'generate-cover-letter') &&
@@ -431,20 +425,19 @@ export default function JobActionWorkspace({
                   ? generateArtifact === 'cover-letter'
                     ? 'Generating cover letter...'
                     : 'Generating CV...'
-                  : 'esc=back'
-        }
-      />
+                  : 'esc=back'}
+        </strong>
+      </text>
 
       <box height={Math.max(6, height - 2)} overflow="hidden">
         {view === 'menu' ? (
           <select
-            height={Math.max(6, height - 2)}
+            height={Math.max(6, height - 10)}
             width={Math.max(20, width)}
             focused
             options={menuOptions}
-            showDescription
-            // itemSpacing={0}
             backgroundColor={theme.transparent}
+            // showDescription={false}
             focusedBackgroundColor={theme.transparent}
             selectedBackgroundColor={theme.transparent}
             selectedTextColor={theme.brand}
@@ -463,7 +456,6 @@ export default function JobActionWorkspace({
               if (value === 'open-cover-letter') onOpenCoverLetter();
               if (value === 'open-link') onOpenLink();
               if (value === 'delete') setView('delete');
-              if (value === 'close') onClose();
             }}
           />
         ) : null}
@@ -963,6 +955,12 @@ export default function JobActionWorkspace({
             }}
           />
         ) : null}
+
+        <box flexDirection="row" columnGap={1} marginTop={1}>
+          <text fg={theme.footer} content="Submit: enter" />
+          <text fg={theme.muted} content="|" />
+          <text fg={theme.footer} content="Go Back: esc" />
+        </box>
       </box>
     </box>
   );

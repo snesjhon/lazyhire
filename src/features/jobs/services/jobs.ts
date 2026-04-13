@@ -56,6 +56,17 @@ export function buildResumeFilename(candidateName: string, company: string): str
   return `${firstName}-${lastName}-${companySlug}-Resume.pdf`;
 }
 
+export function buildCoverLetterFilename(
+  candidateName: string,
+  company: string,
+): string {
+  const nameParts = candidateName.trim().split(/\s+/).filter(Boolean);
+  const firstName = slugify(nameParts[0] ?? 'candidate');
+  const lastName = slugify(nameParts.at(-1) ?? nameParts[0] ?? 'candidate');
+  const companySlug = slugify(company);
+  return `${firstName}-${lastName}-${companySlug}-cover-letter.pdf`;
+}
+
 function titleCaseWords(value: string): string {
   return value
     .split(/\s+/)
@@ -806,7 +817,7 @@ export async function generateAndPersistCoverLetterPdf(
     totalWordCount,
   );
 
-  const filename = `${job.id}-${slugify(job.company)}-cover-letter.pdf`;
+  const filename = buildCoverLetterFilename(profile.candidate.name, job.company);
   const coverLetterPdfPath = join(DATA_DIR, 'output', filename);
   await renderCoverLetterPDF(coverLetter, coverLetterPdfPath);
 

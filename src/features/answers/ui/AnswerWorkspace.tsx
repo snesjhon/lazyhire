@@ -43,9 +43,9 @@ export interface AnswerDraft {
   statusLine: string;
 }
 
-const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<TextareaOptions['keyBindings']> = [
-  { name: 'o', ctrl: true, action: 'submit' },
-];
+const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<
+  TextareaOptions['keyBindings']
+> = [{ name: 'o', ctrl: true, action: 'submit' }];
 
 const CATEGORY_LABEL: Record<AnswerCategory, string> = {
   identity: 'Identity',
@@ -90,9 +90,13 @@ export default function AnswerWorkspace({
   const refineInputRef = useRef<InputRenderable>(null);
 
   const isInputStep =
-    draft.step === 'ask-question' || draft.step === 'ask-context' || draft.step === 'ask-refine';
+    draft.step === 'ask-question' ||
+    draft.step === 'ask-context' ||
+    draft.step === 'ask-refine';
   const isSpinning =
-    draft.step === 'detecting' || draft.step === 'generating' || draft.step === 'refining';
+    draft.step === 'detecting' ||
+    draft.step === 'generating' ||
+    draft.step === 'refining';
   const scrollHeight = Math.max(6, height - 10);
 
   function updateDraft(patch: Partial<AnswerDraft>) {
@@ -147,7 +151,8 @@ export default function AnswerWorkspace({
   function handleToneSelect(selected: string) {
     updateDraft({
       tone: selected,
-      statusLine: `Any extra angle to include? Ctrl+O skips. ${job.company || ''}`.trim(),
+      statusLine:
+        `Any extra angle to include? Ctrl+O skips. ${job.company || ''}`.trim(),
       step: 'ask-context',
     });
   }
@@ -162,11 +167,19 @@ export default function AnswerWorkspace({
 
     try {
       const profile = loadProfile();
-      const answer = await generateAnswer(draft.question, draft.category, draft.tone, context, profile, job);
+      const answer = await generateAnswer(
+        draft.question,
+        draft.category,
+        draft.tone,
+        context,
+        profile,
+        job,
+      );
       updateDraft({
         contextDraft: context,
         generatedAnswer: answer,
-        statusLine: 'Answer ready. s=save  r=refine  c=copy  1-4=jump  esc=close',
+        statusLine:
+          'Answer ready. s=save  r=refine  c=copy  1-4=jump  esc=close',
         step: 'review',
       });
     } catch (error) {
@@ -188,11 +201,18 @@ export default function AnswerWorkspace({
 
     try {
       const profile = loadProfile();
-      const refined = await refineAnswer(draft.question, draft.generatedAnswer, request, profile, job);
+      const refined = await refineAnswer(
+        draft.question,
+        draft.generatedAnswer,
+        request,
+        profile,
+        job,
+      );
       updateDraft({
         refineDraft: '',
         generatedAnswer: refined,
-        statusLine: 'Refined. s=save  r=refine again  c=copy  1-4=jump  esc=close',
+        statusLine:
+          'Refined. s=save  r=refine again  c=copy  1-4=jump  esc=close',
         step: 'review',
       });
     } catch (error) {
@@ -253,20 +273,25 @@ export default function AnswerWorkspace({
       return;
     }
     if (key.name === '2' && draft.question.trim()) {
-      updateDraft({ step: 'ask-tone', statusLine: 'What tone would you like?' });
+      updateDraft({
+        step: 'ask-tone',
+        statusLine: 'What tone would you like?',
+      });
       return;
     }
     if (key.name === '3' && draft.question.trim() && draft.tone.trim()) {
       updateDraft({
         step: 'ask-context',
-        statusLine: `Any extra angle to include? Ctrl+O skips. ${job.company || ''}`.trim(),
+        statusLine:
+          `Any extra angle to include? Ctrl+O skips. ${job.company || ''}`.trim(),
       });
       return;
     }
     if (key.name === '4' && draft.generatedAnswer.trim()) {
       updateDraft({
         step: 'review',
-        statusLine: 'Answer ready. s=save  r=refine  c=copy  1-4=jump  esc=close',
+        statusLine:
+          'Answer ready. s=save  r=refine  c=copy  1-4=jump  esc=close',
       });
       return;
     }
@@ -299,11 +324,20 @@ export default function AnswerWorkspace({
 
   return (
     <box flexDirection="column" overflow="hidden">
-      <text fg={theme.brand} content={`${job.company || 'Unknown Company'} · ${job.role || 'Untitled Role'}`} />
-      {draft.statusLine ? <text fg={theme.muted} content={draft.statusLine} /> : null}
+      <text
+        fg={theme.brand}
+        content={`${job.company || 'Unknown Company'} · ${job.role || 'Untitled Role'}`}
+      />
+      {draft.statusLine ? (
+        <text fg={theme.muted} content={draft.statusLine} />
+      ) : null}
       <box flexDirection="column" marginTop={1}>
         <text
-          fg={draft.step === 'ask-question' || draft.step === 'detecting' ? theme.brand : theme.text}
+          fg={
+            draft.step === 'ask-question' || draft.step === 'detecting'
+              ? theme.brand
+              : theme.text
+          }
           content={`1. Question   ${draft.question.trim() ? clip(draft.question, width - 18) : 'Not set'}`}
         />
         <text
@@ -311,16 +345,29 @@ export default function AnswerWorkspace({
           content={`2. Tone       ${draft.tone || 'Not set'}`}
         />
         <text
-          fg={draft.step === 'ask-context' || draft.step === 'generating' ? theme.brand : theme.text}
+          fg={
+            draft.step === 'ask-context' || draft.step === 'generating'
+              ? theme.brand
+              : theme.text
+          }
           content={`3. Context    ${draft.contextDraft.trim() ? 'Custom notes added' : 'No extra notes'}`}
         />
         <text
-          fg={draft.step === 'review' || draft.step === 'ask-refine' || draft.step === 'refining' ? theme.brand : theme.text}
+          fg={
+            draft.step === 'review' ||
+            draft.step === 'ask-refine' ||
+            draft.step === 'refining'
+              ? theme.brand
+              : theme.text
+          }
           content={`4. Answer     ${draft.generatedAnswer.trim() ? 'Generated' : 'Not generated'}`}
         />
       </box>
       {draft.question && draft.step !== 'ask-question' ? (
-        <text fg={theme.answerCategoryColors[draft.category]} content={`Question: ${clip(draft.question, width - 6)}`} />
+        <text
+          fg={theme.answerCategoryColors[draft.category]}
+          content={`Question: ${clip(draft.question, width - 6)}`}
+        />
       ) : null}
 
       {draft.step === 'review' && draft.generatedAnswer ? (
@@ -374,7 +421,10 @@ export default function AnswerWorkspace({
             height={Math.min(5, TONE_OPTIONS.length + 1)}
             width="100%"
             options={toneOptions}
-            selectedIndex={Math.max(0, TONE_OPTIONS.indexOf(draft.tone as (typeof TONE_OPTIONS)[number]))}
+            selectedIndex={Math.max(
+              0,
+              TONE_OPTIONS.indexOf(draft.tone as (typeof TONE_OPTIONS)[number]),
+            )}
             focused
             backgroundColor={theme.transparent}
             focusedBackgroundColor={theme.transparent}
@@ -396,8 +446,14 @@ export default function AnswerWorkspace({
             initialValue={draft.contextDraft}
             placeholder="Company values, examples, or the angle to emphasize..."
             keyBindings={TEXTAREA_SUBMIT_KEY_BINDINGS}
-            onContentChange={() => updateDraft({ contextDraft: contextInputRef.current?.plainText ?? '' })}
-            onSubmit={() => void handleContextSubmit(contextInputRef.current?.plainText ?? '')}
+            onContentChange={() =>
+              updateDraft({
+                contextDraft: contextInputRef.current?.plainText ?? '',
+              })
+            }
+            onSubmit={() =>
+              void handleContextSubmit(contextInputRef.current?.plainText ?? '')
+            }
             focused
           />
         </box>
@@ -424,12 +480,24 @@ export default function AnswerWorkspace({
           <text fg={theme.success} content="Copied!" />
         ) : (
           <>
-            {draft.step === 'review' ? <text fg={theme.footer} content="s=save" /> : null}
-            {draft.step === 'review' ? <text fg={theme.muted} content="|" /> : null}
-            {draft.step === 'review' ? <text fg={theme.footer} content="r=refine" /> : null}
-            {draft.step === 'review' ? <text fg={theme.muted} content="|" /> : null}
-            {draft.step === 'review' ? <text fg={theme.footer} content="c=copy" /> : null}
-            {draft.step === 'review' ? <text fg={theme.muted} content="|" /> : null}
+            {draft.step === 'review' ? (
+              <text fg={theme.footer} content="s=save" />
+            ) : null}
+            {draft.step === 'review' ? (
+              <text fg={theme.muted} content="|" />
+            ) : null}
+            {draft.step === 'review' ? (
+              <text fg={theme.footer} content="r=refine" />
+            ) : null}
+            {draft.step === 'review' ? (
+              <text fg={theme.muted} content="|" />
+            ) : null}
+            {draft.step === 'review' ? (
+              <text fg={theme.footer} content="c=copy" />
+            ) : null}
+            {draft.step === 'review' ? (
+              <text fg={theme.muted} content="|" />
+            ) : null}
             <text fg={theme.footer} content="1-4=jump" />
             <text fg={theme.muted} content="|" />
             <text fg={theme.footer} content="esc=back" />

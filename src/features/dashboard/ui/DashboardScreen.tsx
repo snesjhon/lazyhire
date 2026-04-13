@@ -33,7 +33,8 @@ function detailPaneTitle(
   if (detailPane.kind === 'job-intake') {
     if (detailPane.state === 'choose-source') return 'Add Job';
     if (detailPane.state === 'paste-url') return 'Paste Job Link';
-    if (detailPane.state === 'paste-description') return 'Paste Job Description';
+    if (detailPane.state === 'paste-description')
+      return 'Paste Job Description';
     if (detailPane.state === 'crawl-failed') return 'Crawl Failed';
     return 'Evaluating Job';
   }
@@ -71,24 +72,24 @@ export interface DashboardScreenProps {
   detailSource: 'status' | 'jobs' | 'profile' | 'answers';
   detailPane?:
     | {
-      kind: 'job-intake';
-      state: JobIntakeState;
-      render: (args: { width: number; height: number }) => ReactNode;
-    }
+        kind: 'job-intake';
+        state: JobIntakeState;
+        render: (args: { width: number; height: number }) => ReactNode;
+      }
     | {
-      kind: 'answer';
-      jobId: string;
-      render: (args: { width: number; height: number }) => ReactNode;
-    }
+        kind: 'answer';
+        jobId: string;
+        render: (args: { width: number; height: number }) => ReactNode;
+      }
     | {
-      kind: 'job-actions';
-      jobId: string;
-      render: (args: { width: number; height: number }) => ReactNode;
-    }
+        kind: 'job-actions';
+        jobId: string;
+        render: (args: { width: number; height: number }) => ReactNode;
+      }
     | {
-      kind: 'profile-actions';
-      render: (args: { width: number; height: number }) => ReactNode;
-    }
+        kind: 'profile-actions';
+        render: (args: { width: number; height: number }) => ReactNode;
+      }
     | null;
   onFilterChange: (filter: DashboardScreenProps['filter']) => void;
   onCycleFilter: (direction: -1 | 1) => void;
@@ -189,7 +190,7 @@ export default function DashboardScreen({
 
   return (
     <>
-      <box flexDirection="row" columnGap={1} height={contentHeight}>
+      <box flexDirection="row" height={contentHeight}>
         <box width={queueWidth} flexDirection="column" overflow="hidden">
           <box
             title="[1] Status"
@@ -376,7 +377,8 @@ export default function DashboardScreen({
                 ? theme.borderActive
                 : theme.border
             }
-            padding={1}
+            paddingX={2}
+            paddingTop={1}
             height={detailHeight}
             overflow="hidden"
           >

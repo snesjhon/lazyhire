@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildCoverLetterFilename,
   buildResumeFilename,
   hydratedJobLooksValid,
   inferRoleAndCompanyFromSignals,
@@ -287,6 +288,20 @@ describe('buildResumeFilename', () => {
   it('falls back cleanly for single-name candidates', () => {
     expect(buildResumeFilename('Prince', 'Example Co')).toBe(
       'prince-prince-example-co-Resume.pdf',
+    );
+  });
+});
+
+describe('buildCoverLetterFilename', () => {
+  it('formats cover letter filenames from candidate name and company', () => {
+    expect(buildCoverLetterFilename('Jane Doe', 'Acme AI')).toBe(
+      'jane-doe-acme-ai-cover-letter.pdf',
+    );
+  });
+
+  it('falls back cleanly for single-name candidates', () => {
+    expect(buildCoverLetterFilename('Prince', 'Example Co')).toBe(
+      'prince-prince-example-co-cover-letter.pdf',
     );
   });
 });
