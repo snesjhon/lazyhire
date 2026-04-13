@@ -5,10 +5,16 @@ import type { FocusTarget, Overlay } from '../../../shared/ui/state.js';
 import { clip, scoreDisplay } from '../../../shared/lib/utils.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
 import type { AnswerEntry, Job, JobStatus, Profile } from '../../../shared/models/types.js';
-import type { CvBulletWordRange, CvTextSizeScale } from '../services/generate.js';
+import {
+  DEFAULT_CV_BULLET_WORD_RANGE,
+  DEFAULT_CV_TEXT_SIZE_SCALE,
+  type CvBulletWordRange,
+  type CvTextSizeScale,
+} from '../services/generate.js';
 import AnswerWorkspace from '../../answers/ui/AnswerWorkspace.js';
 import DashboardOverlay from './DashboardOverlay.js';
 import JobActionWorkspace, {
+  type GenerateCvDraft,
   type JobActionView,
 } from './JobActionWorkspace.js';
 import ProfileActionWorkspace, {
@@ -296,6 +302,8 @@ interface Props {
   onAnswerSaved: (message: string) => void;
   onCloseJobActions: () => void;
   onStartAnswer: () => void;
+  generateCvDraft: GenerateCvDraft | null;
+  onGenerateCvDraftChange: (draft: GenerateCvDraft) => void;
   onEvaluateJob: () => void;
   onOpenJobLink: () => void;
   onOpenGeneratedCv: () => void;
@@ -352,6 +360,8 @@ export default function DashboardScreen({
   onAnswerSaved,
   onCloseJobActions,
   onStartAnswer,
+  generateCvDraft,
+  onGenerateCvDraftChange,
   onEvaluateJob,
   onOpenJobLink,
   onOpenGeneratedCv,
@@ -692,6 +702,15 @@ export default function DashboardScreen({
                   width={Math.max(20, detailWidth - 6)}
                   height={detailHeight - 2}
                   initialView={jobActionView}
+                  generateCvDraft={generateCvDraft ?? {
+                    guidance: '',
+                    bulletWordRange: DEFAULT_CV_BULLET_WORD_RANGE,
+                    textSizeScale: DEFAULT_CV_TEXT_SIZE_SCALE,
+                    selectedBulletPresetId: 'balanced',
+                    selectedTextSizePresetId: 'balanced',
+                    phase: 'bullet-preset',
+                  }}
+                  onGenerateCvDraftChange={onGenerateCvDraftChange}
                   onClose={onCloseJobActions}
                   onStartAnswer={onStartAnswer}
                   onEvaluate={onEvaluateJob}

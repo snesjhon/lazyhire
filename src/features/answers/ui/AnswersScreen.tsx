@@ -582,7 +582,7 @@ export default function AnswersScreen({ appWidth, appHeight, theme }: Props) {
             <text fg={theme.muted} content="|" />
             <text fg={theme.footer} content="1-3=tabs" />
             <text fg={theme.muted} content="|" />
-            <text fg={theme.footer} content="q=quit" />
+            <text fg={theme.footer} content="ctrl-q=quit" />
           </>
         )}
       </box>

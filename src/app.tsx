@@ -26,7 +26,10 @@ import InitWorkspace from './features/init/ui/InitWorkspace.js';
 import ProfileActionWorkspace from './features/profile/ui/ProfileActionWorkspace.js';
 import type { Flash, FocusTarget, Overlay } from './shared/ui/state.js';
 import { scoreDisplay, type FlashVariant } from './shared/lib/utils.js';
-import type { JobActionView } from './features/jobs/ui/JobActionWorkspace.js';
+import type {
+  GenerateCvDraft,
+  JobActionView,
+} from './features/jobs/ui/JobActionWorkspace.js';
 import type { ProfileActionView } from './features/profile/ui/ProfileActionWorkspace.js';
 import { resolveUiTheme } from './shared/ui/theme.js';
 import {
@@ -37,6 +40,10 @@ import {
 import type {
   CvBulletWordRange,
   CvTextSizeScale,
+} from './features/jobs/services/generate.js';
+import {
+  DEFAULT_CV_BULLET_WORD_RANGE,
+  DEFAULT_CV_TEXT_SIZE_SCALE,
 } from './features/jobs/services/generate.js';
 
 const JOB_FILTERS = [
@@ -49,6 +56,17 @@ const JOB_FILTERS = [
 ] as const;
 
 type JobFilter = (typeof JOB_FILTERS)[number];
+
+function createDefaultGenerateCvDraft(): GenerateCvDraft {
+  return {
+    guidance: '',
+    bulletWordRange: DEFAULT_CV_BULLET_WORD_RANGE,
+    textSizeScale: DEFAULT_CV_TEXT_SIZE_SCALE,
+    selectedBulletPresetId: 'balanced',
+    selectedTextSizePresetId: 'balanced',
+    phase: 'bullet-preset',
+  };
+}
 
 function browserCommand(
   target: string,
@@ -83,6 +101,9 @@ export default function App() {
     jobId: string;
     view: JobActionView;
   } | null>(null);
+  const [generateCvDrafts, setGenerateCvDrafts] = useState<
+    Record<string, GenerateCvDraft>
+  >({});
   const [profileActionView, setProfileActionView] =
     useState<ProfileActionView | null>(null);
   const [flash, setFlashState] = useState<Flash | null>(null);
@@ -269,7 +290,9 @@ export default function App() {
       return;
     }
     const finishTask = startTask('Hydrating and evaluating link');
-    startEvaluatingOverlay('Please wait while the job link is hydrated and evaluated.');
+    startEvaluatingOverlay(
+      'Please wait while the job link is hydrated and evaluated.',
+    );
     try {
       const hydrated = await hydrateJobFromUrl(url);
       const saved = saveJob(createPendingJob(hydrated));
@@ -320,7 +343,9 @@ export default function App() {
       return;
     }
     const finishTask = startTask('Saving and evaluating pasted JD');
-    startEvaluatingOverlay('Please wait while the pasted job description is evaluated.');
+    startEvaluatingOverlay(
+      'Please wait while the pasted job description is evaluated.',
+    );
     try {
       const { company, role } = inferFromJdText(jd);
       const saved = saveJob(
@@ -471,6 +496,13 @@ export default function App() {
     setFocus('jobs');
   }
 
+  function updateGenerateCvDraft(jobId: string, draft: GenerateCvDraft) {
+    setGenerateCvDrafts((current) => ({
+      ...current,
+      [jobId]: draft,
+    }));
+  }
+
   function openProfileActions(view: ProfileActionView) {
     setOverlay('none');
     setAnswerJobId(null);
@@ -563,7 +595,7 @@ export default function App() {
     const configTarget = activeConfigTarget();
 
     if (key.ctrl && key.name === 'c') quit();
-    if (key.name === 'q') quit();
+    if (key.ctrl && key.name === 'q') quit();
 
     if (overlay !== 'none') {
       if (key.name === 'escape' && overlay !== 'add-evaluating') closeOverlay();
@@ -724,6 +756,16 @@ export default function App() {
         }}
         onCloseJobActions={closeJobActionWorkspace}
         onStartAnswer={startAnswerWorkspace}
+        generateCvDraft={
+          selectedJob
+            ? (generateCvDrafts[selectedJob.id] ??
+              createDefaultGenerateCvDraft())
+            : null
+        }
+        onGenerateCvDraftChange={(draft) => {
+          if (!selectedJob) return;
+          updateGenerateCvDraft(selectedJob.id, draft);
+        }}
         onEvaluateJob={() => selectedJob && void runEvaluate(selectedJob)}
         onOpenJobLink={() =>
           selectedJob &&

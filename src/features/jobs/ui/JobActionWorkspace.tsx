@@ -12,8 +12,6 @@ import { JOB_STATUSES, type Job, type JobStatus } from '../../../shared/models/t
 import {
   CV_BULLET_LENGTH_PRESETS,
   CV_TEXT_SIZE_PRESETS,
-  DEFAULT_CV_BULLET_WORD_RANGE,
-  DEFAULT_CV_TEXT_SIZE_SCALE,
   type CvBulletWordRange,
   type CvTextSizeScale,
 } from '../services/generate.js';
@@ -33,8 +31,19 @@ export type JobActionView =
 const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<TextareaOptions['keyBindings']> = [
   { name: 'o', ctrl: true, action: 'submit' },
 ];
+export type GenerateCvEditingPhase = 'bullet-preset' | 'text-size-preset' | 'guidance';
+
+export interface GenerateCvDraft {
+  guidance: string;
+  bulletWordRange: CvBulletWordRange;
+  textSizeScale: CvTextSizeScale;
+  selectedBulletPresetId: string;
+  selectedTextSizePresetId: string;
+  phase: GenerateCvEditingPhase;
+}
+
 type GenerateCvState =
-  | { step: 'editing'; phase: 'bullet-preset' | 'text-size-preset' | 'guidance' }
+  | { step: 'editing' }
   | { step: 'submitting' }
   | { step: 'success'; pdfPath: string | null }
   | { step: 'error'; message: string };
@@ -47,6 +56,8 @@ interface Props {
   width: number;
   height: number;
   initialView: JobActionView;
+  generateCvDraft: GenerateCvDraft;
+  onGenerateCvDraftChange: (draft: GenerateCvDraft) => void;
   onClose: () => void;
   onStartAnswer: () => void;
   onEvaluate: () => void;
@@ -73,6 +84,8 @@ export default function JobActionWorkspace({
   width,
   height,
   initialView,
+  generateCvDraft,
+  onGenerateCvDraftChange,
   onClose,
   onStartAnswer,
   onEvaluate,
@@ -89,18 +102,8 @@ export default function JobActionWorkspace({
   const [view, setView] = useState<JobActionView>(initialView);
   const [metadataDraft, setMetadataDraft] = useState('');
   const [editJdDraft, setEditJdDraft] = useState(job.jd);
-  const [cvGuidance, setCvGuidance] = useState('');
-  const [cvBulletWordRange, setCvBulletWordRange] = useState<CvBulletWordRange>(
-    DEFAULT_CV_BULLET_WORD_RANGE,
-  );
-  const [cvTextSizeScale, setCvTextSizeScale] = useState<CvTextSizeScale>(
-    DEFAULT_CV_TEXT_SIZE_SCALE,
-  );
-  const [selectedCvPresetId, setSelectedCvPresetId] = useState<string>('balanced');
-  const [selectedCvTextSizePresetId, setSelectedCvTextSizePresetId] = useState<string>('balanced');
   const [generateCvState, setGenerateCvState] = useState<GenerateCvState>({
     step: 'editing',
-    phase: 'bullet-preset',
   });
 
   const metadataInputRef = useRef<InputRenderable>(null);
@@ -118,24 +121,32 @@ export default function JobActionWorkspace({
       : view === 'generate-cover-letter'
         ? 'cover-letter'
         : null;
+  const currentCvPhase = generateCvDraft.phase;
+  const selectedBulletPreset =
+    CV_BULLET_LENGTH_PRESETS.find((preset) => preset.id === generateCvDraft.selectedBulletPresetId) ??
+    CV_BULLET_LENGTH_PRESETS.find((preset) => preset.id === 'balanced')!;
+  const selectedTextSizePreset =
+    CV_TEXT_SIZE_PRESETS.find((preset) => preset.id === generateCvDraft.selectedTextSizePresetId) ??
+    CV_TEXT_SIZE_PRESETS.find((preset) => preset.id === 'balanced')!;
+
+  function updateGenerateCvDraft(patch: Partial<GenerateCvDraft>) {
+    onGenerateCvDraftChange({
+      ...generateCvDraft,
+      ...patch,
+    });
+  }
 
   useEffect(() => {
     setView(initialView);
     setEditJdDraft(job.jd);
-    setCvGuidance('');
-    setCvBulletWordRange(DEFAULT_CV_BULLET_WORD_RANGE);
-    setCvTextSizeScale(DEFAULT_CV_TEXT_SIZE_SCALE);
-    setSelectedCvPresetId('balanced');
-    setSelectedCvTextSizePresetId('balanced');
     setGenerateCvState({
       step: 'editing',
-      phase: initialView === 'generate-cover-letter' ? 'guidance' : 'bullet-preset',
     });
     if (initialView === 'edit-company') setMetadataDraft(job.company);
     if (initialView === 'edit-role') setMetadataDraft(job.role);
     if (initialView === 'edit-url') setMetadataDraft(job.url);
     if (initialView === 'edit-notes') setMetadataDraft(job.notes);
-  }, [initialView, job.company, job.id, job.jd, job.notes, job.role, job.url]);
+  }, [initialView, job.id]);
 
   useEffect(() => {
     if (view === 'edit-company') {
@@ -159,14 +170,16 @@ export default function JobActionWorkspace({
       editJdInputRef.current?.focus();
     }
     if (view === 'generate-cv' || view === 'generate-cover-letter') {
-      if (generateCvState.step === 'editing' && generateCvState.phase === 'guidance') {
-        setCvGuidance('');
+      if (
+        generateCvState.step === 'editing' &&
+        (view === 'generate-cover-letter' || currentCvPhase === 'guidance')
+      ) {
         guidanceInputRef.current?.focus();
       }
     }
   }, [
+    currentCvPhase,
     generateCvState.step,
-    generateCvState.step === 'editing' ? generateCvState.phase : null,
     job.company,
     job.jd,
     job.notes,
@@ -281,25 +294,28 @@ export default function JobActionWorkspace({
     else if (
       view === 'generate-cv' &&
       generateCvState.step === 'editing' &&
-      generateCvState.phase === 'guidance'
+      currentCvPhase === 'guidance'
     ) {
-      setCvGuidance('');
-      setGenerateCvState({ step: 'editing', phase: 'text-size-preset' });
+      updateGenerateCvDraft({ phase: 'text-size-preset' });
     }
     else if (
       view === 'generate-cv' &&
       generateCvState.step === 'editing' &&
-      generateCvState.phase === 'text-size-preset'
+      currentCvPhase === 'text-size-preset'
     ) {
-      setGenerateCvState({ step: 'editing', phase: 'bullet-preset' });
+      updateGenerateCvDraft({ phase: 'bullet-preset' });
     }
     else {
-      setGenerateCvState({
-        step: 'editing',
-        phase: view === 'generate-cover-letter' ? 'guidance' : 'bullet-preset',
-      });
+      setGenerateCvState({ step: 'editing' });
       setView('menu');
     }
+  });
+
+  useKeyboard((key) => {
+    if (view !== 'generate-cv' || generateCvState.step !== 'editing') return;
+    if (key.name === '1') updateGenerateCvDraft({ phase: 'bullet-preset' });
+    if (key.name === '2') updateGenerateCvDraft({ phase: 'text-size-preset' });
+    if (key.name === '3') updateGenerateCvDraft({ phase: 'guidance' });
   });
 
   return (
@@ -312,12 +328,13 @@ export default function JobActionWorkspace({
             : (view === 'generate-cv' || view === 'generate-cover-letter') &&
                 generateCvState.step === 'editing'
               ? generateArtifact === 'cv' &&
-                  (generateCvState.phase === 'bullet-preset' ||
-                    generateCvState.phase === 'text-size-preset')
-                ? generateCvState.phase === 'bullet-preset'
+                  (currentCvPhase === 'bullet-preset' || currentCvPhase === 'text-size-preset')
+                ? currentCvPhase === 'bullet-preset'
                   ? 'enter=choose bullet length, esc=back'
                   : 'enter=choose text size, esc=back'
-                : 'ctrl-o=generate, esc=back'
+                : generateArtifact === 'cv'
+                  ? 'ctrl-o=generate, 1-3=jump between steps, esc=back'
+                  : 'ctrl-o=generate, esc=back'
               : generateCvState.step === 'submitting'
                 ? generateArtifact === 'cover-letter'
                   ? 'Generating cover letter...'
@@ -403,116 +420,138 @@ export default function JobActionWorkspace({
 
         {view === 'generate-cv' || view === 'generate-cover-letter' ? (
           generateCvState.step === 'editing' ? (
-            generateArtifact === 'cv' && generateCvState.phase === 'bullet-preset' ? (
-              <select
-                height={Math.max(6, height - 2)}
-                width={Math.max(20, width)}
-                focused
-                options={CV_BULLET_LENGTH_PRESETS.map((preset) => ({
-                  name: preset.name,
-                  description: preset.description,
-                  value: preset.id,
-                }))}
-                selectedIndex={CV_BULLET_LENGTH_PRESETS.findIndex(
-                  (preset) => preset.id === selectedCvPresetId,
-                )}
-                showDescription
-                itemSpacing={0}
-                backgroundColor={theme.transparent}
-                focusedBackgroundColor={theme.transparent}
-                selectedBackgroundColor={theme.transparent}
-                selectedTextColor={theme.brand}
-                selectedDescriptionColor={theme.muted}
-                onChange={(_, option) => {
-                  const preset = CV_BULLET_LENGTH_PRESETS.find(
-                    (entry) => entry.id === option?.value,
-                  );
-                  if (!preset) return;
-                  setSelectedCvPresetId(preset.id);
-                  setCvBulletWordRange(preset.range);
-                }}
-                onSelect={(_, option) => {
-                  const preset = CV_BULLET_LENGTH_PRESETS.find(
-                    (entry) => entry.id === option?.value,
-                  );
-                  if (!preset) return;
-                  setSelectedCvPresetId(preset.id);
-                  setCvBulletWordRange(preset.range);
-                  setGenerateCvState({ step: 'editing', phase: 'text-size-preset' });
-                }}
-              />
-            ) : generateArtifact === 'cv' && generateCvState.phase === 'text-size-preset' ? (
-              <select
-                height={Math.max(6, height - 2)}
-                width={Math.max(20, width)}
-                focused
-                options={CV_TEXT_SIZE_PRESETS.map((preset) => ({
-                  name: preset.name,
-                  description: preset.description,
-                  value: preset.id,
-                }))}
-                selectedIndex={CV_TEXT_SIZE_PRESETS.findIndex(
-                  (preset) => preset.id === selectedCvTextSizePresetId,
-                )}
-                showDescription
-                itemSpacing={0}
-                backgroundColor={theme.transparent}
-                focusedBackgroundColor={theme.transparent}
-                selectedBackgroundColor={theme.transparent}
-                selectedTextColor={theme.brand}
-                selectedDescriptionColor={theme.muted}
-                onChange={(_, option) => {
-                  const preset = CV_TEXT_SIZE_PRESETS.find(
-                    (entry) => entry.id === option?.value,
-                  );
-                  if (!preset) return;
-                  setSelectedCvTextSizePresetId(preset.id);
-                  setCvTextSizeScale(preset.scale);
-                }}
-                onSelect={(_, option) => {
-                  const preset = CV_TEXT_SIZE_PRESETS.find(
-                    (entry) => entry.id === option?.value,
-                  );
-                  if (!preset) return;
-                  setSelectedCvTextSizePresetId(preset.id);
-                  setCvTextSizeScale(preset.scale);
-                  setGenerateCvState({ step: 'editing', phase: 'guidance' });
-                }}
-              />
-            ) : (
-              <box flexDirection="column" width={Math.max(20, width)} rowGap={1}>
-                {generateArtifact === 'cv' ? (
-                  <box flexDirection="column">
-                    <text
-                      fg={theme.muted}
-                      content={`Bullet length: ${cvBulletWordRange.min}-${cvBulletWordRange.max} words.`}
-                    />
-                    <text
-                      fg={theme.muted}
-                      content={`Text size: ${cvTextSizeScale.bodyPt}pt base copy. esc=change text size.`}
-                    />
-                  </box>
-                ) : null}
+            <box flexDirection="column" width={Math.max(20, width)} rowGap={1}>
+              {generateArtifact === 'cv' ? (
+                <box flexDirection="column" marginBottom={1}>
+                  <text
+                    fg={currentCvPhase === 'bullet-preset' ? theme.brand : theme.text}
+                    content={`1. Bullet length    ${selectedBulletPreset.name} (${generateCvDraft.bulletWordRange.min}-${generateCvDraft.bulletWordRange.max} words)`}
+                  />
+                  <text
+                    fg={currentCvPhase === 'text-size-preset' ? theme.brand : theme.text}
+                    content={`2. Text size        ${selectedTextSizePreset.name} (${generateCvDraft.textSizeScale.bodyPt}pt base copy)`}
+                  />
+                  <text
+                    fg={currentCvPhase === 'guidance' ? theme.brand : theme.text}
+                    content={`3. Guidance         ${generateCvDraft.guidance.trim() ? 'Custom notes added' : 'No extra notes'}`}
+                  />
+                </box>
+              ) : null}
+
+              {generateArtifact === 'cv' && currentCvPhase === 'bullet-preset' ? (
+                <select
+                  height={Math.max(6, height - 7)}
+                  width={Math.max(20, width)}
+                  focused
+                  options={CV_BULLET_LENGTH_PRESETS.map((preset) => ({
+                    name: preset.name,
+                    description: preset.description,
+                    value: preset.id,
+                  }))}
+                  selectedIndex={CV_BULLET_LENGTH_PRESETS.findIndex(
+                    (preset) => preset.id === generateCvDraft.selectedBulletPresetId,
+                  )}
+                  showDescription
+                  itemSpacing={0}
+                  backgroundColor={theme.transparent}
+                  focusedBackgroundColor={theme.transparent}
+                  selectedBackgroundColor={theme.transparent}
+                  selectedTextColor={theme.brand}
+                  selectedDescriptionColor={theme.muted}
+                  onChange={(_, option) => {
+                    const preset = CV_BULLET_LENGTH_PRESETS.find(
+                      (entry) => entry.id === option?.value,
+                    );
+                    if (!preset) return;
+                    updateGenerateCvDraft({
+                      selectedBulletPresetId: preset.id,
+                      bulletWordRange: preset.range,
+                    });
+                  }}
+                  onSelect={(_, option) => {
+                    const preset = CV_BULLET_LENGTH_PRESETS.find(
+                      (entry) => entry.id === option?.value,
+                    );
+                    if (!preset) return;
+                    updateGenerateCvDraft({
+                      selectedBulletPresetId: preset.id,
+                      bulletWordRange: preset.range,
+                      phase: 'text-size-preset',
+                    });
+                  }}
+                />
+              ) : generateArtifact === 'cv' && currentCvPhase === 'text-size-preset' ? (
+                <select
+                  height={Math.max(6, height - 7)}
+                  width={Math.max(20, width)}
+                  focused
+                  options={CV_TEXT_SIZE_PRESETS.map((preset) => ({
+                    name: preset.name,
+                    description: preset.description,
+                    value: preset.id,
+                  }))}
+                  selectedIndex={CV_TEXT_SIZE_PRESETS.findIndex(
+                    (preset) => preset.id === generateCvDraft.selectedTextSizePresetId,
+                  )}
+                  showDescription
+                  itemSpacing={0}
+                  backgroundColor={theme.transparent}
+                  focusedBackgroundColor={theme.transparent}
+                  selectedBackgroundColor={theme.transparent}
+                  selectedTextColor={theme.brand}
+                  selectedDescriptionColor={theme.muted}
+                  onChange={(_, option) => {
+                    const preset = CV_TEXT_SIZE_PRESETS.find(
+                      (entry) => entry.id === option?.value,
+                    );
+                    if (!preset) return;
+                    updateGenerateCvDraft({
+                      selectedTextSizePresetId: preset.id,
+                      textSizeScale: preset.scale,
+                    });
+                  }}
+                  onSelect={(_, option) => {
+                    const preset = CV_TEXT_SIZE_PRESETS.find(
+                      (entry) => entry.id === option?.value,
+                    );
+                    if (!preset) return;
+                    updateGenerateCvDraft({
+                      selectedTextSizePresetId: preset.id,
+                      textSizeScale: preset.scale,
+                      phase: 'guidance',
+                    });
+                  }}
+                />
+              ) : (
                 <textarea
                   ref={guidanceInputRef}
-                  height={Math.max(6, height - (generateArtifact === 'cv' ? 7 : 5))}
-                  initialValue={cvGuidance}
+                  height={Math.max(6, height - (generateArtifact === 'cv' ? 10 : 5))}
+                  initialValue={generateArtifact === 'cv' ? generateCvDraft.guidance : ''}
                   placeholder={
                     generateArtifact === 'cover-letter'
                       ? 'Optional cover letter guidance.'
                       : 'Optional tailoring guidance.'
                   }
                   keyBindings={TEXTAREA_SUBMIT_KEY_BINDINGS}
-                  onContentChange={() => setCvGuidance(guidanceInputRef.current?.plainText ?? '')}
+                  onContentChange={() => {
+                    if (generateArtifact !== 'cv') return;
+                    updateGenerateCvDraft({
+                      guidance: guidanceInputRef.current?.plainText ?? '',
+                    });
+                  }}
                   onSubmit={async () => {
                     setGenerateCvState({ step: 'submitting' });
                     try {
+                      const guidance = guidanceInputRef.current?.plainText ?? '';
+                      if (generateArtifact === 'cv') {
+                        updateGenerateCvDraft({ guidance, phase: 'guidance' });
+                      }
                       const updated = generateArtifact === 'cover-letter'
-                        ? await onGenerateCoverLetter(guidanceInputRef.current?.plainText ?? '')
+                        ? await onGenerateCoverLetter(guidance)
                         : await onGenerateCv(
-                            guidanceInputRef.current?.plainText ?? '',
-                            cvBulletWordRange,
-                            cvTextSizeScale,
+                            guidance,
+                            generateCvDraft.bulletWordRange,
+                            generateCvDraft.textSizeScale,
                           );
                       setGenerateCvState({
                         step: 'success',
@@ -533,8 +572,8 @@ export default function JobActionWorkspace({
                   }}
                   focused
                 />
-              </box>
-            )
+              )}
+            </box>
           ) : generateCvState.step === 'submitting' ? (
             <box
               flexDirection="column"
@@ -569,6 +608,15 @@ export default function JobActionWorkspace({
                       : 'Generated CV is ready to open'),
                   value: generateArtifact === 'cover-letter' ? 'open-cover-letter' : 'open-cv',
                 },
+                ...(generateArtifact === 'cv'
+                  ? [
+                      {
+                        name: 'Edit and regenerate',
+                        description: 'Return to the current choices and regenerate',
+                        value: 'edit',
+                      },
+                    ]
+                  : []),
                 {
                   name: 'Back to detail',
                   description: 'Close actions and return to the job detail view',
@@ -581,6 +629,10 @@ export default function JobActionWorkspace({
               onSelect={(_, option) => {
                 if (option?.value === 'open-cv') onOpenCv();
                 if (option?.value === 'open-cover-letter') onOpenCoverLetter();
+                if (option?.value === 'edit') {
+                  updateGenerateCvDraft({ phase: 'guidance' });
+                  setGenerateCvState({ step: 'editing' });
+                }
                 if (option?.value === 'back') onClose();
               }}
             />
@@ -591,7 +643,7 @@ export default function JobActionWorkspace({
               focused
               options={[
                 {
-                  name: 'Try again',
+                  name: 'Edit current settings',
                   description: generateCvState.message,
                   value: 'retry',
                 },
@@ -609,16 +661,16 @@ export default function JobActionWorkspace({
               selectedBackgroundColor={theme.transparent}
               onSelect={(_, option) => {
                 if (option?.value === 'retry') {
-                  setGenerateCvState({
-                    step: 'editing',
-                    phase: generateArtifact === 'cover-letter' ? 'guidance' : 'preset',
-                  });
+                  if (generateArtifact === 'cv') {
+                    updateGenerateCvDraft({ phase: 'guidance' });
+                  }
+                  setGenerateCvState({ step: 'editing' });
                 }
                 if (option?.value === 'back') {
-                  setGenerateCvState({
-                    step: 'editing',
-                    phase: generateArtifact === 'cover-letter' ? 'guidance' : 'preset',
-                  });
+                  if (generateArtifact === 'cv') {
+                    updateGenerateCvDraft({ phase: 'guidance' });
+                  }
+                  setGenerateCvState({ step: 'editing' });
                   setView('menu');
                 }
               }}

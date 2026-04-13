@@ -115,7 +115,7 @@ Key bindings are intentionally simple:
 - `Tab` / `Shift+Tab` move between panels
 - `[` / `]` cycle filters or config tabs
 - `1`, `2`, `3` jump between major panels
-- `q` quit
+- `ctrl-q` quit
 
 ## Data
 
