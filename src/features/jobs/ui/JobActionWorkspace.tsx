@@ -8,7 +8,11 @@ import type {
 } from '@opentui/core';
 import { useEffect, useRef, useState } from 'react';
 import type { UiTheme } from '../../../shared/ui/theme.js';
-import { JOB_STATUSES, type Job, type JobStatus } from '../../../shared/models/types.js';
+import {
+  JOB_STATUSES,
+  type Job,
+  type JobStatus,
+} from '../../../shared/models/types.js';
 import {
   CV_BULLET_LENGTH_PRESETS,
   CV_TEXT_SIZE_PRESETS,
@@ -33,10 +37,13 @@ export type JobActionView =
   | 'generate-cv'
   | 'generate-cover-letter';
 
-const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<TextareaOptions['keyBindings']> = [
-  { name: 'o', ctrl: true, action: 'submit' },
-];
-export type GenerateCvEditingPhase = 'bullet-preset' | 'text-size-preset' | 'guidance';
+const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<
+  TextareaOptions['keyBindings']
+> = [{ name: 'o', ctrl: true, action: 'submit' }];
+export type GenerateCvEditingPhase =
+  | 'bullet-preset'
+  | 'text-size-preset'
+  | 'guidance';
 
 export interface GenerateCvDraft {
   guidance: string;
@@ -158,15 +165,18 @@ export default function JobActionWorkspace({
   const currentCvPhase = generateCvDraft.phase;
   const currentCoverLetterPhase = generateCoverLetterDraft.phase;
   const selectedBulletPreset =
-    CV_BULLET_LENGTH_PRESETS.find((preset) => preset.id === generateCvDraft.selectedBulletPresetId) ??
-    CV_BULLET_LENGTH_PRESETS.find((preset) => preset.id === 'balanced')!;
+    CV_BULLET_LENGTH_PRESETS.find(
+      (preset) => preset.id === generateCvDraft.selectedBulletPresetId,
+    ) ?? CV_BULLET_LENGTH_PRESETS.find((preset) => preset.id === 'balanced')!;
   const selectedTextSizePreset =
-    CV_TEXT_SIZE_PRESETS.find((preset) => preset.id === generateCvDraft.selectedTextSizePresetId) ??
-    CV_TEXT_SIZE_PRESETS.find((preset) => preset.id === 'balanced')!;
+    CV_TEXT_SIZE_PRESETS.find(
+      (preset) => preset.id === generateCvDraft.selectedTextSizePresetId,
+    ) ?? CV_TEXT_SIZE_PRESETS.find((preset) => preset.id === 'balanced')!;
   const selectedCoverLetterPreset =
     COVER_LETTER_LENGTH_PRESETS.find(
       (preset) => preset.id === generateCoverLetterDraft.selectedLengthPresetId,
-    ) ?? COVER_LETTER_LENGTH_PRESETS.find((preset) => preset.id === 'balanced')!;
+    ) ??
+    COVER_LETTER_LENGTH_PRESETS.find((preset) => preset.id === 'balanced')!;
 
   function updateGenerateCvDraft(patch: Partial<GenerateCvDraft>) {
     onGenerateCvDraftChange({
@@ -175,7 +185,9 @@ export default function JobActionWorkspace({
     });
   }
 
-  function updateGenerateCoverLetterDraft(patch: Partial<GenerateCoverLetterDraft>) {
+  function updateGenerateCoverLetterDraft(
+    patch: Partial<GenerateCoverLetterDraft>,
+  ) {
     onGenerateCoverLetterDraftChange({
       ...generateCoverLetterDraft,
       ...patch,
@@ -219,7 +231,8 @@ export default function JobActionWorkspace({
       if (
         generateCvState.step === 'editing' &&
         ((view === 'generate-cv' && currentCvPhase === 'guidance') ||
-          (view === 'generate-cover-letter' && currentCoverLetterPhase === 'guidance'))
+          (view === 'generate-cover-letter' &&
+            currentCoverLetterPhase === 'guidance'))
       ) {
         guidanceInputRef.current?.focus();
       }
@@ -358,22 +371,19 @@ export default function JobActionWorkspace({
       currentCvPhase === 'guidance'
     ) {
       updateGenerateCvDraft({ phase: 'text-size-preset' });
-    }
-    else if (
+    } else if (
       view === 'generate-cv' &&
       generateCvState.step === 'editing' &&
       currentCvPhase === 'text-size-preset'
     ) {
       updateGenerateCvDraft({ phase: 'bullet-preset' });
-    }
-    else if (
+    } else if (
       view === 'generate-cover-letter' &&
       generateCvState.step === 'editing' &&
       currentCoverLetterPhase === 'guidance'
     ) {
       updateGenerateCoverLetterDraft({ phase: 'length-preset' });
-    }
-    else {
+    } else {
       setGenerateCvState({ step: 'editing' });
       setView(parentViewFor(view));
     }
@@ -387,8 +397,10 @@ export default function JobActionWorkspace({
   });
 
   useKeyboard((key) => {
-    if (view !== 'generate-cover-letter' || generateCvState.step !== 'editing') return;
-    if (key.name === '1') updateGenerateCoverLetterDraft({ phase: 'length-preset' });
+    if (view !== 'generate-cover-letter' || generateCvState.step !== 'editing')
+      return;
+    if (key.name === '1')
+      updateGenerateCoverLetterDraft({ phase: 'length-preset' });
     if (key.name === '2') updateGenerateCoverLetterDraft({ phase: 'guidance' });
   });
 
@@ -401,24 +413,25 @@ export default function JobActionWorkspace({
             ? `Actions for #${job.id}. Enter to run, esc to return.`
             : view === 'edit-job'
               ? `Job details for #${job.id}. Enter to edit, esc to return.`
-            : (view === 'generate-cv' || view === 'generate-cover-letter') &&
-                generateCvState.step === 'editing'
-              ? generateArtifact === 'cv' &&
-                  (currentCvPhase === 'bullet-preset' || currentCvPhase === 'text-size-preset')
-                ? currentCvPhase === 'bullet-preset'
-                  ? 'enter=choose bullet length, esc=back'
-                  : 'enter=choose text size, esc=back'
-                : generateArtifact === 'cover-letter' &&
-                    currentCoverLetterPhase === 'length-preset'
-                  ? 'enter=choose total length, esc=back'
-                : generateArtifact === 'cv'
-                  ? 'ctrl-o=generate, 1-3=jump between steps, esc=back'
-                  : 'ctrl-o=generate, 1-2=jump between steps, esc=back'
-              : generateCvState.step === 'submitting'
-                ? generateArtifact === 'cover-letter'
-                  ? 'Generating cover letter...'
-                  : 'Generating CV...'
-                : 'esc=back'
+              : (view === 'generate-cv' || view === 'generate-cover-letter') &&
+                  generateCvState.step === 'editing'
+                ? generateArtifact === 'cv' &&
+                  (currentCvPhase === 'bullet-preset' ||
+                    currentCvPhase === 'text-size-preset')
+                  ? currentCvPhase === 'bullet-preset'
+                    ? 'enter=choose bullet length, esc=back'
+                    : 'enter=choose text size, esc=back'
+                  : generateArtifact === 'cover-letter' &&
+                      currentCoverLetterPhase === 'length-preset'
+                    ? 'enter=choose total length, esc=back'
+                    : generateArtifact === 'cv'
+                      ? 'ctrl-o=generate, 1-3=jump between steps, esc=back'
+                      : 'ctrl-o=generate, 1-2=jump between steps, esc=back'
+                : generateCvState.step === 'submitting'
+                  ? generateArtifact === 'cover-letter'
+                    ? 'Generating cover letter...'
+                    : 'Generating CV...'
+                  : 'esc=back'
         }
       />
 
@@ -430,7 +443,7 @@ export default function JobActionWorkspace({
             focused
             options={menuOptions}
             showDescription
-            itemSpacing={0}
+            // itemSpacing={0}
             backgroundColor={theme.transparent}
             focusedBackgroundColor={theme.transparent}
             selectedBackgroundColor={theme.transparent}
@@ -441,7 +454,8 @@ export default function JobActionWorkspace({
               if (value === 'answer') onStartAnswer();
               if (value === 'evaluate') onEvaluate();
               if (value === 'generate-cv') setView('generate-cv');
-              if (value === 'generate-cover-letter') setView('generate-cover-letter');
+              if (value === 'generate-cover-letter')
+                setView('generate-cover-letter');
               if (value === 'edit-job') setView('edit-job');
               if (value === 'edit-company') setView('edit-company');
               if (value === 'status') setView('status');
@@ -510,7 +524,9 @@ export default function JobActionWorkspace({
             initialValue={editJdDraft}
             placeholder="Edit job description."
             keyBindings={TEXTAREA_SUBMIT_KEY_BINDINGS}
-            onContentChange={() => setEditJdDraft(editJdInputRef.current?.plainText ?? '')}
+            onContentChange={() =>
+              setEditJdDraft(editJdInputRef.current?.plainText ?? '')
+            }
             onSubmit={() => {
               onSaveEditJd(editJdInputRef.current?.plainText.trim() ?? '');
               setView(parentViewFor(view));
@@ -525,32 +541,51 @@ export default function JobActionWorkspace({
               {generateArtifact === 'cv' ? (
                 <box flexDirection="column" marginBottom={1}>
                   <text
-                    fg={currentCvPhase === 'bullet-preset' ? theme.brand : theme.text}
+                    fg={
+                      currentCvPhase === 'bullet-preset'
+                        ? theme.brand
+                        : theme.text
+                    }
                     content={`1. Bullet length    ${selectedBulletPreset.name} (${generateCvDraft.bulletWordRange.min}-${generateCvDraft.bulletWordRange.max} words)`}
                   />
                   <text
-                    fg={currentCvPhase === 'text-size-preset' ? theme.brand : theme.text}
+                    fg={
+                      currentCvPhase === 'text-size-preset'
+                        ? theme.brand
+                        : theme.text
+                    }
                     content={`2. Text size        ${selectedTextSizePreset.name} (${generateCvDraft.textSizeScale.bodyPt}pt base copy)`}
                   />
                   <text
-                    fg={currentCvPhase === 'guidance' ? theme.brand : theme.text}
+                    fg={
+                      currentCvPhase === 'guidance' ? theme.brand : theme.text
+                    }
                     content={`3. Guidance         ${generateCvDraft.guidance.trim() ? 'Custom notes added' : 'No extra notes'}`}
                   />
                 </box>
               ) : generateArtifact === 'cover-letter' ? (
                 <box flexDirection="column" marginBottom={1}>
                   <text
-                    fg={currentCoverLetterPhase === 'length-preset' ? theme.brand : theme.text}
+                    fg={
+                      currentCoverLetterPhase === 'length-preset'
+                        ? theme.brand
+                        : theme.text
+                    }
                     content={`1. Total length     ${selectedCoverLetterPreset.name} (${generateCoverLetterDraft.totalWordCount.target} words)`}
                   />
                   <text
-                    fg={currentCoverLetterPhase === 'guidance' ? theme.brand : theme.text}
+                    fg={
+                      currentCoverLetterPhase === 'guidance'
+                        ? theme.brand
+                        : theme.text
+                    }
                     content={`2. Guidance         ${generateCoverLetterDraft.guidance.trim() ? 'Custom notes added' : 'No extra notes'}`}
                   />
                 </box>
               ) : null}
 
-              {generateArtifact === 'cv' && currentCvPhase === 'bullet-preset' ? (
+              {generateArtifact === 'cv' &&
+              currentCvPhase === 'bullet-preset' ? (
                 <select
                   height={Math.max(6, height - 7)}
                   width={Math.max(20, width)}
@@ -561,7 +596,8 @@ export default function JobActionWorkspace({
                     value: preset.id,
                   }))}
                   selectedIndex={CV_BULLET_LENGTH_PRESETS.findIndex(
-                    (preset) => preset.id === generateCvDraft.selectedBulletPresetId,
+                    (preset) =>
+                      preset.id === generateCvDraft.selectedBulletPresetId,
                   )}
                   showDescription
                   itemSpacing={0}
@@ -592,7 +628,8 @@ export default function JobActionWorkspace({
                     });
                   }}
                 />
-              ) : generateArtifact === 'cv' && currentCvPhase === 'text-size-preset' ? (
+              ) : generateArtifact === 'cv' &&
+                currentCvPhase === 'text-size-preset' ? (
                 <select
                   height={Math.max(6, height - 7)}
                   width={Math.max(20, width)}
@@ -603,7 +640,8 @@ export default function JobActionWorkspace({
                     value: preset.id,
                   }))}
                   selectedIndex={CV_TEXT_SIZE_PRESETS.findIndex(
-                    (preset) => preset.id === generateCvDraft.selectedTextSizePresetId,
+                    (preset) =>
+                      preset.id === generateCvDraft.selectedTextSizePresetId,
                   )}
                   showDescription
                   itemSpacing={0}
@@ -635,7 +673,7 @@ export default function JobActionWorkspace({
                   }}
                 />
               ) : generateArtifact === 'cover-letter' &&
-                  currentCoverLetterPhase === 'length-preset' ? (
+                currentCoverLetterPhase === 'length-preset' ? (
                 <select
                   height={Math.max(6, height - 7)}
                   width={Math.max(20, width)}
@@ -646,7 +684,9 @@ export default function JobActionWorkspace({
                     value: preset.id,
                   }))}
                   selectedIndex={COVER_LETTER_LENGTH_PRESETS.findIndex(
-                    (preset) => preset.id === generateCoverLetterDraft.selectedLengthPresetId,
+                    (preset) =>
+                      preset.id ===
+                      generateCoverLetterDraft.selectedLengthPresetId,
                   )}
                   showDescription
                   itemSpacing={0}
@@ -680,7 +720,10 @@ export default function JobActionWorkspace({
               ) : (
                 <textarea
                   ref={guidanceInputRef}
-                  height={Math.max(6, height - (generateArtifact === 'cv' ? 10 : 5))}
+                  height={Math.max(
+                    6,
+                    height - (generateArtifact === 'cv' ? 10 : 5),
+                  )}
                   initialValue={
                     generateArtifact === 'cv'
                       ? generateCvDraft.guidance
@@ -704,23 +747,28 @@ export default function JobActionWorkspace({
                   onSubmit={async () => {
                     setGenerateCvState({ step: 'submitting' });
                     try {
-                      const guidance = guidanceInputRef.current?.plainText ?? '';
+                      const guidance =
+                        guidanceInputRef.current?.plainText ?? '';
                       if (generateArtifact === 'cv') {
                         updateGenerateCvDraft({ guidance, phase: 'guidance' });
                       }
                       if (generateArtifact === 'cover-letter') {
-                        updateGenerateCoverLetterDraft({ guidance, phase: 'guidance' });
+                        updateGenerateCoverLetterDraft({
+                          guidance,
+                          phase: 'guidance',
+                        });
                       }
-                      const updated = generateArtifact === 'cover-letter'
-                        ? await onGenerateCoverLetter(
-                            guidance,
-                            generateCoverLetterDraft.totalWordCount,
-                          )
-                        : await onGenerateCv(
-                            guidance,
-                            generateCvDraft.bulletWordRange,
-                            generateCvDraft.textSizeScale,
-                          );
+                      const updated =
+                        generateArtifact === 'cover-letter'
+                          ? await onGenerateCoverLetter(
+                              guidance,
+                              generateCoverLetterDraft.totalWordCount,
+                            )
+                          : await onGenerateCv(
+                              guidance,
+                              generateCvDraft.bulletWordRange,
+                              generateCvDraft.textSizeScale,
+                            );
                       setGenerateCvState({
                         step: 'success',
                         pdfPath:
@@ -768,26 +816,35 @@ export default function JobActionWorkspace({
               focused
               options={[
                 {
-                  name: generateArtifact === 'cover-letter' ? 'Open cover letter' : 'Open CV',
+                  name:
+                    generateArtifact === 'cover-letter'
+                      ? 'Open cover letter'
+                      : 'Open CV',
                   description:
                     generateCvState.pdfPath ??
                     (generateArtifact === 'cover-letter'
                       ? 'Generated cover letter is ready to open'
                       : 'Generated CV is ready to open'),
-                  value: generateArtifact === 'cover-letter' ? 'open-cover-letter' : 'open-cv',
+                  value:
+                    generateArtifact === 'cover-letter'
+                      ? 'open-cover-letter'
+                      : 'open-cv',
                 },
-                ...((generateArtifact === 'cv' || generateArtifact === 'cover-letter')
+                ...(generateArtifact === 'cv' ||
+                generateArtifact === 'cover-letter'
                   ? [
                       {
                         name: 'Edit and regenerate',
-                        description: 'Return to the current choices and regenerate',
+                        description:
+                          'Return to the current choices and regenerate',
                         value: 'edit',
                       },
                     ]
                   : []),
                 {
                   name: 'Back to detail',
-                  description: 'Close actions and return to the job detail view',
+                  description:
+                    'Close actions and return to the job detail view',
                   value: 'back',
                 },
               ]}

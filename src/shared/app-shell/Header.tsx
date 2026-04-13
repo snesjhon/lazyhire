@@ -2,7 +2,7 @@
 import { type TabSelectRenderable } from '@opentui/core';
 import { useEffect, useRef } from 'react';
 import BrandLogo from './BrandLogo.js';
-import type { Flash, FocusTarget, Overlay, Screen } from '../ui/state.js';
+import type { Flash, FocusTarget, JobIntakeState, Screen } from '../ui/state.js';
 import { clip, flashColor } from '../lib/utils.js';
 import type { UiTheme } from '../ui/theme.js';
 
@@ -24,7 +24,7 @@ interface Props {
   theme: UiTheme;
   screen: Screen;
   focus: FocusTarget;
-  overlay: Overlay;
+  jobIntakeState: JobIntakeState;
   flash: Flash | null;
   jobCount: number;
   onScreenChange: (screen: Screen) => void;
@@ -36,7 +36,7 @@ export default function Header({
   theme,
   screen,
   focus,
-  overlay,
+  jobIntakeState,
   flash,
   jobCount,
   onScreenChange,
@@ -63,7 +63,7 @@ export default function Header({
         focusedBackgroundColor={theme.transparent}
         showDescription={false}
         showUnderline={false}
-        focused={focus === 'tabs' && overlay === 'none' && screen === 'dashboard'}
+        focused={focus === 'tabs' && jobIntakeState === 'none' && screen === 'dashboard'}
         onSelect={(_, option) => {
           if (option?.value) onScreenChange(option.value as Screen);
           onFocusChange('jobs');

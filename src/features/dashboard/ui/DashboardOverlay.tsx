@@ -7,24 +7,25 @@ import {
 import { useKeyboard } from '@opentui/react';
 import { useEffect, useRef, useState } from 'react';
 import type { UiTheme } from '../../../shared/ui/theme.js';
-import type { Overlay } from '../../../shared/ui/state.js';
+import type { JobIntakeState } from '../../../shared/ui/state.js';
 import Spinner from '../../../shared/ui/Spinner.js';
 
 function isTextareaSubmitKey(key: KeyEvent): boolean {
   return key.ctrl && key.name === 'o';
 }
 
-function overlayTitle(overlay: Overlay): string {
-  if (overlay === 'add-url') return 'Submit a Job Link';
-  if (overlay === 'add-jd') return 'Submit your Job Description (ctrl-o)';
-  if (overlay === 'add-crawl-failed') return 'Could Not Crawl Job';
-  if (overlay === 'add-evaluating') return 'Evaluating Job';
+function jobIntakeTitle(jobIntakeState: JobIntakeState): string {
+  if (jobIntakeState === 'paste-url') return 'Submit a Job Link';
+  if (jobIntakeState === 'paste-description')
+    return 'Submit your Job Description (ctrl-o)';
+  if (jobIntakeState === 'crawl-failed') return 'Could Not Crawl Job';
+  if (jobIntakeState === 'evaluating') return 'Evaluating Job';
   return 'Choose an Intake Mode';
 }
 
 interface Props {
   theme: UiTheme;
-  overlay: Overlay;
+  jobIntakeState: JobIntakeState;
   width: number;
   height: number;
   evaluatingMessage?: string | null;
@@ -32,13 +33,13 @@ interface Props {
   onAddUrl: (url: string) => Promise<void>;
   onAddJd: (jd: string) => Promise<void>;
   onRetryAddManually: () => void;
-  onOverlayChange: (overlay: Overlay) => void;
+  onJobIntakeStateChange: (state: JobIntakeState) => void;
   onClose: () => void;
 }
 
 export default function DashboardOverlay({
   theme,
-  overlay,
+  jobIntakeState,
   width,
   height,
   evaluatingMessage,
@@ -46,7 +47,7 @@ export default function DashboardOverlay({
   onAddUrl,
   onAddJd,
   onRetryAddManually,
-  onOverlayChange,
+  onJobIntakeStateChange,
   onClose,
 }: Props) {
   const [addUrl, setAddUrl] = useState('');
@@ -56,15 +57,21 @@ export default function DashboardOverlay({
   const jdInput = useRef<TextareaRenderable>(null);
 
   useEffect(() => {
-    if (overlay === 'add-url') { setAddUrl(''); urlInput.current?.focus(); }
-    if (overlay === 'add-jd') { setAddJd(''); jdInput.current?.focus(); }
-  }, [overlay]);
+    if (jobIntakeState === 'paste-url') {
+      setAddUrl('');
+      urlInput.current?.focus();
+    }
+    if (jobIntakeState === 'paste-description') {
+      setAddJd('');
+      jdInput.current?.focus();
+    }
+  }, [jobIntakeState]);
 
   useKeyboard((key) => {
-    if (overlay === 'add-evaluating') return;
+    if (jobIntakeState === 'evaluating') return;
     if (!isTextareaSubmitKey(key)) return;
 
-    if (overlay === 'add-jd') {
+    if (jobIntakeState === 'paste-description') {
       void onAddJd(jdInput.current?.plainText ?? '');
     }
   });
@@ -74,18 +81,18 @@ export default function DashboardOverlay({
       <text
         fg={theme.muted}
         content={
-          overlay === 'add'
+          jobIntakeState === 'choose-source'
             ? 'Choose an intake mode. esc=back'
-            : overlay === 'add-url'
+            : jobIntakeState === 'paste-url'
               ? 'Paste a job URL and press Enter. esc=back'
-              : overlay === 'add-jd'
+              : jobIntakeState === 'paste-description'
                 ? 'Paste a job description. ctrl-o=submit, esc=back'
-                : overlay === 'add-crawl-failed'
+                : jobIntakeState === 'crawl-failed'
                   ? 'We could not crawl that job page. Choose the next step. esc=back'
-                : 'Please wait while the job is evaluated.'
+                  : 'Please wait while the job is evaluated.'
         }
       />
-      {overlay === 'add' && (
+      {jobIntakeState === 'choose-source' && (
         <select
           height={Math.max(5, height - 2)}
           width={Math.max(20, width)}
@@ -94,12 +101,12 @@ export default function DashboardOverlay({
             {
               name: 'Paste job link',
               description: 'Hydrate and evaluate a URL',
-              value: 'add-url',
+              value: 'paste-url',
             },
             {
               name: 'Paste job description',
               description: 'Save full text, summarize, and evaluate',
-              value: 'add-jd',
+              value: 'paste-description',
             },
             {
               name: 'Cancel',
@@ -111,15 +118,17 @@ export default function DashboardOverlay({
           focusedBackgroundColor={theme.transparent}
           selectedBackgroundColor={theme.transparent}
           onSelect={(_, option) =>
-            onOverlayChange((option?.value as Overlay | undefined) ?? 'none')
+            onJobIntakeStateChange(
+              (option?.value as JobIntakeState | undefined) ?? 'none',
+            )
           }
         />
       )}
 
-      {overlay === 'add-url' && (
+      {jobIntakeState === 'paste-url' && (
         <box flexDirection="column" marginTop={1} width={Math.max(20, width)}>
           <text fg={theme.heading} content="Job URL" />
-          <text fg={theme.muted} content={overlayTitle(overlay)} />
+          <text fg={theme.muted} content={jobIntakeTitle(jobIntakeState)} />
           <input
             ref={urlInput}
             value={addUrl}
@@ -133,10 +142,10 @@ export default function DashboardOverlay({
         </box>
       )}
 
-      {overlay === 'add-jd' && (
+      {jobIntakeState === 'paste-description' && (
         <box flexDirection="column" marginTop={1} overflow="hidden">
           <text fg={theme.heading} content="Job Description" />
-          <text fg={theme.muted} content={overlayTitle(overlay)} />
+          <text fg={theme.muted} content={jobIntakeTitle(jobIntakeState)} />
           <textarea
             ref={jdInput}
             height={Math.max(6, height - 4)}
@@ -149,7 +158,7 @@ export default function DashboardOverlay({
         </box>
       )}
 
-      {overlay === 'add-crawl-failed' && (
+      {jobIntakeState === 'crawl-failed' && (
         <box
           flexDirection="column"
           marginTop={1}
@@ -177,7 +186,7 @@ export default function DashboardOverlay({
               {
                 name: 'Back to add menu',
                 description: 'Try another link or cancel',
-                value: 'add',
+                value: 'choose-source',
               },
             ]}
             backgroundColor={theme.transparent}
@@ -188,13 +197,13 @@ export default function DashboardOverlay({
                 onRetryAddManually();
                 return;
               }
-              onOverlayChange('add');
+              onJobIntakeStateChange('choose-source');
             }}
           />
         </box>
       )}
 
-      {overlay === 'add-evaluating' && (
+      {jobIntakeState === 'evaluating' && (
         <box
           flexDirection="column"
           alignItems="center"
@@ -206,7 +215,9 @@ export default function DashboardOverlay({
           <text fg={theme.heading} content="Evaluating job" />
           <text
             fg={theme.muted}
-            content={evaluatingMessage ?? 'Please wait while the job is evaluated.'}
+            content={
+              evaluatingMessage ?? 'Please wait while the job is evaluated.'
+            }
           />
           <text
             fg={theme.muted}

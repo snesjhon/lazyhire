@@ -9,11 +9,11 @@ export type FocusTarget =
   | 'answers'
   | 'detail'
   | 'modal';
-export type Overlay =
+export type JobIntakeState =
   | 'none'
-  | 'add'
-  | 'add-url'
-  | 'add-jd'
-  | 'add-crawl-failed'
-  | 'add-evaluating';
+  | 'choose-source'
+  | 'paste-url'
+  | 'paste-description'
+  | 'crawl-failed'
+  | 'evaluating';
 export type Flash = { message: string; variant: FlashVariant };
