@@ -1,13 +1,5 @@
 import { readFileSync } from 'fs';
-import { createRequire } from 'module';
-
-const require = createRequire(import.meta.url);
-const { PDFParse } = require('pdf-parse') as {
-  PDFParse: new (input: { data: Buffer }) => {
-    getText: () => Promise<{ text: string }>;
-    destroy: () => Promise<void>;
-  };
-};
+import { PDFParse } from 'pdf-parse';
 
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   const parser = new PDFParse({ data: buffer });
