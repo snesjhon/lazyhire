@@ -51,6 +51,7 @@ jobs:
           codesign --sign "Developer ID Application: Jhonatan Paredes ($APPLE_TEAM_ID)" \
             --options runtime \
             --timestamp \
+            --force \
             lazyhire-mac-arm64
 
       - name: Notarize binary
