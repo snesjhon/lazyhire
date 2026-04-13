@@ -1,16 +1,8 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import { fileURLToPath } from 'url';
 import { query } from '@anthropic-ai/claude-code';
 import { answersDb } from '../../../shared/data/db.js';
 import type { AnswerEntry, GeneratedCoverLetter, Job, Profile } from '../../../shared/models/types.js';
 import { buildWritingGuidance } from '../../../shared/ai/writing-guidance.js';
-
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const GENERATE_PROMPT = readFileSync(
-  join(__dirname, 'prompts', 'generate-cover-letter.md'),
-  'utf8',
-);
+import GENERATE_PROMPT from './prompts/generate-cover-letter.md' with { type: 'text' };
 const TOTAL_WORD_COUNT_TOKEN = '{{TOTAL_WORD_COUNT}}';
 
 export interface CoverLetterTotalWordCount {
