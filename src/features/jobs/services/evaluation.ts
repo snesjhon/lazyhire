@@ -1,12 +1,7 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import { fileURLToPath } from 'url';
 import { query } from '@anthropic-ai/claude-code';
 import type { EvaluationResult, Profile } from '../../../shared/models/types.js';
-
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const CATEGORIES_PROMPT = readFileSync(join(__dirname, 'prompts', 'categories.md'), 'utf8');
-const EVALUATION_PROMPT = readFileSync(join(__dirname, 'prompts', 'evaluation.md'), 'utf8');
+import CATEGORIES_PROMPT from './prompts/categories.md' with { type: 'text' };
+import EVALUATION_PROMPT from './prompts/evaluation.md' with { type: 'text' };
 
 export interface EvalInput {
   jd: string;

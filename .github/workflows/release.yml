@@ -28,11 +28,6 @@ jobs:
       - name: Build binary
         run: bun build --compile src/index.tsx --outfile lazyhire-mac-arm64
 
-      - name: Verify binary
-        run: |
-          file lazyhire-mac-arm64
-          ls -lh lazyhire-mac-arm64
-
       - name: Import signing certificate
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -60,7 +55,6 @@ jobs:
             '  <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>' \
             '  <key>com.apple.security.cs.disable-library-validation</key><true/>' \
             '</dict></plist>' > entitlements.plist
-          cat entitlements.plist
           codesign --remove-signature lazyhire-mac-arm64 || true
           codesign --sign "Developer ID Application: Jhonatan Paredes ($APPLE_TEAM_ID)" \
             --options runtime \
@@ -68,10 +62,8 @@ jobs:
             --force \
             --entitlements entitlements.plist \
             lazyhire-mac-arm64
-          codesign --verify --verbose lazyhire-mac-arm64
 
       - name: Notarize binary
-        if: false
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}

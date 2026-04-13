@@ -1,12 +1,7 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import { fileURLToPath } from 'url';
 import { query } from '@anthropic-ai/claude-code';
 import type { GeneratedCV, Experience, Profile } from '../../../shared/models/types.js';
 import { buildWritingGuidance } from '../../../shared/ai/writing-guidance.js';
-
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const GENERATE_PROMPT = readFileSync(join(__dirname, 'prompts', 'generate-cv.md'), 'utf8');
+import GENERATE_PROMPT from './prompts/generate-cv.md' with { type: 'text' };
 const BULLET_WORD_RANGE_TOKEN = '{{BULLET_WORD_RANGE}}';
 const TEXT_SIZE_NAME_TOKEN = '{{TEXT_SIZE_NAME}}';
 const TEXT_SIZE_BODY_PT_TOKEN = '{{TEXT_SIZE_BODY_PT}}';
