@@ -48,7 +48,7 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          codesign --sign "Developer ID Application: Jhonatan Salazar ($APPLE_TEAM_ID)" \
+          codesign --sign "Developer ID Application: Jhonatan Paredes ($APPLE_TEAM_ID)" \
             --options runtime \
             --timestamp \
             lazyhire-mac-arm64
