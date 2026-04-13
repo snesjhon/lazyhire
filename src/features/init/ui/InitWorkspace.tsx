@@ -132,190 +132,193 @@ export default function InitWorkspace({
   const contentWidth = Math.max(20, width);
   const menuWidth = Math.max(34, Math.min(contentWidth, 58));
   const heroWidth = Math.max(menuWidth, 74);
+  const detailWidth = Math.max(heroWidth, Math.min(contentWidth, 88));
   const subtitle = 'AI-Driven tools to help you land your next job';
   const author = 'Jhonatan Salazar';
+  const isProfileFlow = view === 'preview' || view === 'creating';
+  const showBrandLogo = !isProfileFlow;
+  const showBrandMeta = view !== 'preview';
+  const panelWidth = view === 'preview' ? detailWidth : menuWidth;
 
   return (
     <box flexDirection="column" overflow="hidden" width={width} height={height}>
       <box
         height={height}
         overflow="hidden"
-        justifyContent={view === 'menu' ? 'center' : 'flex-start'}
+        alignItems="center"
+        paddingTop={1}
       >
-        {view === 'menu' && (
-          <box flexDirection="row" justifyContent="center" width={contentWidth}>
-            <box flexDirection="column" width={heroWidth} overflow="hidden">
-              <box marginTop={1}>
-                <BrandLogo theme={theme} variant="hero" width={heroWidth} />
-              </box>
-              <box alignItems="center">
-                <text fg={theme.muted} marginX="auto" marginY={1}>
-                  <strong>{subtitle}</strong>
-                </text>
-                <text fg={theme.muted} content={author} />
-              </box>
-              <box marginTop={2} flexDirection="row" justifyContent="center">
-                <box width={menuWidth} flexDirection="column" overflow="hidden">
-                  <text fg={theme.subtext} marginBottom={1}>
-                    <strong>Choose how to start</strong>
+        <box flexDirection="row" justifyContent="center" width={contentWidth}>
+          <box flexDirection="column" width={contentWidth} overflow="hidden">
+            <box flexDirection="column" alignItems="center">
+              {showBrandLogo && (
+                <box marginTop={1}>
+                  <BrandLogo theme={theme} variant="hero" width={heroWidth} />
+                </box>
+              )}
+              {showBrandMeta && (
+                <box alignItems="center">
+                  <text fg={theme.muted} marginX="auto" marginY={1}>
+                    <strong>{subtitle}</strong>
                   </text>
-                  <select
-                    focused
-                    height={Math.max(5, height - 12)}
-                    width={menuWidth}
-                    options={menuOptions}
-                    backgroundColor={theme.transparent}
-                    focusedBackgroundColor={theme.transparent}
-                    selectedBackgroundColor={theme.transparent}
-                    selectedTextColor={theme.brand}
-                    selectedDescriptionColor={theme.subtext}
-                    itemSpacing={1}
-                    showDescription
-                    onSelect={(_, option) => {
-                      if (option?.value === 'url') {
-                        setView('url');
-                        return;
+                  <text fg={theme.muted} content={author} />
+                </box>
+              )}
+            </box>
+            <box
+              marginTop={2}
+              flexDirection="row"
+              justifyContent="center"
+              width={contentWidth}
+            >
+              <box width={panelWidth} flexDirection="column" overflow="hidden">
+                {view === 'menu' && (
+                  <>
+                    <text fg={theme.subtext} marginBottom={1}>
+                      <strong>Choose how to start</strong>
+                    </text>
+                    <select
+                      focused
+                      height={Math.max(5, height - 12)}
+                      width={menuWidth}
+                      options={menuOptions}
+                      backgroundColor={theme.transparent}
+                      focusedBackgroundColor={theme.transparent}
+                      selectedBackgroundColor={theme.transparent}
+                      selectedTextColor={theme.brand}
+                      selectedDescriptionColor={theme.subtext}
+                      itemSpacing={1}
+                      showDescription
+                      onSelect={(_, option) => {
+                        if (option?.value === 'url') {
+                          setView('url');
+                          return;
+                        }
+                        if (option?.value === 'manual') onChooseManual();
+                      }}
+                    />
+                  </>
+                )}
+
+                {view === 'url' && (
+                  <>
+                    <text marginBottom={1} fg={theme.subtext}>
+                      <strong>Paste a resume PDF URL and press Enter</strong>
+                    </text>
+                    <input
+                      ref={urlInputRef}
+                      value={url}
+                      placeholder="https://example.com/resume.pdf"
+                      onInput={setUrl}
+                      onSubmit={(value: unknown) => {
+                        if (typeof value === 'string')
+                          void handleUrlSubmit(value);
+                      }}
+                      focused
+                    />
+                  </>
+                )}
+
+                {(view === 'extracting' || view === 'creating') && (
+                  <>
+                    <text
+                      fg={theme.muted}
+                      content={
+                        view === 'extracting'
+                          ? 'Fetching resume PDF and extracting profile data...'
+                          : 'Finalizing profile from extracted resume data...'
                       }
-                      if (option?.value === 'manual') onChooseManual();
-                    }}
-                  />
-                </box>
+                    />
+                    <text
+                      fg={theme.heading}
+                      content={
+                        view === 'extracting'
+                          ? 'Importing Resume'
+                          : 'Creating Profile'
+                      }
+                    />
+                    <text
+                      fg={theme.subtext}
+                      content={
+                        view === 'extracting'
+                          ? url || 'Working...'
+                          : 'Applying extracted resume data to your profile.'
+                      }
+                    />
+                  </>
+                )}
+
+                {view === 'preview' && preview && extracted && (
+                  <>
+                    <text
+                      fg={theme.muted}
+                      content="Review the extracted profile summary. Enter to continue."
+                    />
+                    <text fg={theme.heading} content="Extracted Resume Summary" />
+                    <text
+                      fg={theme.subtext}
+                      content={previewLines(preview, extracted).join('\n')}
+                    />
+                    <box marginTop={1}>
+                      <select
+                        focused
+                        height={Math.max(4, height - 14)}
+                        width={panelWidth}
+                        options={[
+                          {
+                            name: 'Create profile',
+                            description:
+                              'Use the extracted resume data and suggested targets',
+                            value: 'create',
+                          },
+                          {
+                            name: 'Fill profile manually',
+                            description: 'Switch to manual onboarding instead',
+                            value: 'manual',
+                          },
+                          {
+                            name: 'Start over',
+                            description: 'Paste a different resume PDF URL',
+                            value: 'restart',
+                          },
+                        ]}
+                        backgroundColor={theme.transparent}
+                        focusedBackgroundColor={theme.transparent}
+                        selectedBackgroundColor={theme.transparent}
+                        selectedTextColor={theme.brand}
+                        showDescription
+                        onSelect={(_, option) => {
+                          if (option?.value === 'create') {
+                            void handleCreateProfile();
+                            return;
+                          }
+                          if (option?.value === 'manual') {
+                            onChooseManual();
+                            return;
+                          }
+                          if (option?.value === 'restart') {
+                            setView('url');
+                          }
+                        }}
+                      />
+                    </box>
+                  </>
+                )}
+
+                {view === 'error' && (
+                  <>
+                    <text
+                      fg={theme.muted}
+                      content="Resume import failed. esc=back"
+                    />
+                    <text fg={theme.warning} content="Resume import failed" />
+                    <text fg={theme.subtext} content={errorMessage} />
+                  </>
+                )}
               </box>
             </box>
           </box>
-        )}
-
-        {view === 'url' && (
-          <box flexDirection="row" justifyContent="center" width={contentWidth}>
-            <box flexDirection="column" width={heroWidth} overflow="hidden">
-              <BrandLogo theme={theme} variant="hero" width={heroWidth} />
-              <box alignItems="center">
-                <text fg={theme.muted} marginX="auto" marginY={1}>
-                  <strong>{subtitle}</strong>
-                </text>
-                <text fg={theme.muted} content={author} />
-              </box>
-              <box marginTop={2} flexDirection="row" justifyContent="center">
-                <box width={menuWidth} flexDirection="column" overflow="hidden">
-                  <text marginBottom={1} fg={theme.subtext}>
-                    <strong>Paste a resume PDF URL and press Enter</strong>
-                  </text>
-                  <input
-                    ref={urlInputRef}
-                    value={url}
-                    placeholder="https://example.com/resume.pdf"
-                    onInput={setUrl}
-                    onSubmit={(value: unknown) => {
-                      if (typeof value === 'string')
-                        void handleUrlSubmit(value);
-                    }}
-                    focused
-                  />
-                </box>
-              </box>
-            </box>
-          </box>
-        )}
-
-        {(view === 'extracting' || view === 'creating') && (
-          <box flexDirection="column">
-            <text
-              fg={theme.muted}
-              content={
-                view === 'extracting'
-                  ? 'Fetching resume PDF and extracting profile data...'
-                  : 'Finalizing profile from extracted resume data...'
-              }
-            />
-            <text
-              fg={theme.heading}
-              content={
-                view === 'extracting' ? 'Importing Resume' : 'Creating Profile'
-              }
-            />
-            <text
-              fg={theme.subtext}
-              content={
-                view === 'extracting'
-                  ? url || 'Working...'
-                  : 'Applying extracted resume data to your profile.'
-              }
-            />
-          </box>
-        )}
-
-        {view === 'preview' && preview && extracted && (
-          <box
-            flexDirection="column"
-            width={Math.max(20, width)}
-            overflow="hidden"
-          >
-            <text
-              fg={theme.muted}
-              content="Review the extracted profile summary. Enter to continue."
-            />
-            <text fg={theme.heading} content="Extracted Resume Summary" />
-            <text
-              fg={theme.subtext}
-              content={previewLines(preview, extracted).join('\n')}
-            />
-            <box marginTop={1}>
-              <select
-                focused
-                height={Math.max(4, height - 14)}
-                width={Math.max(20, width)}
-                options={[
-                  {
-                    name: 'Create profile',
-                    description:
-                      'Use the extracted resume data and suggested targets',
-                    value: 'create',
-                  },
-                  {
-                    name: 'Fill profile manually',
-                    description: 'Switch to manual onboarding instead',
-                    value: 'manual',
-                  },
-                  {
-                    name: 'Start over',
-                    description: 'Paste a different resume PDF URL',
-                    value: 'restart',
-                  },
-                ]}
-                backgroundColor={theme.transparent}
-                focusedBackgroundColor={theme.transparent}
-                selectedBackgroundColor={theme.transparent}
-                selectedTextColor={theme.brand}
-                showDescription
-                onSelect={(_, option) => {
-                  if (option?.value === 'create') {
-                    void handleCreateProfile();
-                    return;
-                  }
-                  if (option?.value === 'manual') {
-                    onChooseManual();
-                    return;
-                  }
-                  if (option?.value === 'restart') {
-                    setView('url');
-                  }
-                }}
-              />
-            </box>
-          </box>
-        )}
-
-        {view === 'error' && (
-          <box
-            flexDirection="column"
-            width={Math.max(20, width)}
-            overflow="hidden"
-          >
-            <text fg={theme.muted} content="Resume import failed. esc=back" />
-            <text fg={theme.warning} content="Resume import failed" />
-            <text fg={theme.subtext} content={errorMessage} />
-          </box>
-        )}
+        </box>
       </box>
     </box>
   );
