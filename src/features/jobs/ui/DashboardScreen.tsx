@@ -1,6 +1,5 @@
 /** @jsxImportSource @opentui/react */
-import { SyntaxStyle } from '@opentui/core';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FocusTarget, Overlay } from '../../../shared/ui/state.js';
 import { clip, scoreDisplay } from '../../../shared/lib/utils.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
@@ -27,12 +26,6 @@ import ProfileActionWorkspace, {
   type ProfileActionView,
 } from '../../profile/ui/ProfileActionWorkspace.js';
 import InitWorkspace from '../../init/ui/InitWorkspace.js';
-
-const syntaxStyle = SyntaxStyle.fromStyles({
-  'markup.heading.1': { bold: true },
-  'markup.heading.2': { bold: true },
-  'markup.strong': { bold: true },
-});
 
 const LEFT_PANEL_ORDER: FocusTarget[] = [
   'status',
@@ -90,38 +83,109 @@ const PROFILE_OPTIONS: Array<{
   },
 ];
 
-function jobDetailMarkdown(job: Job): string {
-  const classification = [job.category, job.focus].filter(Boolean).join(' / ');
-  const rows = [
-    `**Job:** #${job.id}`,
-    `**Company:** ${job.company || 'Unknown Company'}`,
-    `**Role:** ${job.role || 'Untitled Role'}`,
-    `**Status:** ${job.status}`,
-    `**Score:** ${scoreDisplay(job.score)}`,
-    classification ? `**Category / Focus:** ${classification}` : '',
-    job.url ? `**URL:** ${job.url}` : '',
-    job.pdfPath ? `**Generated CV:** ${job.pdfPath}` : '',
-    job.coverLetterPdfPath
-      ? `**Generated Cover Letter:** ${job.coverLetterPdfPath}`
-      : '',
-    job.notes ? `**Notes:** ${job.notes}` : '',
-  ].filter(Boolean);
-
-  return [
-    rows.join('\n'),
-    job.jdSummary ||
-      job.jd ||
-      '## Job Description Summary\nNo job description saved.',
-  ]
-    .filter(Boolean)
-    .join('\n\n');
+function DetailHeading({ theme, children }: { theme: UiTheme; children: string }) {
+  return (
+    <text fg={theme.heading} marginBottom={1}>
+      <strong>{children}</strong>
+    </text>
+  );
 }
 
-function statusDetailMarkdown(
+function DetailField({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <text>
+      <strong>{label}:</strong> {value}
+    </text>
+  );
+}
+
+function DetailParagraph({
+  theme,
+  content,
+  muted = false,
+  marginBottom = 1,
+}: {
+  theme: UiTheme;
+  content: string;
+  muted?: boolean;
+  marginBottom?: number;
+}) {
+  return (
+    <text fg={muted ? theme.muted : theme.text} content={content} marginBottom={marginBottom} />
+  );
+}
+
+function DetailList({
+  theme,
+  items,
+  marginBottom = 1,
+}: {
+  theme: UiTheme;
+  items: string[];
+  marginBottom?: number;
+}) {
+  return (
+    <box flexDirection="column" marginBottom={marginBottom}>
+      {items.map((item, index) => (
+        <text key={`${item}-${index}`} fg={theme.text} content={`- ${item}`} />
+      ))}
+    </box>
+  );
+}
+
+function DetailFields({
+  fields,
+  marginBottom = 1,
+}: {
+  fields: Array<{ label: string; value: string }>;
+  marginBottom?: number;
+}) {
+  return (
+    <box flexDirection="column" marginBottom={marginBottom}>
+      {fields.map((field) => (
+        <DetailField key={field.label} label={field.label} value={field.value} />
+      ))}
+    </box>
+  );
+}
+
+function renderJobDetail(theme: UiTheme, job: Job) {
+  const classification = [job.category, job.focus].filter(Boolean).join(' / ');
+  const fields = [
+    { label: 'Job', value: `#${job.id}` },
+    { label: 'Company', value: job.company || 'Unknown Company' },
+    { label: 'Role', value: job.role || 'Untitled Role' },
+    { label: 'Status', value: job.status },
+    { label: 'Score', value: scoreDisplay(job.score) },
+    ...(classification ? [{ label: 'Category / Focus', value: classification }] : []),
+    ...(job.url ? [{ label: 'URL', value: job.url }] : []),
+    ...(job.pdfPath ? [{ label: 'Generated CV', value: job.pdfPath }] : []),
+    ...(job.coverLetterPdfPath ? [{ label: 'Generated Cover Letter', value: job.coverLetterPdfPath }] : []),
+    ...(job.notes ? [{ label: 'Notes', value: job.notes }] : []),
+  ];
+  const summary = job.jdSummary || job.jd || 'No job description saved.';
+
+  return (
+    <box flexDirection="column" width="100%">
+      <DetailFields fields={fields} marginBottom={1} />
+      <DetailHeading theme={theme}>Job Description Summary</DetailHeading>
+      <DetailParagraph theme={theme} content={summary} marginBottom={0} />
+    </box>
+  );
+}
+
+function renderStatusDetail(
+  theme: UiTheme,
   filter: Props['filter'],
   filters: Props['filters'],
   jobs: Job[],
-): string {
+) {
   const counts = filters.map((item) => {
     const count = jobs.filter((job) => {
       if (item === 'Queue') {
@@ -129,146 +193,222 @@ function statusDetailMarkdown(
       }
       return job.status === item;
     }).length;
-    return `- ${item}: ${count}`;
+    return `${item}: ${count}`;
   });
 
-  return [
-    '## Pipeline Status',
-    `**Active filter:** ${filter}`,
-    `**Total jobs:** ${jobs.length}`,
-    '',
-    '### Buckets',
-    counts.join('\n'),
-    '',
-    '### Keys',
-    '- `0`: focus the main detail view',
-    '- `1-3`: jump to left panels',
-    '- `Tab` / `Shift+Tab`: cycle status, jobs, and config',
-    '- `[` / `]`: cycle the active panel filter or config tab',
-    '- `Enter` on Jobs or Config > Profile: open an action workspace in the detail pane',
-  ].join('\n');
+  return (
+    <box flexDirection="column" width="100%">
+      <DetailHeading theme={theme}>Pipeline Status</DetailHeading>
+      <DetailFields
+        fields={[
+          { label: 'Active filter', value: filter },
+          { label: 'Total jobs', value: String(jobs.length) },
+        ]}
+      />
+      <DetailHeading theme={theme}>Buckets</DetailHeading>
+      <DetailList theme={theme} items={counts} />
+      <DetailHeading theme={theme}>Keys</DetailHeading>
+      <DetailList
+        theme={theme}
+        marginBottom={0}
+        items={[
+          '0: focus the main detail view',
+          '1-3: jump to left panels',
+          'Tab / Shift+Tab: cycle status, jobs, and config',
+          '[ / ]: cycle the active panel filter or config tab',
+          'Enter on Jobs or Config > Profile: open an action workspace in the detail pane',
+        ]}
+      />
+    </box>
+  );
 }
 
-function profileDetailMarkdown(
+function renderProfileDetail(
+  theme: UiTheme,
   profile: Profile,
   activeOption: (typeof PROFILE_OPTIONS)[number] | null,
-): string {
-  if (!activeOption) return '## Profile\nSelect a profile item.';
+) {
+  if (!activeOption) {
+    return (
+      <box flexDirection="column" width="100%">
+        <DetailHeading theme={theme}>Profile</DetailHeading>
+        <DetailParagraph theme={theme} content="Select a profile item." marginBottom={0} />
+      </box>
+    );
+  }
 
   if (activeOption.value === 'candidate') {
-    return [
-      '## Candidate',
-      `**Name:** ${profile.candidate.name}`,
-      `**Headline:** ${profile.headline}`,
-      `**Email:** ${profile.candidate.email}`,
-      `**Location:** ${profile.candidate.location}`,
-      profile.candidate.site ? `**Site:** ${profile.candidate.site}` : '',
-      '',
-      'This section controls the candidate identity used across generated answers and application materials.',
-      '',
-      'Press `Enter` in the Profile panel to edit name, email, location, site, or headline.',
-    ]
-      .filter(Boolean)
-      .join('\n\n');
+    return (
+      <box flexDirection="column" width="100%">
+        <DetailHeading theme={theme}>Candidate</DetailHeading>
+        <DetailFields
+          fields={[
+            { label: 'Name', value: profile.candidate.name },
+            { label: 'Headline', value: profile.headline },
+            { label: 'Email', value: profile.candidate.email },
+            { label: 'Location', value: profile.candidate.location },
+            ...(profile.candidate.site ? [{ label: 'Site', value: profile.candidate.site }] : []),
+          ]}
+        />
+        <DetailParagraph
+          theme={theme}
+          content="This section controls the candidate identity used across generated answers and application materials."
+        />
+        <DetailParagraph
+          theme={theme}
+          content="Press Enter in the Profile panel to edit name, email, location, site, or headline."
+          muted
+          marginBottom={0}
+        />
+      </box>
+    );
   }
 
   if (activeOption.value === 'roles') {
-    return [
-      '## Target Roles',
-      `**Current Value:** ${profile.targets.roles.join(', ') || 'none'}`,
-      '',
-      'These titles define the roles you want to be matched against during discovery and evaluation.',
-      '',
-      'Press `Enter` to update the comma-separated role list.',
-    ].join('\n\n');
+    return (
+      <box flexDirection="column" width="100%">
+        <DetailHeading theme={theme}>Target Roles</DetailHeading>
+        <DetailFields fields={[{ label: 'Current Value', value: profile.targets.roles.join(', ') || 'none' }]} />
+        <DetailParagraph
+          theme={theme}
+          content="These titles define the roles you want to be matched against during discovery and evaluation."
+        />
+        <DetailParagraph theme={theme} content="Press Enter to update the comma-separated role list." muted marginBottom={0} />
+      </box>
+    );
   }
 
   if (activeOption.value === 'education') {
     const currentValue = profile.education.length > 0
-      ? profile.education.map((entry) => [entry.institution, entry.degree].filter(Boolean).join(' | ')).join('\n')
-      : 'none';
+      ? profile.education.map((entry) => [entry.institution, entry.degree].filter(Boolean).join(' | '))
+      : ['none'];
 
-    return [
-      '## Education & Certifications',
-      `**Current Value:**\n${currentValue}`,
-      '',
-      'Each entry should stay on one ATS-safe line so the institution and credential are parsed together.',
-      '',
-      'Press `Enter` to edit one entry per line using `Institution | Credential`.',
-    ].join('\n\n');
+    return (
+      <box flexDirection="column" width="100%">
+        <DetailHeading theme={theme}>Education & Certifications</DetailHeading>
+        <DetailHeading theme={theme}>Current Value</DetailHeading>
+        <DetailList theme={theme} items={currentValue} />
+        <DetailParagraph
+          theme={theme}
+          content="Each entry should stay on one ATS-safe line so the institution and credential are parsed together."
+        />
+        <DetailParagraph
+          theme={theme}
+          content="Press Enter to edit one entry per line using Institution | Credential."
+          muted
+          marginBottom={0}
+        />
+      </box>
+    );
   }
 
   if (activeOption.value === 'categories') {
-    return [
-      '## Categories',
-      `**Current Value:** ${profile.targets.categories.join(', ') || 'none'}`,
-      '',
-      'Broad job families used to classify roles and improve ranking.',
-      '',
-      'Press `Enter` to update the preferred categories.',
-    ].join('\n\n');
+    return (
+      <box flexDirection="column" width="100%">
+        <DetailHeading theme={theme}>Categories</DetailHeading>
+        <DetailFields fields={[{ label: 'Current Value', value: profile.targets.categories.join(', ') || 'none' }]} />
+        <DetailParagraph theme={theme} content="Broad job families used to classify roles and improve ranking." />
+        <DetailParagraph theme={theme} content="Press Enter to update the preferred categories." muted marginBottom={0} />
+      </box>
+    );
   }
 
   if (activeOption.value === 'focuses') {
-    return [
-      '## Focuses',
-      `**Current Value:** ${profile.targets.focuses.join(', ') || 'none'}`,
-      '',
-      'Narrower specialties that indicate the strongest fit areas within a category.',
-      '',
-      'Press `Enter` to update the preferred focuses.',
-    ].join('\n\n');
+    return (
+      <box flexDirection="column" width="100%">
+        <DetailHeading theme={theme}>Focuses</DetailHeading>
+        <DetailFields fields={[{ label: 'Current Value', value: profile.targets.focuses.join(', ') || 'none' }]} />
+        <DetailParagraph
+          theme={theme}
+          content="Narrower specialties that indicate the strongest fit areas within a category."
+        />
+        <DetailParagraph theme={theme} content="Press Enter to update the preferred focuses." muted marginBottom={0} />
+      </box>
+    );
   }
 
   if (activeOption.value === 'salary-min') {
-    return [
-      '## Salary Range',
-      `**Current Value:** $${profile.targets.salaryMin.toLocaleString()} - $${profile.targets.salaryMax.toLocaleString()}`,
-      '',
-      'This compensation band is used when evaluating whether a role meets your expectations.',
-      '',
-      'Press `Enter` to update the minimum and maximum range.',
-    ].join('\n\n');
+    return (
+      <box flexDirection="column" width="100%">
+        <DetailHeading theme={theme}>Salary Range</DetailHeading>
+        <DetailFields
+          fields={[
+            {
+              label: 'Current Value',
+              value: `$${profile.targets.salaryMin.toLocaleString()} - $${profile.targets.salaryMax.toLocaleString()}`,
+            },
+          ]}
+        />
+        <DetailParagraph
+          theme={theme}
+          content="This compensation band is used when evaluating whether a role meets your expectations."
+        />
+        <DetailParagraph
+          theme={theme}
+          content="Press Enter to update the minimum and maximum range."
+          muted
+          marginBottom={0}
+        />
+      </box>
+    );
   }
 
   if (activeOption.value === 'remote') {
-    return [
-      '## Remote Preference',
-      `**Current Value:** ${profile.targets.remote}`,
-      '',
-      'This setting influences search relevance and job evaluation.',
-      '',
-      'Press `Enter` to switch between full remote, hybrid, or any.',
-    ].join('\n\n');
+    return (
+      <box flexDirection="column" width="100%">
+        <DetailHeading theme={theme}>Remote Preference</DetailHeading>
+        <DetailFields fields={[{ label: 'Current Value', value: profile.targets.remote }]} />
+        <DetailParagraph theme={theme} content="This setting influences search relevance and job evaluation." />
+        <DetailParagraph
+          theme={theme}
+          content="Press Enter to switch between full remote, hybrid, or any."
+          muted
+          marginBottom={0}
+        />
+      </box>
+    );
   }
 
-  return [
-    '## Deal-Breakers',
-    `**Current Value:** ${profile.targets.dealBreakers.join(', ') || 'none'}`,
-    '',
-    'These constraints should lower confidence in roles that do not match your requirements.',
-    '',
-    'Press `Enter` to update the deal-breaker list.',
-  ].join('\n\n');
+  return (
+    <box flexDirection="column" width="100%">
+      <DetailHeading theme={theme}>Deal-Breakers</DetailHeading>
+      <DetailFields fields={[{ label: 'Current Value', value: profile.targets.dealBreakers.join(', ') || 'none' }]} />
+      <DetailParagraph
+        theme={theme}
+        content="These constraints should lower confidence in roles that do not match your requirements."
+      />
+      <DetailParagraph theme={theme} content="Press Enter to update the deal-breaker list." muted marginBottom={0} />
+    </box>
+  );
 }
 
-function answerDetailMarkdown(answer: AnswerEntry | null): string {
-  if (!answer) return '## Answers\nNo saved answers yet.';
+function renderAnswerDetail(theme: UiTheme, answer: AnswerEntry | null) {
+  if (!answer) {
+    return (
+      <box flexDirection="column" width="100%">
+        <DetailHeading theme={theme}>Answers</DetailHeading>
+        <DetailParagraph theme={theme} content="No saved answers yet." marginBottom={0} />
+      </box>
+    );
+  }
 
-  return [
-    `## ${answer.question}`,
-    `**Category:** ${answer.category}`,
-    `**Company:** ${answer.company || 'General'}`,
-    `**Role:** ${answer.role || 'General'}`,
-    `**Tone:** ${answer.tone || 'none'}`,
-    `**Added:** ${answer.added}`,
-    `**Revised:** ${answer.revised}`,
-    answer.context ? `**Context:** ${answer.context}` : '',
-    '',
-    answer.answer,
-  ]
-    .filter(Boolean)
-    .join('\n\n');
+  return (
+    <box flexDirection="column" width="100%">
+      <DetailHeading theme={theme}>{answer.question}</DetailHeading>
+      <DetailFields
+        fields={[
+          { label: 'Category', value: answer.category },
+          { label: 'Company', value: answer.company || 'General' },
+          { label: 'Role', value: answer.role || 'General' },
+          { label: 'Tone', value: answer.tone || 'none' },
+          { label: 'Added', value: answer.added },
+          { label: 'Revised', value: answer.revised },
+          ...(answer.context ? [{ label: 'Context', value: answer.context }] : []),
+        ]}
+      />
+      <DetailParagraph theme={theme} content={answer.answer} marginBottom={0} />
+    </box>
+  );
 }
 
 interface Props {
@@ -486,14 +626,19 @@ export default function DashboardScreen({
 
   const detailContent =
     activePanel === 'status'
-      ? statusDetailMarkdown(filter, filters, jobs)
+      ? renderStatusDetail(theme, filter, filters, jobs)
       : activePanel === 'profile'
-        ? profileDetailMarkdown(profile, selectedProfileOption)
+        ? renderProfileDetail(theme, profile, selectedProfileOption)
         : activePanel === 'answers'
-          ? answerDetailMarkdown(selectedAnswer)
+          ? renderAnswerDetail(theme, selectedAnswer)
           : selectedJob
-            ? jobDetailMarkdown(selectedJob)
-            : '## Job Detail\nSelect a job to inspect it.';
+            ? renderJobDetail(theme, selectedJob)
+            : (
+              <box flexDirection="column" width="100%">
+                <DetailHeading theme={theme}>Job Detail</DetailHeading>
+                <DetailParagraph theme={theme} content="Select a job to inspect it." marginBottom={0} />
+              </box>
+            );
 
   return (
     <>
@@ -783,12 +928,7 @@ export default function DashboardScreen({
                   flexDirection="column"
                   width={Math.max(20, detailWidth - 6)}
                 >
-                  <markdown
-                    width={Math.max(20, detailWidth - 6)}
-                    content={detailContent}
-                    syntaxStyle={syntaxStyle}
-                    conceal
-                  />
+                  {detailContent}
                 </box>
               )}
             </scrollbox>
