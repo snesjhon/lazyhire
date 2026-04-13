@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import { query } from '@anthropic-ai/claude-code';
 import type { Profile } from '../../../shared/models/types.js';
 
@@ -129,6 +130,14 @@ Rules:
 
 const JSON_RETRY_LIMIT = 2;
 
+function findClaudeBinary(): string | undefined {
+  try {
+    return execSync('which claude', { encoding: 'utf8' }).trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function assertSupportedClaudeRuntime(): void {
   const major = Number.parseInt(process.versions.node.split('.')[0] ?? '', 10);
   if (Number.isNaN(major)) return;
@@ -250,6 +259,7 @@ async function runClaudePrompt(prompt: string, failureMessage: string): Promise<
       prompt,
       options: {
         maxTurns: 1,
+        pathToClaudeCodeExecutable: findClaudeBinary(),
         stderr: (data) => {
           stderr += data;
         },
