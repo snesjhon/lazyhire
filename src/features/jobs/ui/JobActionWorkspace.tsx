@@ -28,6 +28,7 @@ import {
 
 export type JobActionView =
   | 'menu'
+  | 'view-answers'
   | 'edit-job'
   | 'edit-company'
   | 'edit-role'
@@ -89,6 +90,8 @@ function parentViewFor(view: JobActionView): JobActionView {
 interface Props {
   theme: UiTheme;
   job: Job;
+  savedAnswerCount: number;
+  previousAnswerCount: number;
   width: number;
   height: number;
   initialView: JobActionView;
@@ -98,6 +101,8 @@ interface Props {
   onGenerateCoverLetterDraftChange: (draft: GenerateCoverLetterDraft) => void;
   onClose: () => void;
   onStartAnswer: () => void;
+  onViewSavedJobAnswers: () => void;
+  onViewSavedAnswers: () => void;
   onEvaluate: () => void;
   onOpenLink: () => void;
   onOpenCv: () => void;
@@ -122,6 +127,8 @@ interface Props {
 export default function JobActionWorkspace({
   theme,
   job,
+  savedAnswerCount,
+  previousAnswerCount,
   width,
   height,
   initialView,
@@ -131,6 +138,8 @@ export default function JobActionWorkspace({
   onGenerateCoverLetterDraftChange,
   onClose,
   onStartAnswer,
+  onViewSavedJobAnswers,
+  onViewSavedAnswers,
   onEvaluate,
   onOpenLink,
   onOpenCv,
@@ -294,6 +303,24 @@ export default function JobActionWorkspace({
       description: 'Open the answer workspace for this job',
       value: 'answer',
     },
+    ...(savedAnswerCount > 0
+      ? [
+          {
+            name: 'View saved answers',
+            description: `${savedAnswerCount} saved for this application`,
+            value: 'view-saved-answers',
+          },
+        ]
+      : []),
+    ...(previousAnswerCount > 0
+      ? [
+          {
+            name: 'View previous answers',
+            description: `${previousAnswerCount} saved for ${job.company || 'this company'}`,
+            value: 'view-answers',
+          },
+        ]
+      : []),
     {
       name: job.score === null ? 'Evaluate job' : 'Re-evaluate job',
       description: 'Score the role against your profile',
@@ -471,6 +498,8 @@ export default function JobActionWorkspace({
             onSelect={(_, option) => {
               const value = String(option?.value ?? '');
               if (value === 'answer') onStartAnswer();
+              if (value === 'view-saved-answers') onViewSavedJobAnswers();
+              if (value === 'view-answers') onViewSavedAnswers();
               if (value === 'evaluate') onEvaluate();
               if (value === 'generate-cv') setView('generate-cv');
               if (value === 'generate-cover-letter')

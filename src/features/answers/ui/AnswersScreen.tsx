@@ -315,7 +315,7 @@ export default function AnswersScreen({ appWidth, appHeight, theme }: Props) {
 
   const answerListOptions: SelectOption[] = answers.map((a) => ({
     name: clip(a.question, listWidth - 4),
-    description: `${CATEGORY_LABEL[a.category]} · ${a.company || 'General'} · ${a.revised}`,
+    description: `${CATEGORY_LABEL[a.category]} · ${a.originJobId ? `#${a.originJobId}` : a.company || 'General'} · ${a.revised}`,
     value: a.id,
   }));
 

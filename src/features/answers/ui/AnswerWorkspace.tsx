@@ -20,7 +20,7 @@ import {
   refineAnswer,
 } from '../services/answers.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
-import type { AnswerCategory, Job } from '../../../shared/models/types.js';
+import type { AnswerCategory, AnswerEntry, Job } from '../../../shared/models/types.js';
 
 export type AnswerStep =
   | 'ask-question'
@@ -63,6 +63,20 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function statusLineFor(job: Pick<Job, 'company'>): string {
+  return `Write a question for ${job.company || 'this company'}.`;
+}
+
+function readLinkedAnswers(jobId: string): AnswerEntry[] {
+  return answersDb
+    .readAnswers()
+    .filter((answer) => answer.originJobId === jobId)
+    .sort((a, b) => {
+      if (a.revised !== b.revised) return b.revised.localeCompare(a.revised);
+      return b.id.localeCompare(a.id);
+    });
+}
+
 interface Props {
   theme: UiTheme;
   job: Job;
@@ -85,6 +99,9 @@ export default function AnswerWorkspace({
   onSaved,
 }: Props) {
   const [copyFlash, setCopyFlash] = useState(false);
+  const [linkedAnswers, setLinkedAnswers] = useState<AnswerEntry[]>(() =>
+    readLinkedAnswers(job.id),
+  );
 
   const questionInputRef = useRef<InputRenderable>(null);
   const contextInputRef = useRef<TextareaRenderable>(null);
@@ -112,6 +129,10 @@ export default function AnswerWorkspace({
     if (draft.step === 'ask-context') contextInputRef.current?.focus();
     if (draft.step === 'ask-refine') refineInputRef.current?.focus();
   }, [draft.step]);
+
+  useEffect(() => {
+    setLinkedAnswers(readLinkedAnswers(job.id));
+  }, [job.id]);
 
   function copyToClipboard(text: string) {
     try {
@@ -241,8 +262,22 @@ export default function AnswerWorkspace({
       added: today(),
       revised: today(),
     });
-    onSaved(`Saved answer for #${job.id} to your library.`);
-    onClose();
+    const nextLinkedAnswers = readLinkedAnswers(job.id);
+    setLinkedAnswers(nextLinkedAnswers);
+    onSaved(
+      `Saved answer for #${job.id} to your library. ${nextLinkedAnswers.length} linked ${nextLinkedAnswers.length === 1 ? 'answer' : 'answers'} total.`,
+    );
+    updateDraft({
+      step: 'ask-question',
+      question: '',
+      questionDraft: '',
+      category: 'other',
+      tone: '',
+      contextDraft: '',
+      refineDraft: '',
+      generatedAnswer: '',
+      statusLine: `${statusLineFor(job)} ${nextLinkedAnswers.length > 0 ? `This application has ${nextLinkedAnswers.length} saved ${nextLinkedAnswers.length === 1 ? 'answer' : 'answers'}.` : ''}`.trim(),
+    });
   }
 
   useKeyboard((key) => {
@@ -260,7 +295,7 @@ export default function AnswerWorkspace({
       if (draft.step === 'ask-tone') {
         updateDraft({
           step: 'ask-question',
-          statusLine: `Write a question for ${job.company || 'this company'}.`,
+          statusLine: statusLineFor(job),
         });
         return;
       }
@@ -271,7 +306,7 @@ export default function AnswerWorkspace({
     if (key.name === '1') {
       updateDraft({
         step: 'ask-question',
-        statusLine: `Write a question for ${job.company || 'this company'}.`,
+        statusLine: statusLineFor(job),
       });
       return;
     }
@@ -371,6 +406,22 @@ export default function AnswerWorkspace({
           fg={theme.answerCategoryColors[draft.category]}
           content={`Question: ${clip(draft.question, width - 6)}`}
         />
+      ) : null}
+
+      {linkedAnswers.length > 0 ? (
+        <box flexDirection="column" marginTop={1}>
+          <text
+            fg={theme.muted}
+            content={`Saved for this application: ${linkedAnswers.length}`}
+          />
+          <text
+            fg={theme.muted}
+            content={linkedAnswers
+              .slice(0, 3)
+              .map((answer, index) => `${index + 1}. ${clip(answer.question, width - 8)}`)
+              .join('\n')}
+          />
+        </box>
       ) : null}
 
       {draft.step === 'review' && draft.generatedAnswer ? (
@@ -481,7 +532,7 @@ export default function AnswerWorkspace({
         ) : (
           <>
             {draft.step === 'review' ? (
-              <text fg={theme.footer} content="s=save" />
+              <text fg={theme.footer} content="s=save + new" />
             ) : null}
             {draft.step === 'review' ? (
               <text fg={theme.muted} content="|" />

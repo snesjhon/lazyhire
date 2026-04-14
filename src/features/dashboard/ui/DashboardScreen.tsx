@@ -42,6 +42,15 @@ function detailPaneTitle(
   if (detailPane.kind === 'answer') {
     return 'Job Answer';
   }
+  if (detailPane.kind === 'saved-answer') {
+    return 'Saved Answer';
+  }
+  if (detailPane.kind === 'company-answers') {
+    return 'Previous Answers';
+  }
+  if (detailPane.kind === 'job-saved-answers') {
+    return 'Saved Answers';
+  }
   if (detailPane.kind === 'job-actions') {
     return 'Job Actions';
   }
@@ -83,6 +92,21 @@ export interface DashboardScreenProps {
         render: (args: { width: number; height: number }) => ReactNode;
       }
     | {
+        kind: 'company-answers';
+        jobId: string;
+        render: (args: { width: number; height: number }) => ReactNode;
+      }
+    | {
+        kind: 'job-saved-answers';
+        jobId: string;
+        render: (args: { width: number; height: number }) => ReactNode;
+      }
+    | {
+        kind: 'saved-answer';
+        answerId: string;
+        render: (args: { width: number; height: number }) => ReactNode;
+      }
+    | {
         kind: 'job-actions';
         jobId: string;
         render: (args: { width: number; height: number }) => ReactNode;
@@ -97,6 +121,7 @@ export interface DashboardScreenProps {
   onJobSelect: (jobId: string) => void;
   onOpenActions: () => void;
   onOpenProfileActions: (view: ProfileActionView) => void;
+  onOpenSavedAnswer: (answerId: string) => void;
 }
 
 export default function DashboardScreen({
@@ -120,6 +145,7 @@ export default function DashboardScreen({
   onJobSelect,
   onOpenActions,
   onOpenProfileActions,
+  onOpenSavedAnswer,
 }: DashboardScreenProps) {
   const [profileIndex, setProfileIndex] = useState(0);
   const [answerIndex, setAnswerIndex] = useState(0);
@@ -144,7 +170,7 @@ export default function DashboardScreen({
     .reverse()
     .map((answer) => ({
       name: clip(answer.question, Math.max(14, queueWidth - 12)),
-      description: `${answer.category} · ${answer.company || 'General'} · ${answer.revised}`,
+      description: `${answer.category} · ${answer.originJobId ? `#${answer.originJobId}` : answer.company || 'General'} · ${answer.revised}`,
       value: answer.id,
     }));
 
@@ -354,7 +380,10 @@ export default function DashboardScreen({
                   const nextIndex = answerOptions.findIndex(
                     (item) => item.value === option?.value,
                   );
-                  if (nextIndex >= 0) setAnswerIndex(nextIndex);
+                  if (nextIndex >= 0) {
+                    setAnswerIndex(nextIndex);
+                    onOpenSavedAnswer(String(option?.value));
+                  }
                 }}
               />
             )}
@@ -407,6 +436,8 @@ export default function DashboardScreen({
         <text fg={theme.footer} content="Move: j / k" />
         <text fg={theme.muted} content="|" />
         <text fg={theme.footer} content="Add Job: a" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="Answers: enter to open" />
       </box>
     </>
   );

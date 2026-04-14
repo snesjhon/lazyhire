@@ -28,6 +28,8 @@ import type { Flash, FocusTarget, JobIntakeState } from './shared/ui/state.js';
 import { scoreDisplay, type FlashVariant } from './shared/lib/utils.js';
 import AnswerWorkspace from './features/answers/ui/AnswerWorkspace.js';
 import type { AnswerDraft } from './features/answers/ui/AnswerWorkspace.js';
+import SavedAnswerWorkspace from './features/answers/ui/SavedAnswerWorkspace.js';
+import CompanyAnswersWorkspace from './features/answers/ui/CompanyAnswersWorkspace.js';
 import JobActionWorkspace from './features/jobs/ui/JobActionWorkspace.js';
 import type {
   GenerateCvDraft,
@@ -112,6 +114,35 @@ function browserCommand(
   return null;
 }
 
+function normalizeCompany(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase();
+}
+
+function findPreviousAnswersForJob(
+  job: Job,
+  jobs: Job[],
+  answers: ReturnType<typeof answersDb.readAnswers>,
+) {
+  const companyKey = normalizeCompany(job.company);
+  if (!companyKey) return [];
+
+  const relatedJobIds = new Set(
+    jobs
+      .filter(
+        (candidate) =>
+          candidate.id !== job.id &&
+          normalizeCompany(candidate.company) === companyKey,
+      )
+      .map((candidate) => candidate.id),
+  );
+
+  return answers.filter((answer) => {
+    if (answer.originJobId === job.id) return false;
+    if (answer.originJobId && relatedJobIds.has(answer.originJobId)) return true;
+    return answer.originJobId === null && normalizeCompany(answer.company) === companyKey;
+  });
+}
+
 export default function App() {
   const initialProfileExists = hasProfile();
   const activeRenderer = useRenderer();
@@ -136,6 +167,9 @@ export default function App() {
     jobId: string;
     view: JobActionView;
   } | null>(null);
+  const [savedAnswerId, setSavedAnswerId] = useState<string | null>(null);
+  const [companyAnswersJobId, setCompanyAnswersJobId] = useState<string | null>(null);
+  const [jobAnswersJobId, setJobAnswersJobId] = useState<string | null>(null);
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, AnswerDraft>>(
     {},
   );
@@ -244,6 +278,24 @@ export default function App() {
       setAnswerJobId(null);
     }
   }, [answerJobId, jobs]);
+
+  useEffect(() => {
+    if (savedAnswerId && !answers.some((answer) => answer.id === savedAnswerId)) {
+      setSavedAnswerId(null);
+    }
+  }, [answers, savedAnswerId]);
+
+  useEffect(() => {
+    if (companyAnswersJobId && !jobs.some((job) => job.id === companyAnswersJobId)) {
+      setCompanyAnswersJobId(null);
+    }
+  }, [companyAnswersJobId, jobs]);
+
+  useEffect(() => {
+    if (jobAnswersJobId && !jobs.some((job) => job.id === jobAnswersJobId)) {
+      setJobAnswersJobId(null);
+    }
+  }, [jobAnswersJobId, jobs]);
 
   useEffect(() => {
     if (answerJobId && selectedJobId !== answerJobId) {
@@ -542,6 +594,54 @@ export default function App() {
     setFocus('jobs');
   }
 
+  function openSavedAnswer(answerId: string) {
+    setJobAnswersJobId(null);
+    setCompanyAnswersJobId(null);
+    setAnswerJobId(null);
+    setJobActionState(null);
+    setSavedAnswerId(answerId);
+    setDetailSource('answers');
+    setFocus('answers');
+  }
+
+  function closeSavedAnswerWorkspace() {
+    setSavedAnswerId(null);
+    setDetailSource('answers');
+    setFocus('answers');
+  }
+
+  function openCompanyAnswers(jobId: string) {
+    setJobAnswersJobId(null);
+    setSavedAnswerId(null);
+    setAnswerJobId(null);
+    setJobActionState(null);
+    setCompanyAnswersJobId(jobId);
+    setDetailSource('jobs');
+    setFocus('jobs');
+  }
+
+  function closeCompanyAnswersWorkspace() {
+    setCompanyAnswersJobId(null);
+    setFocus('jobs');
+    setDetailSource('jobs');
+  }
+
+  function openJobAnswers(jobId: string) {
+    setSavedAnswerId(null);
+    setCompanyAnswersJobId(null);
+    setAnswerJobId(null);
+    setJobActionState(null);
+    setJobAnswersJobId(jobId);
+    setDetailSource('jobs');
+    setFocus('jobs');
+  }
+
+  function closeJobAnswersWorkspace() {
+    setJobAnswersJobId(null);
+    setFocus('jobs');
+    setDetailSource('jobs');
+  }
+
   function updateAnswerDraft(jobId: string, draft: AnswerDraft) {
     setAnswerDrafts((current) => ({
       ...current,
@@ -553,6 +653,9 @@ export default function App() {
     if (!selectedJob) return;
     setJobIntakeState('none');
     setAnswerJobId(null);
+    setSavedAnswerId(null);
+    setCompanyAnswersJobId(null);
+    setJobAnswersJobId(null);
     setJobActionState({ jobId: selectedJob.id, view });
     setDetailSource('jobs');
     setFocus('jobs');
@@ -583,6 +686,9 @@ export default function App() {
   function openProfileActions(view: ProfileActionView) {
     setJobIntakeState('none');
     setAnswerJobId(null);
+    setSavedAnswerId(null);
+    setCompanyAnswersJobId(null);
+    setJobAnswersJobId(null);
     setJobActionState(null);
     setProfileActionView(view);
     setDetailSource('profile');
@@ -626,9 +732,17 @@ export default function App() {
   function startAnswerWorkspace() {
     if (!selectedJob) return;
     setJobActionState(null);
+    setSavedAnswerId(null);
+    setCompanyAnswersJobId(null);
+    setJobAnswersJobId(null);
     setAnswerJobId(selectedJob.id);
     setDetailSource('jobs');
     setFocus('jobs');
+  }
+
+  function viewSavedAnswers() {
+    if (!selectedJob) return;
+    openCompanyAnswers(selectedJob.id);
   }
 
   function activeConfigTarget(): Extract<FocusTarget, 'profile' | 'answers'> {
@@ -684,7 +798,15 @@ export default function App() {
       return;
     }
     if (requiresOnboarding) return;
-    if (answerJobId || jobActionState || profileActionView) return;
+    if (
+      answerJobId ||
+      jobActionState ||
+      profileActionView ||
+      savedAnswerId ||
+      companyAnswersJobId ||
+      jobAnswersJobId
+    )
+      return;
     if (key.name === '0') setFocus('detail');
     if (key.name === '1') {
       setFocus('status');
@@ -774,12 +896,107 @@ export default function App() {
                 onClose={closeAnswerWorkspace}
                 onSaved={(message) => {
                   refreshJobs();
-                  closeAnswerWorkspace();
                   setFlash(message);
                 }}
               />
             ),
           }
+        : selectedJob && companyAnswersJobId === selectedJob.id
+          ? {
+              kind: 'company-answers' as const,
+              jobId: selectedJob.id,
+              render: ({ width, height }: { width: number; height: number }) => {
+                const previousAnswers = findPreviousAnswersForJob(
+                  selectedJob,
+                  jobs,
+                  answers,
+                );
+                return (
+                  <CompanyAnswersWorkspace
+                    theme={theme}
+                    job={selectedJob}
+                    answers={previousAnswers}
+                    title={`Previous answers for ${selectedJob.company}`}
+                    emptyMessage="No previous answers for this company."
+                    width={width}
+                    height={height}
+                    onClose={closeCompanyAnswersWorkspace}
+                    onSaved={(message) => {
+                      refreshJobs();
+                      setFlash(message);
+                    }}
+                    onDeleted={(message) => {
+                      refreshJobs();
+                      if (previousAnswers.length <= 1) {
+                        closeCompanyAnswersWorkspace();
+                      }
+                      setFlash(message);
+                    }}
+                  />
+                );
+              },
+            }
+        : selectedJob && jobAnswersJobId === selectedJob.id
+          ? {
+              kind: 'job-saved-answers' as const,
+              jobId: selectedJob.id,
+              render: ({ width, height }: { width: number; height: number }) => {
+                const savedAnswers = answers.filter(
+                  (answer) => answer.originJobId === selectedJob.id,
+                );
+                return (
+                  <CompanyAnswersWorkspace
+                    theme={theme}
+                    job={selectedJob}
+                    answers={savedAnswers}
+                    title={`Saved answers for #${selectedJob.id}`}
+                    emptyMessage="No saved answers for this application."
+                    width={width}
+                    height={height}
+                    onClose={closeJobAnswersWorkspace}
+                    onSaved={(message) => {
+                      refreshJobs();
+                      setFlash(message);
+                    }}
+                    onDeleted={(message) => {
+                      refreshJobs();
+                      if (savedAnswers.length <= 1) {
+                        closeJobAnswersWorkspace();
+                      }
+                      setFlash(message);
+                    }}
+                  />
+                );
+              },
+            }
+        : savedAnswerId
+          ? {
+              kind: 'saved-answer' as const,
+              answerId: savedAnswerId,
+              render: ({ width, height }: { width: number; height: number }) => {
+                const savedAnswer =
+                  answers.find((answer) => answer.id === savedAnswerId) ?? null;
+                if (!savedAnswer) return null;
+                return (
+                  <SavedAnswerWorkspace
+                    theme={theme}
+                    answer={savedAnswer}
+                    width={width}
+                    height={height}
+                    onClose={closeSavedAnswerWorkspace}
+                    onSaved={(message) => {
+                      refreshJobs();
+                      setFlash(message);
+                    }}
+                    onDeleted={(message) => {
+                      refreshJobs();
+                      closeSavedAnswerWorkspace();
+                      setFlash(message);
+                    }}
+                  />
+                );
+              },
+            }
         : selectedJob &&
             jobActionState &&
             selectedJob.id === jobActionState.jobId
@@ -799,6 +1016,13 @@ export default function App() {
                   width={width}
                   height={height}
                   initialView={jobActionState?.view ?? 'menu'}
+                  savedAnswerCount={
+                    answers.filter((answer) => answer.originJobId === selectedJob.id)
+                      .length
+                  }
+                  previousAnswerCount={
+                    findPreviousAnswersForJob(selectedJob, jobs, answers).length
+                  }
                   generateCvDraft={
                     generateCvDrafts[selectedJob.id] ??
                     createDefaultGenerateCvDraft()
@@ -815,6 +1039,8 @@ export default function App() {
                   }}
                   onClose={closeJobActionWorkspace}
                   onStartAnswer={startAnswerWorkspace}
+                  onViewSavedJobAnswers={() => openJobAnswers(selectedJob.id)}
+                  onViewSavedAnswers={viewSavedAnswers}
                   onEvaluate={() => void runEvaluate(selectedJob)}
                   onOpenLink={() =>
                     openTarget(
@@ -979,6 +1205,7 @@ export default function App() {
         }
         onOpenActions={() => openJobActions('menu')}
         onOpenProfileActions={openProfileActions}
+        onOpenSavedAnswer={openSavedAnswer}
       />
 
       <TasksIndicator tasks={tasks} theme={theme} />
