@@ -3,6 +3,7 @@ import { useKeyboard } from '@opentui/react';
 import type { InputRenderable, SelectOption } from '@opentui/core';
 import { useEffect, useRef, useState } from 'react';
 import { loadProfile, saveProfile } from '../../../shared/models/profile.js';
+import { selectColors } from '../../../shared/ui/selectTheme.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
 import type { Profile } from '../../../shared/models/types.js';
 
@@ -197,10 +198,7 @@ export default function ProfileScreen({ appWidth, appHeight, theme }: Props) {
             options={MENU_OPTIONS}
             showDescription
             focused
-            backgroundColor={theme.transparent}
-            focusedBackgroundColor={theme.transparent}
-            selectedBackgroundColor={theme.transparent}
-            selectedTextColor={theme.brand}
+            {...selectColors(theme)}
             onSelect={(_, option) =>
               option?.value && openSection(option.value as Section)
             }
@@ -227,10 +225,7 @@ export default function ProfileScreen({ appWidth, appHeight, theme }: Props) {
               options={REMOTE_OPTIONS}
               selectedIndex={REMOTE_OPTIONS.findIndex((o) => o.value === targets.remote)}
               showDescription
-              backgroundColor={theme.transparent}
-              focusedBackgroundColor={theme.transparent}
-              selectedBackgroundColor={theme.transparent}
-              selectedTextColor={theme.brand}
+              {...selectColors(theme)}
               onSelect={(_, option) => {
                 if (option?.value) {
                   persist({

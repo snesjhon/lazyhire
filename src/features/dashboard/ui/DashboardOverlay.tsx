@@ -6,6 +6,7 @@ import {
 } from '@opentui/core';
 import { useKeyboard } from '@opentui/react';
 import { useEffect, useRef, useState } from 'react';
+import { selectColors } from '../../../shared/ui/selectTheme.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
 import type { JobIntakeState } from '../../../shared/ui/state.js';
 import Spinner from '../../../shared/ui/Spinner.js';
@@ -114,9 +115,7 @@ export default function DashboardOverlay({
               value: 'none',
             },
           ]}
-          backgroundColor={theme.transparent}
-          focusedBackgroundColor={theme.transparent}
-          selectedBackgroundColor={theme.transparent}
+          {...selectColors(theme)}
           onSelect={(_, option) =>
             onJobIntakeStateChange(
               (option?.value as JobIntakeState | undefined) ?? 'none',
@@ -189,9 +188,7 @@ export default function DashboardOverlay({
                 value: 'choose-source',
               },
             ]}
-            backgroundColor={theme.transparent}
-            focusedBackgroundColor={theme.transparent}
-            selectedBackgroundColor={theme.transparent}
+            {...selectColors(theme)}
             onSelect={(_, option) => {
               if (option?.value === 'manual') {
                 onRetryAddManually();

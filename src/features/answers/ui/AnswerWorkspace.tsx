@@ -12,6 +12,7 @@ import { answersDb } from '../../../shared/data/db.js';
 import { clip } from '../../../shared/lib/utils.js';
 import { loadProfile } from '../../../shared/models/profile.js';
 import Spinner from '../../../shared/ui/Spinner.js';
+import { selectColors } from '../../../shared/ui/selectTheme.js';
 import {
   TONE_OPTIONS,
   detectCategory,
@@ -426,10 +427,7 @@ export default function AnswerWorkspace({
               TONE_OPTIONS.indexOf(draft.tone as (typeof TONE_OPTIONS)[number]),
             )}
             focused
-            backgroundColor={theme.transparent}
-            focusedBackgroundColor={theme.transparent}
-            selectedBackgroundColor={theme.transparent}
-            selectedTextColor={theme.brand}
+            {...selectColors(theme)}
             onSelect={(_, option) => {
               if (option?.value) handleToneSelect(String(option.value));
             }}

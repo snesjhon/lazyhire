@@ -2,6 +2,7 @@
 import type { InputRenderable, SelectOption } from '@opentui/core';
 import { useKeyboard } from '@opentui/react';
 import { useEffect, useRef, useState } from 'react';
+import { selectColors } from '../../../shared/ui/selectTheme.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
 import type { Profile } from '../../../shared/models/types.js';
 
@@ -257,10 +258,7 @@ export default function ProfileActionWorkspace({
               },
             ]}
             showDescription
-            backgroundColor={theme.transparent}
-            focusedBackgroundColor={theme.transparent}
-            selectedBackgroundColor={theme.transparent}
-            selectedTextColor={theme.brand}
+            {...selectColors(theme)}
             onSelect={(_, option) => {
               const nextView = option?.value as InternalView | undefined;
               if (!nextView) return;
@@ -280,10 +278,7 @@ export default function ProfileActionWorkspace({
             options={REMOTE_OPTIONS}
             selectedIndex={REMOTE_OPTIONS.findIndex((option) => option.value === profile.targets.remote)}
             showDescription
-            backgroundColor={theme.transparent}
-            focusedBackgroundColor={theme.transparent}
-            selectedBackgroundColor={theme.transparent}
-            selectedTextColor={theme.brand}
+            {...selectColors(theme)}
             onSelect={(_, option) => {
               if (!option?.value) return;
               onSave({

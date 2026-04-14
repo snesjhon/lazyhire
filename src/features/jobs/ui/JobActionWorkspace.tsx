@@ -7,6 +7,7 @@ import type {
   TextareaRenderable,
 } from '@opentui/core';
 import { useEffect, useRef, useState } from 'react';
+import { selectColors } from '../../../shared/ui/selectTheme.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
 import {
   JOB_STATUSES,
@@ -436,12 +437,8 @@ export default function JobActionWorkspace({
             width={Math.max(20, width)}
             focused
             options={menuOptions}
-            backgroundColor={theme.transparent}
             // showDescription={false}
-            focusedBackgroundColor={theme.transparent}
-            selectedBackgroundColor={theme.transparent}
-            selectedTextColor={theme.brand}
-            selectedDescriptionColor={theme.muted}
+            {...selectColors(theme)}
             onSelect={(_, option) => {
               const value = String(option?.value ?? '');
               if (value === 'answer') onStartAnswer();
@@ -468,11 +465,7 @@ export default function JobActionWorkspace({
             options={editJobOptions}
             showDescription
             itemSpacing={0}
-            backgroundColor={theme.transparent}
-            focusedBackgroundColor={theme.transparent}
-            selectedBackgroundColor={theme.transparent}
-            selectedTextColor={theme.brand}
-            selectedDescriptionColor={theme.muted}
+            {...selectColors(theme)}
             onSelect={(_, option) => {
               const value = String(option?.value ?? '');
               if (value === 'edit-company') setView('edit-company');
@@ -593,11 +586,7 @@ export default function JobActionWorkspace({
                   )}
                   showDescription
                   itemSpacing={0}
-                  backgroundColor={theme.transparent}
-                  focusedBackgroundColor={theme.transparent}
-                  selectedBackgroundColor={theme.transparent}
-                  selectedTextColor={theme.brand}
-                  selectedDescriptionColor={theme.muted}
+                  {...selectColors(theme)}
                   onChange={(_, option) => {
                     const preset = CV_BULLET_LENGTH_PRESETS.find(
                       (entry) => entry.id === option?.value,
@@ -637,11 +626,7 @@ export default function JobActionWorkspace({
                   )}
                   showDescription
                   itemSpacing={0}
-                  backgroundColor={theme.transparent}
-                  focusedBackgroundColor={theme.transparent}
-                  selectedBackgroundColor={theme.transparent}
-                  selectedTextColor={theme.brand}
-                  selectedDescriptionColor={theme.muted}
+                  {...selectColors(theme)}
                   onChange={(_, option) => {
                     const preset = CV_TEXT_SIZE_PRESETS.find(
                       (entry) => entry.id === option?.value,
@@ -682,11 +667,7 @@ export default function JobActionWorkspace({
                   )}
                   showDescription
                   itemSpacing={0}
-                  backgroundColor={theme.transparent}
-                  focusedBackgroundColor={theme.transparent}
-                  selectedBackgroundColor={theme.transparent}
-                  selectedTextColor={theme.brand}
-                  selectedDescriptionColor={theme.muted}
+                  {...selectColors(theme)}
                   onChange={(_, option) => {
                     const preset = COVER_LETTER_LENGTH_PRESETS.find(
                       (entry) => entry.id === option?.value,
@@ -840,9 +821,7 @@ export default function JobActionWorkspace({
                   value: 'back',
                 },
               ]}
-              backgroundColor={theme.transparent}
-              focusedBackgroundColor={theme.transparent}
-              selectedBackgroundColor={theme.transparent}
+              {...selectColors(theme)}
               onSelect={(_, option) => {
                 if (option?.value === 'open-cv') onOpenCv();
                 if (option?.value === 'open-cover-letter') onOpenCoverLetter();
@@ -878,9 +857,7 @@ export default function JobActionWorkspace({
                   value: 'back',
                 },
               ]}
-              backgroundColor={theme.transparent}
-              focusedBackgroundColor={theme.transparent}
-              selectedBackgroundColor={theme.transparent}
+              {...selectColors(theme)}
               onSelect={(_, option) => {
                 if (option?.value === 'retry') {
                   if (generateArtifact === 'cv') {
@@ -917,9 +894,7 @@ export default function JobActionWorkspace({
               value: status,
             }))}
             selectedIndex={JOB_STATUSES.indexOf(job.status)}
-            backgroundColor={theme.transparent}
-            focusedBackgroundColor={theme.transparent}
-            selectedBackgroundColor={theme.transparent}
+            {...selectColors(theme)}
             onSelect={(_, option) => {
               const status = option?.value as JobStatus | undefined;
               if (!status) return;
@@ -946,9 +921,7 @@ export default function JobActionWorkspace({
                 value: 'no',
               },
             ]}
-            backgroundColor={theme.transparent}
-            focusedBackgroundColor={theme.transparent}
-            selectedBackgroundColor={theme.transparent}
+            {...selectColors(theme)}
             onSelect={(_, option) => {
               if (option?.value === 'yes') onDelete();
               else setView('menu');

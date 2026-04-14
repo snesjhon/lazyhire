@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { answersDb } from '../../../shared/data/db.js';
 import { loadProfile } from '../../../shared/models/profile.js';
 import Spinner from '../../../shared/ui/Spinner.js';
+import { selectColors } from '../../../shared/ui/selectTheme.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
 import type { AnswerCategory, AnswerEntry } from '../../../shared/models/types.js';
 import {
@@ -359,11 +360,7 @@ export default function AnswersScreen({ appWidth, appHeight, theme }: Props) {
               selectedIndex={selectedIndex}
               showDescription
               showScrollIndicator
-              backgroundColor={theme.transparent}
-              focusedBackgroundColor={theme.transparent}
-              selectedBackgroundColor={theme.transparent}
-              selectedTextColor={theme.brand}
-              selectedDescriptionColor={theme.muted}
+              {...selectColors(theme)}
               focused={activePanel === 'list' && !isInputStep && step !== 'ask-tone' && !isSpinning}
               onChange={(_, option) => {
                 if (!option?.value) return;
@@ -497,10 +494,7 @@ export default function AnswersScreen({ appWidth, appHeight, theme }: Props) {
                     width="100%"
                     options={toneOptions}
                     focused
-                    backgroundColor={theme.transparent}
-                    focusedBackgroundColor={theme.transparent}
-                    selectedBackgroundColor={theme.transparent}
-                    selectedTextColor={theme.brand}
+                    {...selectColors(theme)}
                     onSelect={(_, option) => {
                       if (option?.value) void handleToneSelect(String(option.value));
                     }}

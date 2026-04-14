@@ -15,6 +15,8 @@ import {
   fetchPdfFromUrl,
   type ResumePreview,
 } from '../services/pdf.js';
+import { DetailField } from '../../../shared/ui/DetailBlocks.js';
+import { selectColors } from '../../../shared/ui/selectTheme.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
 import type { Profile } from '../../../shared/models/types.js';
 
@@ -31,18 +33,48 @@ interface Props {
 function previewLines(
   preview: ResumePreview,
   extracted: ExtractionResult,
-): string[] {
+): Array<{ label: string; value: string }> {
   return [
-    `Name: ${extracted.candidate.name || preview.name || 'Unknown'}`,
-    `Headline: ${extracted.headline || preview.headline || 'Unknown'}`,
-    `Email: ${extracted.candidate.email || preview.email || 'Unknown'}`,
-    `Location: ${extracted.candidate.location || 'Unknown'}`,
-    `Site: ${extracted.candidate.site || 'None'}`,
-    `Suggested roles: ${extracted.suggestedRoles.join(', ') || 'None'}`,
-    `Categories: ${extracted.suggestedCategories.join(', ') || 'None'}`,
-    `Focuses: ${extracted.suggestedFocuses.join(', ') || 'None'}`,
-    `Experiences found: ${extracted.experiences.length}`,
-    `Skills found: ${extracted.skills.length}`,
+    {
+      label: 'Name',
+      value: extracted.candidate.name || preview.name || 'Unknown',
+    },
+    {
+      label: 'Headline',
+      value: extracted.headline || preview.headline || 'Unknown',
+    },
+    {
+      label: 'Email',
+      value: extracted.candidate.email || preview.email || 'Unknown',
+    },
+    {
+      label: 'Location',
+      value: extracted.candidate.location || 'Unknown',
+    },
+    {
+      label: 'Site',
+      value: extracted.candidate.site || 'None',
+    },
+    {
+      label: 'Suggested roles',
+      value: extracted.suggestedRoles.join(', ') || 'None',
+    },
+    {
+      label: 'Categories',
+      value: extracted.suggestedCategories.join(', ') || 'None',
+    },
+    {
+      label: 'Focuses',
+      value: extracted.suggestedFocuses.join(', ') || 'None',
+    },
+    {
+      label: 'Experiences found',
+      value: String(extracted.experiences.length),
+    },
+    {
+      label: 'Skills found',
+      value: String(extracted.skills.length),
+    },
   ];
 }
 
@@ -142,12 +174,7 @@ export default function InitWorkspace({
 
   return (
     <box flexDirection="column" overflow="hidden" width={width} height={height}>
-      <box
-        height={height}
-        overflow="hidden"
-        alignItems="center"
-        paddingTop={1}
-      >
+      <box height={height} overflow="hidden" alignItems="center" paddingTop={1}>
         <box flexDirection="row" justifyContent="center" width={contentWidth}>
           <box flexDirection="column" width={contentWidth} overflow="hidden">
             <box flexDirection="column" alignItems="center">
@@ -182,11 +209,7 @@ export default function InitWorkspace({
                       height={Math.max(5, height - 12)}
                       width={menuWidth}
                       options={menuOptions}
-                      backgroundColor={theme.transparent}
-                      focusedBackgroundColor={theme.transparent}
-                      selectedBackgroundColor={theme.transparent}
-                      selectedTextColor={theme.brand}
-                      selectedDescriptionColor={theme.subtext}
+                      {...selectColors(theme)}
                       itemSpacing={1}
                       showDescription
                       onSelect={(_, option) => {
@@ -254,11 +277,19 @@ export default function InitWorkspace({
                       fg={theme.muted}
                       content="Review the extracted profile summary. Enter to continue."
                     />
-                    <text fg={theme.heading} content="Extracted Resume Summary" />
                     <text
-                      fg={theme.subtext}
-                      content={previewLines(preview, extracted).join('\n')}
+                      fg={theme.heading}
+                      content="Extracted Resume Summary"
                     />
+                    <box flexDirection="column">
+                      {previewLines(preview, extracted).map((item) => (
+                        <DetailField
+                          key={item.label}
+                          label={item.label}
+                          value={item.value}
+                        />
+                      ))}
+                    </box>
                     <box marginTop={1}>
                       <select
                         focused
@@ -282,10 +313,7 @@ export default function InitWorkspace({
                             value: 'restart',
                           },
                         ]}
-                        backgroundColor={theme.transparent}
-                        focusedBackgroundColor={theme.transparent}
-                        selectedBackgroundColor={theme.transparent}
-                        selectedTextColor={theme.brand}
+                        {...selectColors(theme)}
                         showDescription
                         onSelect={(_, option) => {
                           if (option?.value === 'create') {

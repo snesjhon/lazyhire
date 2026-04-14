@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import type { FocusTarget, JobIntakeState } from '../../../shared/ui/state.js';
 import { clip, scoreDisplay } from '../../../shared/lib/utils.js';
+import { selectColors } from '../../../shared/ui/selectTheme.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
 import type {
   AnswerEntry,
@@ -246,11 +247,7 @@ export default function DashboardScreen({
                 showDescription
                 showScrollIndicator
                 itemSpacing={1}
-                backgroundColor={theme.transparent}
-                focusedBackgroundColor={theme.transparent}
-                selectedBackgroundColor={theme.transparent}
-                selectedTextColor={jobsFocused ? theme.brand : theme.text}
-                selectedDescriptionColor={theme.muted}
+                {...selectColors(theme)}
                 focused={jobsFocused}
                 onChange={(_, option) => {
                   if (option?.value) onJobSelect(String(option.value));
@@ -328,11 +325,7 @@ export default function DashboardScreen({
                 options={libraryOptions}
                 selectedIndex={librarySelectedIndex}
                 showDescription={false}
-                backgroundColor={theme.transparent}
-                focusedBackgroundColor={theme.transparent}
-                selectedBackgroundColor={theme.transparent}
-                selectedTextColor={libraryFocused ? theme.brand : theme.text}
-                selectedDescriptionColor={theme.muted}
+                {...selectColors(theme)}
                 focused={libraryFocused}
                 onChange={(_, option) => {
                   if (activeLibraryTab === 'profile') {
