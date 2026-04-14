@@ -9,6 +9,7 @@ import type {
 import { useEffect, useRef, useState } from 'react';
 import { selectColors } from '../../../shared/ui/selectTheme.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
+import MultiStepIndicator from '../../../shared/ui/MultiStepIndicator.js';
 import {
   JOB_STATUSES,
   type Job,
@@ -178,6 +179,34 @@ export default function JobActionWorkspace({
       (preset) => preset.id === generateCoverLetterDraft.selectedLengthPresetId,
     ) ??
     COVER_LETTER_LENGTH_PRESETS.find((preset) => preset.id === 'balanced')!;
+  const generateCvSteps = [
+    {
+      label: 'Bullet length',
+      summary: `${selectedBulletPreset.name} (${generateCvDraft.bulletWordRange.min}-${generateCvDraft.bulletWordRange.max} words)`,
+    },
+    {
+      label: 'Text size',
+      summary: `${selectedTextSizePreset.name} (${generateCvDraft.textSizeScale.bodyPt}pt base copy)`,
+    },
+    {
+      label: 'Guidance',
+      summary: generateCvDraft.guidance.trim()
+        ? 'Custom notes added'
+        : 'No extra notes',
+    },
+  ];
+  const generateCoverLetterSteps = [
+    {
+      label: 'Total length',
+      summary: `${selectedCoverLetterPreset.name} (${generateCoverLetterDraft.totalWordCount.target} words)`,
+    },
+    {
+      label: 'Guidance',
+      summary: generateCoverLetterDraft.guidance.trim()
+        ? 'Custom notes added'
+        : 'No extra notes',
+    },
+  ];
 
   function updateGenerateCvDraft(patch: Partial<GenerateCvDraft>) {
     onGenerateCvDraftChange({
@@ -524,49 +553,23 @@ export default function JobActionWorkspace({
           generateCvState.step === 'editing' ? (
             <box flexDirection="column" width={Math.max(20, width)} rowGap={1}>
               {generateArtifact === 'cv' ? (
-                <box flexDirection="column" marginBottom={1}>
-                  <text
-                    fg={
-                      currentCvPhase === 'bullet-preset'
-                        ? theme.brand
-                        : theme.text
-                    }
-                    content={`1. Bullet length    ${selectedBulletPreset.name} (${generateCvDraft.bulletWordRange.min}-${generateCvDraft.bulletWordRange.max} words)`}
-                  />
-                  <text
-                    fg={
-                      currentCvPhase === 'text-size-preset'
-                        ? theme.brand
-                        : theme.text
-                    }
-                    content={`2. Text size        ${selectedTextSizePreset.name} (${generateCvDraft.textSizeScale.bodyPt}pt base copy)`}
-                  />
-                  <text
-                    fg={
-                      currentCvPhase === 'guidance' ? theme.brand : theme.text
-                    }
-                    content={`3. Guidance         ${generateCvDraft.guidance.trim() ? 'Custom notes added' : 'No extra notes'}`}
-                  />
-                </box>
+                <MultiStepIndicator
+                  theme={theme}
+                  steps={generateCvSteps}
+                  activeIndex={
+                    currentCvPhase === 'bullet-preset'
+                      ? 0
+                      : currentCvPhase === 'text-size-preset'
+                        ? 1
+                        : 2
+                  }
+                />
               ) : generateArtifact === 'cover-letter' ? (
-                <box flexDirection="column" marginBottom={1}>
-                  <text
-                    fg={
-                      currentCoverLetterPhase === 'length-preset'
-                        ? theme.brand
-                        : theme.text
-                    }
-                    content={`1. Total length     ${selectedCoverLetterPreset.name} (${generateCoverLetterDraft.totalWordCount.target} words)`}
-                  />
-                  <text
-                    fg={
-                      currentCoverLetterPhase === 'guidance'
-                        ? theme.brand
-                        : theme.text
-                    }
-                    content={`2. Guidance         ${generateCoverLetterDraft.guidance.trim() ? 'Custom notes added' : 'No extra notes'}`}
-                  />
-                </box>
+                <MultiStepIndicator
+                  theme={theme}
+                  steps={generateCoverLetterSteps}
+                  activeIndex={currentCoverLetterPhase === 'length-preset' ? 0 : 1}
+                />
               ) : null}
 
               {generateArtifact === 'cv' &&

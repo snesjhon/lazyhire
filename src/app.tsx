@@ -37,6 +37,7 @@ import type {
 import type { ProfileActionView } from './features/profile/ui/ProfileActionWorkspace.js';
 import { resolveUiTheme } from './shared/ui/theme.js';
 import {
+  createEmptyProfile,
   hasProfile,
   loadProfileOrDefault,
   saveProfile,
@@ -146,6 +147,8 @@ export default function App() {
   >({});
   const [profileActionView, setProfileActionView] =
     useState<ProfileActionView | null>(null);
+  const [onboardingInitialView, setOnboardingInitialView] =
+    useState<ProfileActionView>('candidate');
   const [flash, setFlashState] = useState<Flash | null>(null);
   const [tasks, setTasks] = useState<string[]>([]);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -153,6 +156,9 @@ export default function App() {
     activeRenderer.themeMode,
   );
   const [profile, setProfileState] = useState(() => loadProfileOrDefault());
+  const [onboardingProfile, setOnboardingProfile] = useState(() =>
+    createEmptyProfile(),
+  );
   const [requiresOnboarding, setRequiresOnboarding] =
     useState(!initialProfileExists);
   const [showInitWizard, setShowInitWizard] = useState(!initialProfileExists);
@@ -586,6 +592,7 @@ export default function App() {
   function closeProfileActionWorkspace() {
     if (requiresOnboarding) {
       setProfileActionView(null);
+      setOnboardingInitialView('candidate');
       setShowInitWizard(true);
       setFocus('detail');
       setDetailSource('profile');
@@ -598,6 +605,7 @@ export default function App() {
   function handleSaveProfile(nextProfile: typeof profile, message: string) {
     saveProfile(nextProfile);
     setProfileState(nextProfile);
+    setOnboardingInitialView('candidate');
     setRequiresOnboarding(false);
     setShowInitWizard(false);
     setProfileActionView(null);
@@ -606,9 +614,11 @@ export default function App() {
     setFlash(message);
   }
 
-  function chooseManualOnboarding() {
+  function chooseManualOnboarding(nextProfile?: typeof profile) {
+    setOnboardingProfile(nextProfile ?? createEmptyProfile());
     setShowInitWizard(false);
-    setProfileActionView('candidate');
+    setOnboardingInitialView(nextProfile ? 'salary-min' : 'candidate');
+    setProfileActionView(nextProfile ? 'salary-min' : 'candidate');
     setDetailSource('profile');
     setFocus('profile');
   }
@@ -896,16 +906,16 @@ export default function App() {
               theme={theme}
               width={Math.max(20, appWidth - 6)}
               height={Math.max(8, appHeight - 6)}
-              onComplete={handleSaveProfile}
               onChooseManual={chooseManualOnboarding}
             />
           ) : (
             <ProfileActionWorkspace
               theme={theme}
-              profile={profile}
+              profile={onboardingProfile}
               width={Math.max(20, appWidth - 6)}
               height={Math.max(8, appHeight - 6)}
-              initialView={profileActionView ?? 'candidate'}
+              initialView={profileActionView ?? onboardingInitialView}
+              mode="wizard"
               onClose={closeProfileActionWorkspace}
               onSave={handleSaveProfile}
             />
