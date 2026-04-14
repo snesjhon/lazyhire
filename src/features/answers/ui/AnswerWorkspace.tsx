@@ -136,12 +136,14 @@ export default function AnswerWorkspace({
     try {
       const detected = await detectCategory(nextQuestion);
       updateDraft({
+        question: nextQuestion,
         category: detected,
         statusLine: `Categorized as ${CATEGORY_LABEL[detected]}. What tone would you like?`,
         step: 'ask-tone',
       });
     } catch {
       updateDraft({
+        question: nextQuestion,
         category: 'other',
         statusLine: 'What tone would you like?',
         step: 'ask-tone',
