@@ -744,7 +744,7 @@ export default function App() {
             />
           ),
         }
-      : selectedJob?.id === answerJobId
+      : selectedJob && selectedJob.id === answerJobId
         ? {
             kind: 'answer' as const,
             jobId: selectedJob.id,
@@ -770,7 +770,9 @@ export default function App() {
               />
             ),
           }
-        : selectedJob?.id === jobActionState?.jobId
+        : selectedJob &&
+            jobActionState &&
+            selectedJob.id === jobActionState.jobId
           ? {
               kind: 'job-actions' as const,
               jobId: selectedJob.id,
