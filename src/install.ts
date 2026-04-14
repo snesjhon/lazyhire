@@ -1,4 +1,13 @@
-import { appendFileSync, chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import {
+  appendFileSync,
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'fs';
 import { homedir } from 'os';
 import { dirname, join } from 'path';
 
@@ -44,7 +53,10 @@ export async function runUninstall(): Promise<void> {
 
   if (existsSync(configFile)) {
     const config = readFileSync(configFile, 'utf8');
-    const cleaned = config.replace(/\nexport PATH="\$HOME\/.local\/bin:\$PATH"\n/g, '\n');
+    const cleaned = config.replace(
+      /\nexport PATH="\$HOME\/.local\/bin:\$PATH"\n/g,
+      '\n',
+    );
     if (cleaned !== config) {
       writeFileSync(configFile, cleaned, 'utf8');
       console.log(`✓ Removed PATH entry from ${configFile}`);

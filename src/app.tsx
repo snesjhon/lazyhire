@@ -7,6 +7,7 @@ import {
 } from '@opentui/react';
 import { spawn } from 'child_process';
 import { useEffect, useMemo, useState } from 'react';
+import path from 'path';
 import { db } from './shared/data/db.js';
 import {
   createPendingJob,
@@ -138,8 +139,12 @@ function findPreviousAnswersForJob(
 
   return answers.filter((answer) => {
     if (answer.originJobId === job.id) return false;
-    if (answer.originJobId && relatedJobIds.has(answer.originJobId)) return true;
-    return answer.originJobId === null && normalizeCompany(answer.company) === companyKey;
+    if (answer.originJobId && relatedJobIds.has(answer.originJobId))
+      return true;
+    return (
+      answer.originJobId === null &&
+      normalizeCompany(answer.company) === companyKey
+    );
   });
 }
 
@@ -168,7 +173,9 @@ export default function App() {
     view: JobActionView;
   } | null>(null);
   const [savedAnswerId, setSavedAnswerId] = useState<string | null>(null);
-  const [companyAnswersJobId, setCompanyAnswersJobId] = useState<string | null>(null);
+  const [companyAnswersJobId, setCompanyAnswersJobId] = useState<string | null>(
+    null,
+  );
   const [jobAnswersJobId, setJobAnswersJobId] = useState<string | null>(null);
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, AnswerDraft>>(
     {},
@@ -280,13 +287,19 @@ export default function App() {
   }, [answerJobId, jobs]);
 
   useEffect(() => {
-    if (savedAnswerId && !answers.some((answer) => answer.id === savedAnswerId)) {
+    if (
+      savedAnswerId &&
+      !answers.some((answer) => answer.id === savedAnswerId)
+    ) {
       setSavedAnswerId(null);
     }
   }, [answers, savedAnswerId]);
 
   useEffect(() => {
-    if (companyAnswersJobId && !jobs.some((job) => job.id === companyAnswersJobId)) {
+    if (
+      companyAnswersJobId &&
+      !jobs.some((job) => job.id === companyAnswersJobId)
+    ) {
       setCompanyAnswersJobId(null);
     }
   }, [companyAnswersJobId, jobs]);
@@ -905,7 +918,13 @@ export default function App() {
           ? {
               kind: 'company-answers' as const,
               jobId: selectedJob.id,
-              render: ({ width, height }: { width: number; height: number }) => {
+              render: ({
+                width,
+                height,
+              }: {
+                width: number;
+                height: number;
+              }) => {
                 const previousAnswers = findPreviousAnswersForJob(
                   selectedJob,
                   jobs,
@@ -936,181 +955,213 @@ export default function App() {
                 );
               },
             }
-        : selectedJob && jobAnswersJobId === selectedJob.id
-          ? {
-              kind: 'job-saved-answers' as const,
-              jobId: selectedJob.id,
-              render: ({ width, height }: { width: number; height: number }) => {
-                const savedAnswers = answers.filter(
-                  (answer) => answer.originJobId === selectedJob.id,
-                );
-                return (
-                  <CompanyAnswersWorkspace
-                    theme={theme}
-                    job={selectedJob}
-                    answers={savedAnswers}
-                    title={`Saved answers for #${selectedJob.id}`}
-                    emptyMessage="No saved answers for this application."
-                    width={width}
-                    height={height}
-                    onClose={closeJobAnswersWorkspace}
-                    onSaved={(message) => {
-                      refreshJobs();
-                      setFlash(message);
-                    }}
-                    onDeleted={(message) => {
-                      refreshJobs();
-                      if (savedAnswers.length <= 1) {
-                        closeJobAnswersWorkspace();
-                      }
-                      setFlash(message);
-                    }}
-                  />
-                );
-              },
-            }
-        : savedAnswerId
-          ? {
-              kind: 'saved-answer' as const,
-              answerId: savedAnswerId,
-              render: ({ width, height }: { width: number; height: number }) => {
-                const savedAnswer =
-                  answers.find((answer) => answer.id === savedAnswerId) ?? null;
-                if (!savedAnswer) return null;
-                return (
-                  <SavedAnswerWorkspace
-                    theme={theme}
-                    answer={savedAnswer}
-                    width={width}
-                    height={height}
-                    onClose={closeSavedAnswerWorkspace}
-                    onSaved={(message) => {
-                      refreshJobs();
-                      setFlash(message);
-                    }}
-                    onDeleted={(message) => {
-                      refreshJobs();
-                      closeSavedAnswerWorkspace();
-                      setFlash(message);
-                    }}
-                  />
-                );
-              },
-            }
-        : selectedJob &&
-            jobActionState &&
-            selectedJob.id === jobActionState.jobId
-          ? {
-              kind: 'job-actions' as const,
-              jobId: selectedJob.id,
-              render: ({
-                width,
-                height,
-              }: {
-                width: number;
-                height: number;
-              }) => (
-                <JobActionWorkspace
-                  theme={theme}
-                  job={selectedJob}
-                  width={width}
-                  height={height}
-                  initialView={jobActionState?.view ?? 'menu'}
-                  savedAnswerCount={
-                    answers.filter((answer) => answer.originJobId === selectedJob.id)
-                      .length
-                  }
-                  previousAnswerCount={
-                    findPreviousAnswersForJob(selectedJob, jobs, answers).length
-                  }
-                  generateCvDraft={
-                    generateCvDrafts[selectedJob.id] ??
-                    createDefaultGenerateCvDraft()
-                  }
-                  onGenerateCvDraftChange={(draft) => {
-                    updateGenerateCvDraft(selectedJob.id, draft);
-                  }}
-                  generateCoverLetterDraft={
-                    generateCoverLetterDrafts[selectedJob.id] ??
-                    createDefaultGenerateCoverLetterDraft()
-                  }
-                  onGenerateCoverLetterDraftChange={(draft) => {
-                    updateGenerateCoverLetterDraft(selectedJob.id, draft);
-                  }}
-                  onClose={closeJobActionWorkspace}
-                  onStartAnswer={startAnswerWorkspace}
-                  onViewSavedJobAnswers={() => openJobAnswers(selectedJob.id)}
-                  onViewSavedAnswers={viewSavedAnswers}
-                  onEvaluate={() => void runEvaluate(selectedJob)}
-                  onOpenLink={() =>
-                    openTarget(
-                      selectedJob.url,
-                      `Opened job link for #${selectedJob.id}.`,
-                      'No job URL available.',
-                    )
-                  }
-                  onOpenCv={() =>
-                    openTarget(
-                      selectedJob.pdfPath,
-                      `Opened generated CV for #${selectedJob.id}.`,
-                      'No generated CV available.',
-                    )
-                  }
-                  onOpenCoverLetter={() =>
-                    openTarget(
-                      selectedJob.coverLetterPdfPath,
-                      `Opened generated cover letter for #${selectedJob.id}.`,
-                      'No generated cover letter available.',
-                    )
-                  }
-                  onSaveMetadata={(patch) =>
-                    handleSaveMetadata(selectedJob.id, patch)
-                  }
-                  onSaveEditJd={(jd) => handleSaveEditJd(selectedJob.id, jd)}
-                  onSaveStatus={(status) =>
-                    handleSaveStatus(selectedJob.id, status)
-                  }
-                  onDelete={() => handleConfirmDelete(selectedJob.id)}
-                  onGenerateCv={(guidance, bulletWordRange, textSizeScale) =>
-                    runGenerate(
-                      selectedJob,
-                      guidance,
-                      bulletWordRange,
-                      textSizeScale,
-                    )
-                  }
-                  onGenerateCoverLetter={(guidance, totalWordCount) =>
-                    runGenerateCoverLetter(
-                      selectedJob,
-                      guidance,
-                      totalWordCount,
-                    )
-                  }
-                />
-              ),
-            }
-          : profileActionView
+          : selectedJob && jobAnswersJobId === selectedJob.id
             ? {
-                kind: 'profile-actions' as const,
+                kind: 'job-saved-answers' as const,
+                jobId: selectedJob.id,
                 render: ({
                   width,
                   height,
                 }: {
                   width: number;
                   height: number;
-                }) => (
-                  <ProfileActionWorkspace
-                    theme={theme}
-                    profile={profile}
-                    width={width}
-                    height={height}
-                    initialView={profileActionView}
-                    onClose={closeProfileActionWorkspace}
-                    onSave={handleSaveProfile}
-                  />
-                ),
+                }) => {
+                  const savedAnswers = answers.filter(
+                    (answer) => answer.originJobId === selectedJob.id,
+                  );
+                  return (
+                    <CompanyAnswersWorkspace
+                      theme={theme}
+                      job={selectedJob}
+                      answers={savedAnswers}
+                      title={`Saved answers for #${selectedJob.id}`}
+                      emptyMessage="No saved answers for this application."
+                      width={width}
+                      height={height}
+                      onClose={closeJobAnswersWorkspace}
+                      onSaved={(message) => {
+                        refreshJobs();
+                        setFlash(message);
+                      }}
+                      onDeleted={(message) => {
+                        refreshJobs();
+                        if (savedAnswers.length <= 1) {
+                          closeJobAnswersWorkspace();
+                        }
+                        setFlash(message);
+                      }}
+                    />
+                  );
+                },
               }
-            : null;
+            : savedAnswerId
+              ? {
+                  kind: 'saved-answer' as const,
+                  answerId: savedAnswerId,
+                  render: ({
+                    width,
+                    height,
+                  }: {
+                    width: number;
+                    height: number;
+                  }) => {
+                    const savedAnswer =
+                      answers.find((answer) => answer.id === savedAnswerId) ??
+                      null;
+                    if (!savedAnswer) return null;
+                    return (
+                      <SavedAnswerWorkspace
+                        theme={theme}
+                        answer={savedAnswer}
+                        width={width}
+                        height={height}
+                        onClose={closeSavedAnswerWorkspace}
+                        onSaved={(message) => {
+                          refreshJobs();
+                          setFlash(message);
+                        }}
+                        onDeleted={(message) => {
+                          refreshJobs();
+                          closeSavedAnswerWorkspace();
+                          setFlash(message);
+                        }}
+                      />
+                    );
+                  },
+                }
+              : selectedJob &&
+                  jobActionState &&
+                  selectedJob.id === jobActionState.jobId
+                ? {
+                    kind: 'job-actions' as const,
+                    jobId: selectedJob.id,
+                    render: ({
+                      width,
+                      height,
+                    }: {
+                      width: number;
+                      height: number;
+                    }) => (
+                      <JobActionWorkspace
+                        theme={theme}
+                        job={selectedJob}
+                        width={width}
+                        height={height}
+                        initialView={jobActionState?.view ?? 'menu'}
+                        savedAnswerCount={
+                          answers.filter(
+                            (answer) => answer.originJobId === selectedJob.id,
+                          ).length
+                        }
+                        previousAnswerCount={
+                          findPreviousAnswersForJob(selectedJob, jobs, answers)
+                            .length
+                        }
+                        generateCvDraft={
+                          generateCvDrafts[selectedJob.id] ??
+                          createDefaultGenerateCvDraft()
+                        }
+                        onGenerateCvDraftChange={(draft) => {
+                          updateGenerateCvDraft(selectedJob.id, draft);
+                        }}
+                        generateCoverLetterDraft={
+                          generateCoverLetterDrafts[selectedJob.id] ??
+                          createDefaultGenerateCoverLetterDraft()
+                        }
+                        onGenerateCoverLetterDraftChange={(draft) => {
+                          updateGenerateCoverLetterDraft(selectedJob.id, draft);
+                        }}
+                        onClose={closeJobActionWorkspace}
+                        onStartAnswer={startAnswerWorkspace}
+                        onViewSavedJobAnswers={() =>
+                          openJobAnswers(selectedJob.id)
+                        }
+                        onViewSavedAnswers={viewSavedAnswers}
+                        onEvaluate={() => void runEvaluate(selectedJob)}
+                        onOpenLink={() =>
+                          openTarget(
+                            selectedJob.url,
+                            `Opened job link for #${selectedJob.id}.`,
+                            'No job URL available.',
+                          )
+                        }
+                        onOpenCv={() =>
+                          openTarget(
+                            selectedJob.pdfPath,
+                            `Opened generated CV for #${selectedJob.id}.`,
+                            'No generated CV available.',
+                          )
+                        }
+                        onOpenCvFolder={() =>
+                          openTarget(
+                            selectedJob.pdfPath
+                              ? path.dirname(selectedJob.pdfPath)
+                              : null,
+                            `Opened CV folder for #${selectedJob.id}.`,
+                            'No generated CV folder available.',
+                          )
+                        }
+                        onOpenCoverLetter={() =>
+                          openTarget(
+                            selectedJob.coverLetterPdfPath,
+                            `Opened generated cover letter for #${selectedJob.id}.`,
+                            'No generated cover letter available.',
+                          )
+                        }
+                        onSaveMetadata={(patch) =>
+                          handleSaveMetadata(selectedJob.id, patch)
+                        }
+                        onSaveEditJd={(jd) =>
+                          handleSaveEditJd(selectedJob.id, jd)
+                        }
+                        onSaveStatus={(status) =>
+                          handleSaveStatus(selectedJob.id, status)
+                        }
+                        onDelete={() => handleConfirmDelete(selectedJob.id)}
+                        onGenerateCv={(
+                          guidance,
+                          bulletWordRange,
+                          textSizeScale,
+                        ) =>
+                          runGenerate(
+                            selectedJob,
+                            guidance,
+                            bulletWordRange,
+                            textSizeScale,
+                          )
+                        }
+                        onGenerateCoverLetter={(guidance, totalWordCount) =>
+                          runGenerateCoverLetter(
+                            selectedJob,
+                            guidance,
+                            totalWordCount,
+                          )
+                        }
+                      />
+                    ),
+                  }
+                : profileActionView
+                  ? {
+                      kind: 'profile-actions' as const,
+                      render: ({
+                        width,
+                        height,
+                      }: {
+                        width: number;
+                        height: number;
+                      }) => (
+                        <ProfileActionWorkspace
+                          theme={theme}
+                          profile={profile}
+                          width={width}
+                          height={height}
+                          initialView={profileActionView}
+                          onClose={closeProfileActionWorkspace}
+                          onSave={handleSaveProfile}
+                        />
+                      ),
+                    }
+                  : null;
 
   if (requiresOnboarding) {
     return (
@@ -1207,7 +1258,6 @@ export default function App() {
         onOpenProfileActions={openProfileActions}
         onOpenSavedAnswer={openSavedAnswer}
       />
-
       <TasksIndicator tasks={tasks} theme={theme} />
     </box>
   );

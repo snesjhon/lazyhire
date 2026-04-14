@@ -106,6 +106,7 @@ interface Props {
   onEvaluate: () => void;
   onOpenLink: () => void;
   onOpenCv: () => void;
+  onOpenCvFolder: () => void;
   onOpenCoverLetter: () => void;
   onSaveMetadata: (
     patch: Partial<Pick<Job, 'company' | 'role' | 'url' | 'notes'>>,
@@ -143,6 +144,7 @@ export default function JobActionWorkspace({
   onEvaluate,
   onOpenLink,
   onOpenCv,
+  onOpenCvFolder,
   onOpenCoverLetter,
   onSaveMetadata,
   onSaveEditJd,
@@ -353,6 +355,11 @@ export default function JobActionWorkspace({
             description: job.pdfPath,
             value: 'open-cv',
           },
+          {
+            name: 'Open enclosing folder',
+            description: 'Open the folder containing the generated CV',
+            value: 'open-cv-folder',
+          },
         ]
       : []),
     ...(job.coverLetterPdfPath
@@ -493,8 +500,6 @@ export default function JobActionWorkspace({
             width={Math.max(20, width)}
             focused
             options={menuOptions}
-            // showDescription={false}
-            {...selectColors(theme)}
             onSelect={(_, option) => {
               const value = String(option?.value ?? '');
               if (value === 'answer') onStartAnswer();
@@ -508,10 +513,12 @@ export default function JobActionWorkspace({
               if (value === 'edit-company') setView('edit-company');
               if (value === 'status') setView('status');
               if (value === 'open-cv') onOpenCv();
+              if (value === 'open-cv-folder') onOpenCvFolder();
               if (value === 'open-cover-letter') onOpenCoverLetter();
               if (value === 'open-link') onOpenLink();
               if (value === 'delete') setView('delete');
             }}
+            {...selectColors(theme)}
           />
         ) : null}
 
@@ -597,7 +604,9 @@ export default function JobActionWorkspace({
                 <MultiStepIndicator
                   theme={theme}
                   steps={generateCoverLetterSteps}
-                  activeIndex={currentCoverLetterPhase === 'length-preset' ? 0 : 1}
+                  activeIndex={
+                    currentCoverLetterPhase === 'length-preset' ? 0 : 1
+                  }
                 />
               ) : null}
 

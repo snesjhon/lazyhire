@@ -8,10 +8,7 @@ import {
   buildProfileFromExtraction,
   extractProfileFromText,
 } from '../services/extract.js';
-import {
-  extractTextFromPdf,
-  fetchPdfFromUrl,
-} from '../services/pdf.js';
+import { extractTextFromPdf, fetchPdfFromUrl } from '../services/pdf.js';
 import { selectColors } from '../../../shared/ui/selectTheme.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
 import type { Profile } from '../../../shared/models/types.js';
@@ -170,14 +167,8 @@ export default function InitWorkspace({
                       fg={theme.muted}
                       content="Fetching resume PDF and extracting profile data..."
                     />
-                    <text
-                      fg={theme.heading}
-                      content="Importing Resume"
-                    />
-                    <text
-                      fg={theme.subtext}
-                      content={url || 'Working...'}
-                    />
+                    <text fg={theme.heading} content="Importing Resume" />
+                    <text fg={theme.subtext} content={url || 'Working...'} />
                   </>
                 )}
 
