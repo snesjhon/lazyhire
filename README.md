@@ -1,127 +1,87 @@
 # lazyhire
 
-Terminal-first job search tooling for people who want a tighter application workflow.
+Terminal-first job search tooling. Resume in, decisions and application materials out.
 
-`lazyhire` helps you turn a saved resume and a job description into a decision, a tailored resume, a cover letter, and interview-ready answers without bouncing between five different apps.
+<!-- Badges -->
+<!-- ![License](https://img.shields.io/github/license/snesjhon/lazyhire) -->
 
-<!-- Screenshot: hero / dashboard -->
-<!-- ![lazyhire dashboard](./docs/screenshots/dashboard.png) -->
+<!-- Hero GIF -->
+<!-- ![lazyhire demo](./docs/gifs/hero.gif) -->
+
+## The Problem
+
+Job searching runs across too many tabs. You have the posting in one window, your resume in another, a blank cover letter doc open somewhere, and no consistent way to decide if a role is even worth applying to before you've already spent an hour on it.
+
+`lazyhire` is built around one loop: build your profile once, add a job, get a fit score before writing anything, then generate what you need if you decide to apply. Everything stays local. Nothing requires leaving the terminal.
 
 ## Features
 
-- Resume-based onboarding that builds your candidate profile from a hosted PDF or lets you fill it in manually.
-- Job intake from pasted links or raw job descriptions.
-- AI job evaluation against your background, preferences, salary range, remote preference, and deal-breakers.
-- Tailored resume PDF generation with controllable bullet density.
-- Tailored cover letter PDF generation for each role.
-- Interview answer drafting with tone selection and answer refinement.
-- Local-first storage for jobs, answers, and profile data.
-- Keyboard-driven terminal UI built with OpenTUI.
+### Build your profile once
 
-## Capabilities
+On first launch, import a hosted resume PDF or fill in your profile manually. `lazyhire` pulls out your experience, skills, targets, and deal-breakers and saves them locally. Every evaluation and every generated document draws from that profile, so you're not re-explaining yourself for each role.
 
-### 1. Build your profile once
+<!-- ![Onboarding](./docs/gifs/onboarding.gif) -->
 
-On first launch, `lazyhire` walks through onboarding. You can:
+### Triage by score before spending time
 
-- import a hosted resume PDF
-- extract candidate details, experience, skills, and suggested targets
-- confirm the extracted summary before creating your profile
-- skip import and edit everything manually
+Add a role from a URL or a pasted job description. `lazyhire` runs it against your profile and returns:
 
-Your profile drives every later step: evaluation, resume tailoring, cover letters, and answers.
+- an overall fit score
+- matched and missing requirements
+- seniority and role-fit breakdown
+- a plain recommendation: apply, consider, or skip
 
-<!-- Screenshot: onboarding -->
-<!-- ![Onboarding](./docs/screenshots/onboarding.png) -->
+That happens before you write anything, which is the point.
 
-### 2. Triage jobs by score, not gut feel
+<!-- ![Job evaluation](./docs/gifs/evaluation.gif) -->
 
-You can add a role from:
+### Generate tailored application material
 
-- a job URL
-- a pasted job description
+For any saved job, generate a tailored resume PDF and cover letter PDF. Resume generation has multiple bullet-length presets and accepts an optional angle to steer the framing. Generated files attach back to the job record.
 
-Each job is saved locally with the company, role, job description, notes, generated files, and a fit score tied back to your profile.
+<!-- ![Resume and cover letter generation](./docs/gifs/generation.gif) -->
 
-<!-- Screenshot: jobs / evaluation -->
-<!-- ![Job evaluation](./docs/screenshots/evaluation.png) -->
+### Prep interview answers
 
-`lazyhire` evaluates each role against your profile and stores:
+The answers workspace takes a question, classifies it, drafts a response in whatever tone you pick, and lets you refine it with follow-up instructions. Answers save to the job record so you can build a set before a screen or loop.
 
-- an overall score
-- category and focus classification
-- requirement matches and gaps
-- seniority and role-fit analysis
-- a plain recommendation on whether to apply, consider, or discard
+<!-- ![Answers workspace](./docs/gifs/answers.gif) -->
 
-This makes it easier to decide where to spend effort before writing anything.
+## Workflow
 
-### 3. Generate tailored application material
+```text
+Resume → Profile → Add Job → Evaluate Fit → Generate Resume / Cover Letter → Prep Answers
+```
 
-For a saved job, `lazyhire` can generate:
-
-- a tailored resume PDF
-- a tailored cover letter PDF
-
-Resume generation supports multiple bullet-length presets, from tighter bullets to more detailed ones, plus optional guidance for a specific application angle.
-
-Generated files are saved back onto the job record so you can reopen them later.
-
-<!-- Screenshot: CV generation -->
-<!-- ![Resume generation](./docs/screenshots/resume-generation.png) -->
-
-### 4. Prep interview answers quickly
-
-The answers workspace can:
-
-- classify an interview question
-- generate a polished answer in a chosen tone
-- save reusable answers
-- refine an existing answer with follow-up instructions
-
-This is useful for building a bank of role-specific answers before recruiter screens and interview loops.
-
-<!-- Screenshot: answers workspace -->
-<!-- ![Answers workspace](./docs/screenshots/answers.png) -->
+The tool works best when your profile is accurate and the job descriptions you paste are complete.
 
 ## Install
+
+### Prerequisites
+
+- Chrome (or a Chromium-based browser) — used for PDF generation. Set `CHROME_PATH` if yours isn't in a standard location.
+- [Claude Code](https://github.com/anthropics/claude-code) installed and authenticated — evaluation and document generation run through it.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/snesjhon/lazyhire/main/install.sh | bash
 ```
 
-## Development
-
-### Requirements
-
-- `bun`
-- `pnpm`
-- a working Claude Code setup, since evaluation and generation use `@anthropic-ai/claude-code`
-
-## Workflow
-
-```text
-Resume -> Profile -> Add Job -> Evaluate Fit -> Generate Resume / Cover Letter -> Prep Answers
-```
-
-That is the intended loop. `lazyhire` is strongest when your profile is accurate and your job descriptions are complete.
-
 ## Keyboard Shortcuts
 
-Key bindings are intentionally simple:
-
-- `a` add a job
-- `e` evaluate the selected job
-- `g` generate a tailored resume
-- `c` generate a cover letter
-- `w` open the answer workspace
-- `s` update job status
-- `d` delete the selected job
-- `o` open the saved job link
-- `Tab` / `Shift+Tab` move between panels
-- `[` / `]` cycle filters or config tabs
-- `1`, `2`, `3` jump between major panels
-- `ctrl-q` quit
+| Key                 | Action                       |
+| ------------------- | ---------------------------- |
+| `a`                 | Add a job                    |
+| `e`                 | Evaluate the selected job    |
+| `g`                 | Generate a tailored resume   |
+| `c`                 | Generate a cover letter      |
+| `w`                 | Open the answer workspace    |
+| `s`                 | Update job status            |
+| `d`                 | Delete the selected job      |
+| `o`                 | Open the saved job link      |
+| `Tab` / `Shift+Tab` | Move between panels          |
+| `[` / `]`           | Cycle filters or config tabs |
+| `1` `2` `3`         | Jump between major panels    |
+| `ctrl-q`            | Quit                         |
 
 ## Data
 
@@ -131,7 +91,19 @@ Everything is stored locally under `./.lazyhire`:
 - `.lazyhire/jobs.json`
 - `.lazyhire/answers.json`
 
-Generated PDFs are also attached back to the saved job records.
+Generated PDFs attach back to the saved job records.
+
+## Development
+
+### Requirements
+
+- `bun`
+- `pnpm`
+- a working Claude Code setup, since evaluation and generation use `@anthropic-ai/claude-code`
+
+## Inspiration
+
+`lazyhire` started from looking at [career-ops](https://github.com/tylerbishopdev/career-ops). It covers the job search operations space well, but the scope was broader than what I needed. I wanted something more streamlined: one candidate, one terminal, a straight line from job description to application materials. That's what `lazyhire` is.
 
 ## License
 
