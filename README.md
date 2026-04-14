@@ -1,14 +1,10 @@
-<p align="center">
-  <img src="./src/shared/ui/logo.svg" alt="lazyhire" width="520"/>
-</p>
+<p align="center"><img src="./src/shared/ui/logo.svg" alt="lazyhire" width="520"/></p>
 
 <p align="center">
 <strong>
 AI-Assisted job search tooling. Resume in, decisions and applications out.
 </strong>
 </p>
-
-Terminal-first job search tooling. Resume in, decisions and application materials out.
 
 <!-- Badges -->
 <!-- ![License](https://img.shields.io/github/license/snesjhon/lazyhire) -->
