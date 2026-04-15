@@ -885,7 +885,6 @@ export default function App() {
                 setFocus('detail');
               }}
               onJobIntakeStateChange={setJobIntakeState}
-              onClose={closeJobIntake}
             />
           ),
         }

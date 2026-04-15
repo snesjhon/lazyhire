@@ -107,10 +107,6 @@ export default function AnswerWorkspace({
   const contextInputRef = useRef<TextareaRenderable>(null);
   const refineInputRef = useRef<InputRenderable>(null);
 
-  const isInputStep =
-    draft.step === 'ask-question' ||
-    draft.step === 'ask-context' ||
-    draft.step === 'ask-refine';
   const isSpinning =
     draft.step === 'detecting' ||
     draft.step === 'generating' ||

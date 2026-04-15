@@ -35,7 +35,6 @@ interface Props {
   onAddJd: (jd: string) => Promise<void>;
   onRetryAddManually: () => void;
   onJobIntakeStateChange: (state: JobIntakeState) => void;
-  onClose: () => void;
 }
 
 export default function DashboardOverlay({
@@ -49,7 +48,6 @@ export default function DashboardOverlay({
   onAddJd,
   onRetryAddManually,
   onJobIntakeStateChange,
-  onClose,
 }: Props) {
   const [addUrl, setAddUrl] = useState('');
   const [addJd, setAddJd] = useState('');

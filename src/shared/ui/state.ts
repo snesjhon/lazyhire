@@ -1,14 +1,12 @@
 import type { FlashVariant } from '../lib/utils.js';
 
-export type Screen = 'dashboard' | 'scan' | 'profile' | 'answers';
+export type Screen = 'dashboard' | 'scan';
 export type FocusTarget =
-  | 'tabs'
   | 'status'
   | 'jobs'
   | 'profile'
   | 'answers'
-  | 'detail'
-  | 'modal';
+  | 'detail';
 export type JobIntakeState =
   | 'none'
   | 'choose-source'
