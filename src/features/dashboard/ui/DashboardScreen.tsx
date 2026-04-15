@@ -438,6 +438,8 @@ export default function DashboardScreen({
         position="absolute"
         bottom={0}
       >
+        <text fg={theme.footer} content="Actions: <enter>" />
+        <text fg={theme.muted} content="|" />
         <text fg={theme.footer} content="Add job: a" />
         <text fg={theme.muted} content="|" />
         <text fg={theme.footer} content="Panels: tab" />
