@@ -98,6 +98,8 @@ export default function DashboardOverlay({
           height={Math.max(5, height - 2)}
           width={Math.max(20, width)}
           focused
+          showDescription
+          itemSpacing={1}
           options={[
             {
               name: 'Paste job link',
@@ -176,6 +178,8 @@ export default function DashboardOverlay({
             height={6}
             width={Math.max(20, width)}
             focused
+            showDescription
+            itemSpacing={1}
             options={[
               {
                 name: 'Paste job description',
