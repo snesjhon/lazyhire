@@ -599,16 +599,18 @@ export default function ProfileActionWorkspace({
         </text>
       ) : (
         <text
-          fg={theme.muted}
+          fg={theme.heading}
           content={
             view === 'remote'
-              ? 'Select remote preference. esc=close'
-              : 'Enter to save, esc=close'
+              ? 'Remote Preference'
+              : view === 'candidate'
+                ? 'Candidate Info'
+                : labelForView(view)
           }
         />
       )}
 
-      <box marginTop={1} height={Math.max(4, height - 3)} overflow="hidden">
+      <box marginTop={1} height={Math.max(4, height - 5)} overflow="hidden">
         {showWizard ? (
           <box flexDirection="column" width={Math.max(20, width)}>
             <MultiStepIndicator
@@ -678,7 +680,7 @@ export default function ProfileActionWorkspace({
           </box>
         ) : view === 'candidate' ? (
           <select
-            height={Math.max(5, height - 3)}
+            height={Math.max(5, height - 5)}
             width={Math.max(20, width)}
             focused
             options={[
@@ -719,7 +721,7 @@ export default function ProfileActionWorkspace({
           />
         ) : view === 'remote' ? (
           <select
-            height={Math.max(4, height - 3)}
+            height={Math.max(4, height - 5)}
             width={Math.max(20, width)}
             focused
             options={REMOTE_OPTIONS}
@@ -770,6 +772,14 @@ export default function ProfileActionWorkspace({
             )}
           </box>
         )}
+      </box>
+      <box flexDirection="row" columnGap={1} marginTop={1}>
+        <text
+          fg={theme.footer}
+          content={view === 'remote' || view === 'candidate' ? 'Select: enter' : 'Submit: enter'}
+        />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="Go Back: esc" />
       </box>
     </box>
   );

@@ -43,6 +43,8 @@ export type JobActionView =
 const TEXTAREA_SUBMIT_KEY_BINDINGS: NonNullable<
   TextareaOptions['keyBindings']
 > = [{ name: 'o', ctrl: true, action: 'submit' }];
+
+
 export type GenerateCvEditingPhase =
   | 'bullet-preset'
   | 'text-size-preset'
@@ -448,20 +450,6 @@ export default function JobActionWorkspace({
     }
   });
 
-  useKeyboard((key) => {
-    if (view !== 'generate-cv' || generateCvState.step !== 'editing') return;
-    if (key.name === '1') updateGenerateCvDraft({ phase: 'bullet-preset' });
-    if (key.name === '2') updateGenerateCvDraft({ phase: 'text-size-preset' });
-    if (key.name === '3') updateGenerateCvDraft({ phase: 'guidance' });
-  });
-
-  useKeyboard((key) => {
-    if (view !== 'generate-cover-letter' || generateCvState.step !== 'editing')
-      return;
-    if (key.name === '1')
-      updateGenerateCoverLetterDraft({ phase: 'length-preset' });
-    if (key.name === '2') updateGenerateCoverLetterDraft({ phase: 'guidance' });
-  });
 
   return (
     <box flexDirection="column" overflow="hidden">
@@ -470,26 +458,26 @@ export default function JobActionWorkspace({
           {view === 'menu'
             ? `Company: ${job.company}`
             : view === 'edit-job'
-              ? `Job details for #${job.id}. Enter to edit, esc to return.`
-              : (view === 'generate-cv' || view === 'generate-cover-letter') &&
-                  generateCvState.step === 'editing'
-                ? generateArtifact === 'cv' &&
-                  (currentCvPhase === 'bullet-preset' ||
-                    currentCvPhase === 'text-size-preset')
-                  ? currentCvPhase === 'bullet-preset'
-                    ? 'enter=choose bullet length, esc=back'
-                    : 'enter=choose text size, esc=back'
-                  : generateArtifact === 'cover-letter' &&
-                      currentCoverLetterPhase === 'length-preset'
-                    ? 'enter=choose total length, esc=back'
-                    : generateArtifact === 'cv'
-                      ? 'ctrl-o=generate, 1-3=jump between steps, esc=back'
-                      : 'ctrl-o=generate, 1-2=jump between steps, esc=back'
-                : generateCvState.step === 'submitting'
-                  ? generateArtifact === 'cover-letter'
-                    ? 'Generating cover letter...'
-                    : 'Generating CV...'
-                  : 'esc=back'}
+              ? `Job details for #${job.id}`
+              : view === 'status'
+                ? 'Update Status'
+                : view === 'delete'
+                  ? 'Delete Job'
+                  : generateArtifact === 'cv'
+                    ? currentCvPhase === 'bullet-preset'
+                      ? 'Bullet Length'
+                      : currentCvPhase === 'text-size-preset'
+                        ? 'Text Size'
+                        : 'Tailoring Guidance'
+                    : generateArtifact === 'cover-letter'
+                      ? currentCoverLetterPhase === 'length-preset'
+                        ? 'Total Length'
+                        : 'Cover Letter Guidance'
+                      : generateCvState.step === 'success'
+                        ? 'Done'
+                        : generateCvState.step === 'error'
+                          ? 'Generation Failed'
+                          : 'Actions'}
         </strong>
       </text>
 
@@ -526,12 +514,12 @@ export default function JobActionWorkspace({
 
         {view === 'edit-job' ? (
           <select
-            height={Math.max(6, height - 2)}
+            height={Math.max(6, height - 5)}
             width={Math.max(20, width)}
             focused
             options={editJobOptions}
             showDescription
-            itemSpacing={0}
+            itemSpacing={1}
             {...selectColors(theme)}
             onSelect={(_, option) => {
               const value = String(option?.value ?? '');
@@ -615,7 +603,7 @@ export default function JobActionWorkspace({
               {generateArtifact === 'cv' &&
               currentCvPhase === 'bullet-preset' ? (
                 <select
-                  height={Math.max(6, height - 7)}
+                  height={Math.max(4, height - 10)}
                   width={Math.max(20, width)}
                   focused
                   options={CV_BULLET_LENGTH_PRESETS.map((preset) => ({
@@ -628,7 +616,7 @@ export default function JobActionWorkspace({
                       preset.id === generateCvDraft.selectedBulletPresetId,
                   )}
                   showDescription
-                  itemSpacing={0}
+                  itemSpacing={1}
                   {...selectColors(theme)}
                   onChange={(_, option) => {
                     const preset = CV_BULLET_LENGTH_PRESETS.find(
@@ -655,7 +643,7 @@ export default function JobActionWorkspace({
               ) : generateArtifact === 'cv' &&
                 currentCvPhase === 'text-size-preset' ? (
                 <select
-                  height={Math.max(6, height - 7)}
+                  height={Math.max(4, height - 10)}
                   width={Math.max(20, width)}
                   focused
                   options={CV_TEXT_SIZE_PRESETS.map((preset) => ({
@@ -668,7 +656,7 @@ export default function JobActionWorkspace({
                       preset.id === generateCvDraft.selectedTextSizePresetId,
                   )}
                   showDescription
-                  itemSpacing={0}
+                  itemSpacing={1}
                   {...selectColors(theme)}
                   onChange={(_, option) => {
                     const preset = CV_TEXT_SIZE_PRESETS.find(
@@ -695,7 +683,7 @@ export default function JobActionWorkspace({
               ) : generateArtifact === 'cover-letter' &&
                 currentCoverLetterPhase === 'length-preset' ? (
                 <select
-                  height={Math.max(6, height - 7)}
+                  height={Math.max(4, height - 9)}
                   width={Math.max(20, width)}
                   focused
                   options={COVER_LETTER_LENGTH_PRESETS.map((preset) => ({
@@ -709,7 +697,7 @@ export default function JobActionWorkspace({
                       generateCoverLetterDraft.selectedLengthPresetId,
                   )}
                   showDescription
-                  itemSpacing={0}
+                  itemSpacing={1}
                   {...selectColors(theme)}
                   onChange={(_, option) => {
                     const preset = COVER_LETTER_LENGTH_PRESETS.find(
@@ -827,7 +815,7 @@ export default function JobActionWorkspace({
             </box>
           ) : generateCvState.step === 'success' ? (
             <select
-              height={Math.max(6, height - 2)}
+              height={Math.max(6, height - 5)}
               width={Math.max(20, width)}
               focused
               options={[
@@ -882,7 +870,7 @@ export default function JobActionWorkspace({
             />
           ) : (
             <select
-              height={Math.max(6, height - 2)}
+              height={Math.max(6, height - 5)}
               width={Math.max(20, width)}
               focused
               options={[
@@ -928,7 +916,7 @@ export default function JobActionWorkspace({
 
         {view === 'status' ? (
           <select
-            height={Math.max(6, height - 2)}
+            height={Math.max(6, height - 5)}
             width={Math.max(20, width)}
             focused
             options={JOB_STATUSES.map((status) => ({
@@ -937,6 +925,8 @@ export default function JobActionWorkspace({
               value: status,
             }))}
             selectedIndex={JOB_STATUSES.indexOf(job.status)}
+            itemSpacing={1}
+            showScrollIndicator
             {...selectColors(theme)}
             onSelect={(_, option) => {
               const status = option?.value as JobStatus | undefined;
@@ -949,7 +939,7 @@ export default function JobActionWorkspace({
 
         {view === 'delete' ? (
           <select
-            height={4}
+            height={Math.max(6, height - 5)}
             width={Math.max(20, width)}
             focused
             options={[
@@ -964,6 +954,7 @@ export default function JobActionWorkspace({
                 value: 'no',
               },
             ]}
+            itemSpacing={1}
             {...selectColors(theme)}
             onSelect={(_, option) => {
               if (option?.value === 'yes') onDelete();
@@ -974,9 +965,22 @@ export default function JobActionWorkspace({
 
       </box>
       <box flexDirection="row" columnGap={1} marginTop={1}>
-        <text fg={theme.footer} content="Submit: enter" />
-        <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="Go Back: esc" />
+        {generateCvState.step === 'submitting' ? (
+          <text fg={theme.muted} content="Generating..." />
+        ) : (generateArtifact === 'cv' || generateArtifact === 'cover-letter') && generateCvState.step === 'editing' &&
+          (currentCvPhase === 'guidance' || currentCoverLetterPhase === 'guidance') ? (
+          <>
+            <text fg={theme.footer} content="Generate: ctrl+o" />
+            <text fg={theme.muted} content="|" />
+            <text fg={theme.footer} content="Back: esc" />
+          </>
+        ) : (
+          <>
+            <text fg={theme.footer} content="Select: enter" />
+            <text fg={theme.muted} content="|" />
+            <text fg={theme.footer} content="Back: esc" />
+          </>
+        )}
       </box>
     </box>
   );

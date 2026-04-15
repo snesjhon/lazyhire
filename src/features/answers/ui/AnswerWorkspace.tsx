@@ -203,7 +203,7 @@ export default function AnswerWorkspace({
         contextDraft: context,
         generatedAnswer: answer,
         statusLine:
-          'Answer ready. s=save  r=refine  c=copy  1-4=jump  esc=close',
+          'Answer ready. s=save  r=refine  c=copy',
         step: 'review',
       });
     } catch (error) {
@@ -303,37 +303,6 @@ export default function AnswerWorkspace({
       return;
     }
 
-    if (key.name === '1') {
-      updateDraft({
-        step: 'ask-question',
-        statusLine: statusLineFor(job),
-      });
-      return;
-    }
-    if (key.name === '2' && draft.question.trim()) {
-      updateDraft({
-        step: 'ask-tone',
-        statusLine: 'What tone would you like?',
-      });
-      return;
-    }
-    if (key.name === '3' && draft.question.trim() && draft.tone.trim()) {
-      updateDraft({
-        step: 'ask-context',
-        statusLine:
-          `Any extra angle to include? Ctrl+O skips. ${job.company || ''}`.trim(),
-      });
-      return;
-    }
-    if (key.name === '4' && draft.generatedAnswer.trim()) {
-      updateDraft({
-        step: 'review',
-        statusLine:
-          'Answer ready. s=save  r=refine  c=copy  1-4=jump  esc=close',
-      });
-      return;
-    }
-
     if (draft.step === 'review') {
       if (key.name === 's') handleSave();
       if (key.name === 'r') {
@@ -362,6 +331,7 @@ export default function AnswerWorkspace({
 
   return (
     <box flexDirection="column" overflow="hidden">
+      <box flexDirection="column" height={Math.max(6, height - 3)} overflow="hidden">
       <text
         fg={theme.brand}
         content={`${job.company || 'Unknown Company'} · ${job.role || 'Untitled Role'}`}
@@ -472,13 +442,15 @@ export default function AnswerWorkspace({
       {draft.step === 'ask-tone' ? (
         <box flexDirection="column" marginTop={1}>
           <select
-            height={Math.min(5, TONE_OPTIONS.length + 1)}
+            height={Math.max(5, height - 12)}
             width="100%"
             options={toneOptions}
             selectedIndex={Math.max(
               0,
               TONE_OPTIONS.indexOf(draft.tone as (typeof TONE_OPTIONS)[number]),
             )}
+            itemSpacing={1}
+            showScrollIndicator
             focused
             {...selectColors(theme)}
             onSelect={(_, option) => {
@@ -526,31 +498,22 @@ export default function AnswerWorkspace({
         </box>
       ) : null}
 
+      </box>
       <box flexDirection="row" columnGap={1} marginTop={1}>
         {copyFlash ? (
           <text fg={theme.success} content="Copied!" />
         ) : (
           <>
             {draft.step === 'review' ? (
-              <text fg={theme.footer} content="s=save + new" />
+              <>
+                <text fg={theme.footer} content="s=save + new" />
+                <text fg={theme.muted} content="|" />
+                <text fg={theme.footer} content="r=refine" />
+                <text fg={theme.muted} content="|" />
+                <text fg={theme.footer} content="c=copy" />
+                <text fg={theme.muted} content="|" />
+              </>
             ) : null}
-            {draft.step === 'review' ? (
-              <text fg={theme.muted} content="|" />
-            ) : null}
-            {draft.step === 'review' ? (
-              <text fg={theme.footer} content="r=refine" />
-            ) : null}
-            {draft.step === 'review' ? (
-              <text fg={theme.muted} content="|" />
-            ) : null}
-            {draft.step === 'review' ? (
-              <text fg={theme.footer} content="c=copy" />
-            ) : null}
-            {draft.step === 'review' ? (
-              <text fg={theme.muted} content="|" />
-            ) : null}
-            <text fg={theme.footer} content="1-4=jump" />
-            <text fg={theme.muted} content="|" />
             <text fg={theme.footer} content="esc=back" />
           </>
         )}
