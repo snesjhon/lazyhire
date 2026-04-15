@@ -343,7 +343,11 @@ export default function ProfileActionWorkspace({
   const [view, setView] = useState<InternalView>(
     mode === 'wizard' ? mapInitialViewToInternal(initialView) : initialView,
   );
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(() => {
+    const initialInternalView: InternalView =
+      mode === 'wizard' ? mapInitialViewToInternal(initialView) : initialView;
+    return createDraftForView(initialInternalView, profile, null);
+  });
   const [stagedMin, setStagedMin] = useState<number | null>(null);
   const inputRef = useRef<InputRenderable>(null);
   const textareaRef = useRef<TextareaRenderable>(null);

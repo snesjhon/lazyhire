@@ -422,7 +422,7 @@ export default function DashboardScreen({
               <box
                 flexDirection="column"
                 width={Math.max(20, detailWidth - 6)}
-                height={workspaceVisible ? detailHeight - 2 : undefined}
+                flexGrow={1}
               >
                 {detailContent}
               </box>
