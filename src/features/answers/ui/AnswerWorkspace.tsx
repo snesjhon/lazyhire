@@ -115,7 +115,17 @@ export default function AnswerWorkspace({
     draft.step === 'detecting' ||
     draft.step === 'generating' ||
     draft.step === 'refining';
-  const scrollHeight = Math.max(6, height - 10);
+
+  // Lines above the scrollbox in review step:
+  // 1 header + 1 status + 1 gap + 4 step items = 7
+  // + 1 question line (if shown)
+  // + 1 gap + 1 "Saved..." header + up to 3 linked answer lines (if shown)
+  const reviewOverhead =
+    7 +
+    (draft.question && draft.step !== 'ask-question' ? 1 : 0) +
+    (linkedAnswers.length > 0 ? 2 + Math.min(3, linkedAnswers.length) : 0);
+  // Outer content box is height - 3; footer row takes the remaining 3
+  const scrollHeight = Math.max(4, height - 3 - reviewOverhead);
 
   function updateDraft(patch: Partial<AnswerDraft>) {
     onDraftChange({
