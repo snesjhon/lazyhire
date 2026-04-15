@@ -76,7 +76,7 @@ export default function DashboardOverlay({
   });
 
   return (
-    <box flexDirection="column" height={height} width={width} overflow="hidden">
+    <box flexDirection="column" width={width} overflow="hidden">
       <text
         fg={theme.muted}
         content={
@@ -93,7 +93,7 @@ export default function DashboardOverlay({
       />
       {jobIntakeState === 'choose-source' && (
         <select
-          height={Math.max(5, height - 2)}
+          height={Math.max(5, height - 4)}
           width={Math.max(20, width)}
           focused
           showDescription
@@ -222,6 +222,31 @@ export default function DashboardOverlay({
             fg={theme.muted}
             content="The item will open once evaluation finishes."
           />
+        </box>
+      )}
+      {jobIntakeState !== 'evaluating' && (
+        <box flexDirection="row" columnGap={1} marginTop={1}>
+          {(jobIntakeState === 'choose-source' || jobIntakeState === 'crawl-failed') && (
+            <>
+              <text fg={theme.footer} content="Select: enter" />
+              <text fg={theme.muted} content="|" />
+              <text fg={theme.footer} content="Move: j / k" />
+              <text fg={theme.muted} content="|" />
+            </>
+          )}
+          {jobIntakeState === 'paste-url' && (
+            <>
+              <text fg={theme.footer} content="Submit: enter" />
+              <text fg={theme.muted} content="|" />
+            </>
+          )}
+          {jobIntakeState === 'paste-description' && (
+            <>
+              <text fg={theme.footer} content="Submit: ctrl-o" />
+              <text fg={theme.muted} content="|" />
+            </>
+          )}
+          <text fg={theme.footer} content="Back: esc" />
         </box>
       )}
     </box>
