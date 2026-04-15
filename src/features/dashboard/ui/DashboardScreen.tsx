@@ -223,7 +223,7 @@ export default function DashboardScreen({
             title="[1] Status"
             border
             borderColor={focus === 'status' ? theme.borderActive : theme.border}
-            borderStyle="rounded"
+            borderStyle={focus === 'status' ? 'heavy' : 'single'}
             paddingX={1}
             overflow="hidden"
           >
@@ -235,9 +235,10 @@ export default function DashboardScreen({
           <box
             title="[2] Jobs"
             border
-            borderColor={focus === 'jobs' ? theme.borderActive : theme.border}
+            borderColor={jobsFocused ? theme.borderActive : theme.border}
             paddingX={1}
             height={jobsHeight + 2}
+            borderStyle={jobsFocused ? 'heavy' : 'single'}
             overflow="hidden"
             flexDirection="column"
           >
@@ -274,6 +275,7 @@ export default function DashboardScreen({
                 showScrollIndicator
                 itemSpacing={1}
                 {...selectColors(theme)}
+                selectedTextColor={jobsFocused ? theme.brand : theme.muted}
                 focused={jobsFocused}
                 onChange={(_, option) => {
                   if (option?.value) onJobSelect(String(option.value));
@@ -294,11 +296,8 @@ export default function DashboardScreen({
           <box
             title="[3] User"
             border
-            borderColor={
-              focus === 'profile' || focus === 'answers'
-                ? theme.borderActive
-                : theme.border
-            }
+            borderColor={libraryFocused ? theme.borderActive : theme.border}
+            borderStyle={libraryFocused ? 'heavy' : 'single'}
             paddingX={1}
             height={libraryHeight}
             overflow="hidden"
@@ -352,6 +351,7 @@ export default function DashboardScreen({
                 selectedIndex={librarySelectedIndex}
                 showDescription={false}
                 {...selectColors(theme)}
+                selectedTextColor={libraryFocused ? theme.brand : theme.muted}
                 focused={libraryFocused}
                 onChange={(_, option) => {
                   if (activeLibraryTab === 'profile') {
@@ -402,6 +402,9 @@ export default function DashboardScreen({
             paddingX={2}
             paddingTop={1}
             height={detailHeight}
+            borderStyle={
+              focus === 'detail' || workspaceVisible ? 'heavy' : 'single'
+            }
             overflow="hidden"
           >
             <scrollbox

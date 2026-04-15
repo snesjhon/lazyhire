@@ -32,7 +32,7 @@ const LATTE: Palette = {
   subtext: '#5c5f77',
   muted: '#7c7f93',
   border: '#9ca0b0',
-  borderActive: '#1e66f5',
+  borderActive: '#7287fd',
   brand: '#179299',
   brandContrast: '#eff1f5',
   info: '#1e66f5',
@@ -58,7 +58,9 @@ const FRAPPE: Palette = {
   accent: '#ca9ee6',
 };
 
-export function resolveUiTheme(themeMode: ThemeMode | null | undefined): UiTheme {
+export function resolveUiTheme(
+  themeMode: ThemeMode | null | undefined,
+): UiTheme {
   const mode = themeMode === 'light' ? 'light' : 'dark';
   const palette = mode === 'light' ? LATTE : FRAPPE;
 

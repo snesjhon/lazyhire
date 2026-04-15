@@ -329,12 +329,12 @@ export default function JobActionWorkspace({
       value: 'evaluate',
     },
     {
-      name: 'Generate CV',
+      name: 'Generate Resume',
       description: 'Create a tailored PDF for this role',
       value: 'generate-cv',
     },
     {
-      name: 'Generate cover letter',
+      name: 'Generate Cover Letter',
       description: 'Create a tailored 3-4 paragraph cover letter PDF',
       value: 'generate-cover-letter',
     },
@@ -493,12 +493,14 @@ export default function JobActionWorkspace({
         </strong>
       </text>
 
-      <box height={Math.max(6, height - 2)} overflow="hidden">
+      <box height={Math.max(6, height - 5)} overflow="hidden">
         {view === 'menu' ? (
           <select
-            height={Math.max(6, height - 10)}
+            height={Math.max(6, height - 5)}
             width={Math.max(20, width)}
             focused
+            itemSpacing={1}
+            showScrollIndicator
             options={menuOptions}
             onSelect={(_, option) => {
               const value = String(option?.value ?? '');
@@ -970,11 +972,11 @@ export default function JobActionWorkspace({
           />
         ) : null}
 
-        <box flexDirection="row" columnGap={1} marginTop={1}>
-          <text fg={theme.footer} content="Submit: enter" />
-          <text fg={theme.muted} content="|" />
-          <text fg={theme.footer} content="Go Back: esc" />
-        </box>
+      </box>
+      <box flexDirection="row" columnGap={1} marginTop={1}>
+        <text fg={theme.footer} content="Submit: enter" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="Go Back: esc" />
       </box>
     </box>
   );
