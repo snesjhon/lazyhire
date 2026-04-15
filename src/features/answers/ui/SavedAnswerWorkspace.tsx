@@ -39,7 +39,8 @@ export default function SavedAnswerWorkspace({
   const [refineDraft, setRefineDraft] = useState('');
   const [generatedAnswer, setGeneratedAnswer] = useState(answer.answer);
   const refineInputRef = useRef<InputRenderable>(null);
-  const scrollHeight = Math.max(6, height - 12);
+  // height is used only to size the scrollbox viewport — layout is flex-based
+  const scrollHeight = Math.max(6, height - 6);
 
   useEffect(() => {
     setStep('view');
@@ -116,24 +117,22 @@ export default function SavedAnswerWorkspace({
   });
 
   return (
-    <box flexDirection="column" overflow="hidden">
+    <box flexDirection="column" overflow="hidden" flexGrow={1}>
       <text
         fg={theme.brand}
-        content={`${answer.originJobId ? `Application #${answer.originJobId}` : 'Saved answer'} · ${answer.revised}`}
+        content={`${answer.originJobId ? `Application #${answer.company}` : 'Saved answer'}`}
       />
       <text
         fg={theme.answerCategoryColors[answer.category]}
-        content={`${answer.category} · ${answer.company || 'General'} · ${answer.tone || 'No tone'}`}
+        content={`${answer.category} · ${answer.tone || 'No tone'}`}
+        paddingBottom={1}
       />
-      <text fg={theme.heading} content={clip(answer.question, width - 4)} />
-
-      {answer.context ? (
-        <text fg={theme.muted} content={`Context: ${clip(answer.context, width - 12)}`} />
-      ) : null}
-
+      <text fg={theme.heading} paddingBottom={1}>
+        <strong>{clip(answer.question, width - 4)}</strong>
+      </text>
       {step === 'view' ? (
         <scrollbox
-          height={scrollHeight}
+          height={scrollHeight - 4}
           width="100%"
           scrollX={false}
           scrollY
@@ -151,6 +150,14 @@ export default function SavedAnswerWorkspace({
             content={generatedAnswer}
           />
         </scrollbox>
+      ) : null}
+
+      {answer.context ? (
+        <text
+          fg={theme.muted}
+          content={`Context: ${clip(answer.context, width - 12)}`}
+          marginY={1}
+        />
       ) : null}
 
       {step === 'ask-refine' ? (
@@ -176,7 +183,7 @@ export default function SavedAnswerWorkspace({
         </box>
       ) : null}
 
-      <box flexDirection="row" columnGap={1} marginTop={1}>
+      <box flexDirection="row" columnGap={1}>
         {copyFlash ? (
           <text fg={theme.success} content="Copied!" />
         ) : (

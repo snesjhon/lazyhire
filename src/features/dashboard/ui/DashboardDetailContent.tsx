@@ -10,6 +10,7 @@ import {
 } from '../../../shared/ui/DetailBlocks.js';
 import type { Job } from '../../../shared/models/types.js';
 import type { DashboardScreenProps } from './DashboardScreen.js';
+import { StatusDetailContent } from './StatusDetailContent.js';
 
 function renderJobDetail(theme: UiTheme, job: Job) {
   const classification = [job.category, job.focus].filter(Boolean).join(' / ');
@@ -98,7 +99,14 @@ export function renderDashboardDetailContent({
   selectedJob: Job | null;
 }) {
   if (activePanel === 'status') {
-    return renderStatusDetail(theme, filter, filters, jobs);
+    return (
+      <StatusDetailContent
+        theme={theme}
+        filter={filter}
+        filters={filters}
+        jobs={jobs}
+      />
+    );
   }
   if (selectedJob) {
     return renderJobDetail(theme, selectedJob);

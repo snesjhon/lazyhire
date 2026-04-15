@@ -30,9 +30,6 @@ export function renderAnswerDashboardDetail(
       <DetailFields
         fields={[
           { label: 'Category', value: answer.category },
-          ...(answer.originJobId
-            ? [{ label: 'Application', value: `#${answer.originJobId}` }]
-            : []),
           { label: 'Company', value: answer.company || 'General' },
           { label: 'Role', value: answer.role || 'General' },
           { label: 'Tone', value: answer.tone || 'none' },

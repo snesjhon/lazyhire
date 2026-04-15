@@ -43,22 +43,24 @@ export default function CompanyAnswersWorkspace({
 }: Props) {
   const [answers, setAnswers] = useState<AnswerEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [step, setStep] = useState<'list' | 'detail' | 'ask-refine' | 'refining'>('list');
+  const [step, setStep] = useState<
+    'list' | 'detail' | 'ask-refine' | 'refining'
+  >('list');
   const [refineDraft, setRefineDraft] = useState('');
   const [draftAnswer, setDraftAnswer] = useState('');
   const [copyFlash, setCopyFlash] = useState(false);
   const refineInputRef = useRef<InputRenderable>(null);
 
   function refreshAnswers(nextAnswers = initialAnswers) {
-    const next = nextAnswers
-      .slice()
-      .sort((a, b) => {
-        if (a.revised !== b.revised) return b.revised.localeCompare(a.revised);
-        return b.id.localeCompare(a.id);
-      });
+    const next = nextAnswers.slice().sort((a, b) => {
+      if (a.revised !== b.revised) return b.revised.localeCompare(a.revised);
+      return b.id.localeCompare(a.id);
+    });
     setAnswers(next);
     setSelectedId((current) =>
-      next.some((answer) => answer.id === current) ? current : next[0]?.id ?? null,
+      next.some((answer) => answer.id === current)
+        ? current
+        : (next[0]?.id ?? null),
     );
     return next;
   }
@@ -202,7 +204,10 @@ export default function CompanyAnswersWorkspace({
           height={Math.max(6, height - 8)}
           width="100%"
           options={options}
-          selectedIndex={Math.max(0, answers.findIndex((answer) => answer.id === selectedId))}
+          selectedIndex={Math.max(
+            0,
+            answers.findIndex((answer) => answer.id === selectedId),
+          )}
           showDescription
           showScrollIndicator
           focused
@@ -224,7 +229,10 @@ export default function CompanyAnswersWorkspace({
             fg={theme.answerCategoryColors[selectedAnswer.category]}
             content={`${selectedAnswer.category} · ${selectedAnswer.role || 'General'} · ${selectedAnswer.revised}`}
           />
-          <text fg={theme.heading} content={clip(selectedAnswer.question, width - 4)} />
+          <text
+            fg={theme.heading}
+            content={clip(selectedAnswer.question, width - 4)}
+          />
           <scrollbox
             height={Math.max(6, height - 12)}
             width="100%"

@@ -20,7 +20,11 @@ import {
   refineAnswer,
 } from '../services/answers.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
-import type { AnswerCategory, AnswerEntry, Job } from '../../../shared/models/types.js';
+import type {
+  AnswerCategory,
+  AnswerEntry,
+  Job,
+} from '../../../shared/models/types.js';
 
 export type AnswerStep =
   | 'ask-question'
@@ -198,8 +202,7 @@ export default function AnswerWorkspace({
       updateDraft({
         contextDraft: context,
         generatedAnswer: answer,
-        statusLine:
-          'Answer ready. s=save  r=refine  c=copy',
+        statusLine: 'Answer ready. s=save  r=refine  c=copy',
         step: 'review',
       });
     } catch (error) {
@@ -272,7 +275,8 @@ export default function AnswerWorkspace({
       contextDraft: '',
       refineDraft: '',
       generatedAnswer: '',
-      statusLine: `${statusLineFor(job)} ${nextLinkedAnswers.length > 0 ? `This application has ${nextLinkedAnswers.length} saved ${nextLinkedAnswers.length === 1 ? 'answer' : 'answers'}.` : ''}`.trim(),
+      statusLine:
+        `${statusLineFor(job)} ${nextLinkedAnswers.length > 0 ? `This application has ${nextLinkedAnswers.length} saved ${nextLinkedAnswers.length === 1 ? 'answer' : 'answers'}.` : ''}`.trim(),
     });
   }
 
@@ -327,173 +331,183 @@ export default function AnswerWorkspace({
 
   return (
     <box flexDirection="column" overflow="hidden">
-      <box flexDirection="column" height={Math.max(6, height - 3)} overflow="hidden">
-      <text
-        fg={theme.brand}
-        content={`${job.company || 'Unknown Company'} · ${job.role || 'Untitled Role'}`}
-      />
-      {draft.statusLine ? (
-        <text fg={theme.muted} content={draft.statusLine} />
-      ) : null}
-      <box flexDirection="column" marginTop={1}>
+      <box
+        flexDirection="column"
+        height={Math.max(6, height - 3)}
+        overflow="hidden"
+      >
         <text
-          fg={
-            draft.step === 'ask-question' || draft.step === 'detecting'
-              ? theme.brand
-              : theme.text
-          }
-          content={`1. Question   ${draft.question.trim() ? clip(draft.question, width - 18) : 'Not set'}`}
+          fg={theme.brand}
+          content={`${job.company || 'Unknown Company'} · ${job.role || 'Untitled Role'}`}
         />
-        <text
-          fg={draft.step === 'ask-tone' ? theme.brand : theme.text}
-          content={`2. Tone       ${draft.tone || 'Not set'}`}
-        />
-        <text
-          fg={
-            draft.step === 'ask-context' || draft.step === 'generating'
-              ? theme.brand
-              : theme.text
-          }
-          content={`3. Context    ${draft.contextDraft.trim() ? 'Custom notes added' : 'No extra notes'}`}
-        />
-        <text
-          fg={
-            draft.step === 'review' ||
-            draft.step === 'ask-refine' ||
-            draft.step === 'refining'
-              ? theme.brand
-              : theme.text
-          }
-          content={`4. Answer     ${draft.generatedAnswer.trim() ? 'Generated' : 'Not generated'}`}
-        />
-      </box>
-      {draft.question && draft.step !== 'ask-question' ? (
-        <text
-          fg={theme.answerCategoryColors[draft.category]}
-          content={`Question: ${clip(draft.question, width - 6)}`}
-        />
-      ) : null}
-
-      {linkedAnswers.length > 0 ? (
+        {draft.statusLine ? (
+          <text fg={theme.muted} content={draft.statusLine} />
+        ) : null}
         <box flexDirection="column" marginTop={1}>
           <text
-            fg={theme.muted}
-            content={`Saved for this application: ${linkedAnswers.length}`}
+            fg={
+              draft.step === 'ask-question' || draft.step === 'detecting'
+                ? theme.brand
+                : theme.text
+            }
+            content={`1. Question   ${draft.question.trim() ? clip(draft.question, width - 18) : 'Not set'}`}
           />
           <text
-            fg={theme.muted}
-            content={linkedAnswers
-              .slice(0, 3)
-              .map((answer, index) => `${index + 1}. ${clip(answer.question, width - 8)}`)
-              .join('\n')}
+            fg={draft.step === 'ask-tone' ? theme.brand : theme.text}
+            content={`2. Tone       ${draft.tone || 'Not set'}`}
           />
-        </box>
-      ) : null}
-
-      {draft.step === 'review' && draft.generatedAnswer ? (
-        <scrollbox
-          height={scrollHeight}
-          width="100%"
-          scrollX={false}
-          scrollY
-          focused
-          rootOptions={{ overflow: 'hidden' }}
-          wrapperOptions={{ overflow: 'hidden' }}
-          viewportOptions={{ overflow: 'hidden' }}
-          contentOptions={{ overflow: 'hidden' }}
-          scrollbarOptions={{ showArrows: true }}
-        >
           <text
-            width={Math.max(20, width - 4)}
-            maxWidth={Math.max(20, width - 4)}
-            wrapMode="char"
-            content={draft.generatedAnswer}
+            fg={
+              draft.step === 'ask-context' || draft.step === 'generating'
+                ? theme.brand
+                : theme.text
+            }
+            content={`3. Context    ${draft.contextDraft.trim() ? 'Custom notes added' : 'No extra notes'}`}
           />
-        </scrollbox>
-      ) : null}
-
-      {isSpinning ? (
-        <box flexDirection="row" columnGap={1}>
-          <Spinner color={theme.warning} />
-          <text fg={theme.warning} content={spinnerLabel} />
-        </box>
-      ) : null}
-
-      {draft.step === 'ask-question' ? (
-        <box flexDirection="column" marginTop={1}>
-          <text fg={theme.heading} content="Question" />
-          <input
-            ref={questionInputRef}
-            value={draft.questionDraft}
-            placeholder="e.g. Why do you want to work here?"
-            onInput={(value) => updateDraft({ questionDraft: value })}
-            focused
-            onSubmit={(value: unknown) => {
-              if (typeof value === 'string') void handleQuestionSubmit(value);
-            }}
+          <text
+            fg={
+              draft.step === 'review' ||
+              draft.step === 'ask-refine' ||
+              draft.step === 'refining'
+                ? theme.brand
+                : theme.text
+            }
+            content={`4. Answer     ${draft.generatedAnswer.trim() ? 'Generated' : 'Not generated'}`}
           />
         </box>
-      ) : null}
+        {draft.question && draft.step !== 'ask-question' ? (
+          <text
+            fg={theme.answerCategoryColors[draft.category]}
+            content={`Question: ${clip(draft.question, width - 6)}`}
+          />
+        ) : null}
 
-      {draft.step === 'ask-tone' ? (
-        <box flexDirection="column" marginTop={1}>
-          <select
-            height={Math.max(5, height - 12)}
+        {linkedAnswers.length > 0 ? (
+          <box flexDirection="column" marginTop={1}>
+            <text
+              fg={theme.muted}
+              content={`Saved for this application: ${linkedAnswers.length}`}
+            />
+            <text
+              fg={theme.muted}
+              content={linkedAnswers
+                .slice(0, 3)
+                .map(
+                  (answer, index) =>
+                    `${index + 1}. ${clip(answer.question, width - 8)}`,
+                )
+                .join('\n')}
+            />
+          </box>
+        ) : null}
+
+        {draft.step === 'review' && draft.generatedAnswer ? (
+          <scrollbox
+            height={scrollHeight}
             width="100%"
-            options={toneOptions}
-            selectedIndex={Math.max(
-              0,
-              TONE_OPTIONS.indexOf(draft.tone as (typeof TONE_OPTIONS)[number]),
-            )}
-            itemSpacing={1}
-            showScrollIndicator
+            scrollX={false}
+            scrollY
             focused
-            {...selectColors(theme)}
-            onSelect={(_, option) => {
-              if (option?.value) handleToneSelect(String(option.value));
-            }}
-          />
-        </box>
-      ) : null}
+            rootOptions={{ overflow: 'hidden' }}
+            wrapperOptions={{ overflow: 'hidden' }}
+            viewportOptions={{ overflow: 'hidden' }}
+            contentOptions={{ overflow: 'hidden' }}
+            scrollbarOptions={{ showArrows: true }}
+          >
+            <text
+              width={Math.max(20, width - 4)}
+              maxWidth={Math.max(20, width - 4)}
+              wrapMode="char"
+              content={draft.generatedAnswer}
+            />
+          </scrollbox>
+        ) : null}
 
-      {draft.step === 'ask-context' ? (
-        <box flexDirection="column" marginTop={1}>
-          <text fg={theme.heading} content="Context (optional)" />
-          <textarea
-            ref={contextInputRef}
-            height={4}
-            initialValue={draft.contextDraft}
-            placeholder="Company values, examples, or the angle to emphasize..."
-            keyBindings={TEXTAREA_SUBMIT_KEY_BINDINGS}
-            onContentChange={() =>
-              updateDraft({
-                contextDraft: contextInputRef.current?.plainText ?? '',
-              })
-            }
-            onSubmit={() =>
-              void handleContextSubmit(contextInputRef.current?.plainText ?? '')
-            }
-            focused
-          />
-        </box>
-      ) : null}
+        {isSpinning ? (
+          <box flexDirection="row" columnGap={1}>
+            <Spinner color={theme.warning} />
+            <text fg={theme.warning} content={spinnerLabel} />
+          </box>
+        ) : null}
 
-      {draft.step === 'ask-refine' ? (
-        <box flexDirection="column" marginTop={1}>
-          <text fg={theme.heading} content="Refinement request" />
-          <input
-            ref={refineInputRef}
-            value={draft.refineDraft}
-            placeholder="e.g. Make it shorter and more specific."
-            onInput={(value) => updateDraft({ refineDraft: value })}
-            focused
-            onSubmit={(value: unknown) => {
-              if (typeof value === 'string') void handleRefineSubmit(value);
-            }}
-          />
-        </box>
-      ) : null}
+        {draft.step === 'ask-question' ? (
+          <box flexDirection="column" marginTop={1}>
+            <text fg={theme.heading} content="Question" />
+            <input
+              ref={questionInputRef}
+              value={draft.questionDraft}
+              placeholder="e.g. Why do you want to work here?"
+              onInput={(value) => updateDraft({ questionDraft: value })}
+              focused
+              onSubmit={(value: unknown) => {
+                if (typeof value === 'string') void handleQuestionSubmit(value);
+              }}
+            />
+          </box>
+        ) : null}
 
+        {draft.step === 'ask-tone' ? (
+          <box flexDirection="column" marginTop={1}>
+            <select
+              height={Math.max(5, height - 12)}
+              width="100%"
+              options={toneOptions}
+              selectedIndex={Math.max(
+                0,
+                TONE_OPTIONS.indexOf(
+                  draft.tone as (typeof TONE_OPTIONS)[number],
+                ),
+              )}
+              itemSpacing={1}
+              showScrollIndicator
+              focused
+              {...selectColors(theme)}
+              onSelect={(_, option) => {
+                if (option?.value) handleToneSelect(String(option.value));
+              }}
+            />
+          </box>
+        ) : null}
+
+        {draft.step === 'ask-context' ? (
+          <box flexDirection="column" marginTop={1}>
+            <text fg={theme.heading} content="Context (optional)" />
+            <textarea
+              ref={contextInputRef}
+              height={4}
+              initialValue={draft.contextDraft}
+              placeholder="Company values, examples, or the angle to emphasize..."
+              keyBindings={TEXTAREA_SUBMIT_KEY_BINDINGS}
+              onContentChange={() =>
+                updateDraft({
+                  contextDraft: contextInputRef.current?.plainText ?? '',
+                })
+              }
+              onSubmit={() =>
+                void handleContextSubmit(
+                  contextInputRef.current?.plainText ?? '',
+                )
+              }
+              focused
+            />
+          </box>
+        ) : null}
+
+        {draft.step === 'ask-refine' ? (
+          <box flexDirection="column" marginTop={1}>
+            <text fg={theme.heading} content="Refinement request" />
+            <input
+              ref={refineInputRef}
+              value={draft.refineDraft}
+              placeholder="e.g. Make it shorter and more specific."
+              onInput={(value) => updateDraft({ refineDraft: value })}
+              focused
+              onSubmit={(value: unknown) => {
+                if (typeof value === 'string') void handleRefineSubmit(value);
+              }}
+            />
+          </box>
+        ) : null}
       </box>
       <box flexDirection="row" columnGap={1} marginTop={1}>
         {copyFlash ? (
@@ -510,7 +524,7 @@ export default function AnswerWorkspace({
                 <text fg={theme.muted} content="|" />
               </>
             ) : null}
-            <text fg={theme.footer} content="esc=back" />
+            <text fg={theme.footer} content="esc=back " />
           </>
         )}
       </box>

@@ -419,7 +419,11 @@ export default function DashboardScreen({
               contentOptions={{ overflow: 'hidden' }}
               scrollbarOptions={{ showArrows: true }}
             >
-              <box flexDirection="column" width={Math.max(20, detailWidth - 6)}>
+              <box
+                flexDirection="column"
+                width={Math.max(20, detailWidth - 6)}
+                height={workspaceVisible ? detailHeight - 2 : undefined}
+              >
                 {detailContent}
               </box>
             </scrollbox>
