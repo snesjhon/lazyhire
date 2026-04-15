@@ -438,13 +438,15 @@ export default function DashboardScreen({
         position="absolute"
         bottom={0}
       >
-        <text fg={theme.footer} content="Actions: <enter>" />
+        <text fg={theme.footer} content="Add job: a" />
         <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="Move: j / k" />
+        <text fg={theme.footer} content="Panels: tab" />
         <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="Add Job: a" />
+        <text fg={theme.footer} content="Filters: [ / ]" />
         <text fg={theme.muted} content="|" />
-        <text fg={theme.footer} content="Answers: enter to open" />
+        <text fg={theme.footer} content="Jump: 1 2 3" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="Quit: ctrl-q" />
       </box>
     </>
   );

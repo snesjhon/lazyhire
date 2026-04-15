@@ -849,19 +849,21 @@ export default function App() {
     if (key.sequence === '[') cycleFocusedPanel(-1);
     if (key.sequence === ']') cycleFocusedPanel(1);
     if (key.name === 'a') setJobIntakeState('choose-source');
-    if (key.name === 'e' && selectedJob) void runEvaluate(selectedJob);
-    if (key.name === 'g' && selectedJob) openJobActions('generate-cv');
-    if (key.name === 'c' && selectedJob)
-      openJobActions('generate-cover-letter');
-    if (key.name === 'w' && selectedJob) startAnswerWorkspace();
-    if (key.name === 's' && selectedJob) openJobActions('status');
-    if (key.name === 'd' && selectedJob) openJobActions('delete');
-    if (key.name === 'o' && selectedJob)
-      openTarget(
-        selectedJob.url,
-        `Opened job link for #${selectedJob.id}.`,
-        'No job URL available.',
-      );
+    if (focus === 'jobs') {
+      if (key.name === 'e' && selectedJob) void runEvaluate(selectedJob);
+      if (key.name === 'g' && selectedJob) openJobActions('generate-cv');
+      if (key.name === 'c' && selectedJob)
+        openJobActions('generate-cover-letter');
+      if (key.name === 'w' && selectedJob) startAnswerWorkspace();
+      if (key.name === 's' && selectedJob) openJobActions('status');
+      if (key.name === 'd' && selectedJob) openJobActions('delete');
+      if (key.name === 'o' && selectedJob)
+        openTarget(
+          selectedJob.url,
+          `Opened job link for #${selectedJob.id}.`,
+          'No job URL available.',
+        );
+    }
   });
 
   const dashboardDetailPane =
