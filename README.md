@@ -75,13 +75,6 @@ curl -fsSL https://raw.githubusercontent.com/snesjhon/lazyhire/main/install.sh |
 | Key                 | Action                       |
 | ------------------- | ---------------------------- |
 | `a`                 | Add a job                    |
-| `e`                 | Evaluate the selected job    |
-| `g`                 | Generate a tailored resume   |
-| `c`                 | Generate a cover letter      |
-| `w`                 | Open the answer workspace    |
-| `s`                 | Update job status            |
-| `d`                 | Delete the selected job      |
-| `o`                 | Open the saved job link      |
 | `Tab` / `Shift+Tab` | Move between panels          |
 | `[` / `]`           | Cycle filters or config tabs |
 | `1` `2` `3`         | Jump between major panels    |
