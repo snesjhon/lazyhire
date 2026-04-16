@@ -1,6 +1,14 @@
 <p align="center"><img src="./src/shared/ui/logo.svg" alt="lazyhire" width="520"/></p>
 
 <p align="center">
+<video autoplay loop muted playsinline>
+<source src="https://github.com/user-attachments/assets/2fda985a-d86d-4191-873c-3026c7912d68" type="video/mp4">
+</video>
+</p>
+
+
+
+<p align="center">
 <strong>
 AI-Assisted job search tooling. Resume in, decisions and applications out.
 </strong>
