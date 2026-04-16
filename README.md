@@ -2,7 +2,7 @@
 
 <p align="center">
 <strong>
-Resume in, applications out.
+Resume in, applications out. &nbsp;&nbsp;
 </strong>
 </p>
 
