@@ -1,13 +1,13 @@
 <p align="center"><img src="./src/shared/ui/logo.svg" alt="lazyhire" width="520"/></p>
 
-<p align="center" width="100%">
-<video src="https://github.com/user-attachments/assets/a5261189-639e-420d-9317-0e05dba06df3" width="80%" autoplay loop muted playsinline></video>
-</p>
-
 <p align="center">
 <strong>
-AI-Assisted job search tooling. Resume in, decisions and applications out.
+Resume in, applications out.
 </strong>
+</p>
+
+<p align="center" width="100%">
+<img width="900" alt="intro" src="https://github.com/user-attachments/assets/8ee52b7a-200b-4aa7-b9f9-fb43bc8c69fe" />
 </p>
 
 <!-- Badges -->
