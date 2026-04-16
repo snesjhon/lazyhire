@@ -98,13 +98,13 @@ Generated PDFs attach back to the saved job records.
 
 ### Requirements
 
-- `bun`
-- `pnpm`
+- `bun` - `opentui` requires bun (for now) requires it
 - a working Claude Code setup, since evaluation and generation use `@anthropic-ai/claude-code`
 
-## Inspiration
+## Inspirations
 
-`lazyhire` started from looking at [career-ops](https://github.com/tylerbishopdev/career-ops). It covers the job search operations space well, but the scope was broader than what I needed. I wanted something more streamlined: one candidate, one terminal, a straight line from job description to application materials. That's what `lazyhire` is.
+- [lazygit](https://github.com/jesseduffield/lazygit): I always loved this approach to git, simplicity over everything.
+- [career-ops](https://github.com/tylerbishopdev/career-ops): `lazyhire` started from looking at how career-ops covered the job search operations, but the scope was broader than what I needed. I wanted something more streamlined: one candidate, one terminal, a straight line from job description to application materials. That's what `lazyhire` is.
 
 ## License
 
