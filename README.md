@@ -1,12 +1,10 @@
 <p align="center"><img src="./src/shared/ui/logo.svg" alt="lazyhire" width="520"/></p>
 
 <p align="center">
-<video autoplay loop muted playsinline>
-<source src="https://github.com/user-attachments/assets/2fda985a-d86d-4191-873c-3026c7912d68" type="video/mp4">
-</video>
+  <video autoplay loop muted playsinline>
+    <source src="./docs/tapes/intro.mp4" type="video/mp4">
+  </video>
 </p>
-
-
 
 <p align="center">
 <strong>
