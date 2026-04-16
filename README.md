@@ -1,9 +1,7 @@
 <p align="center"><img src="./src/shared/ui/logo.svg" alt="lazyhire" width="520"/></p>
 
-<p align="center">
-  <video autoplay loop muted playsinline>
-    <source src="./docs/tapes/intro.mp4" type="video/mp4">
-  </video>
+<p align="center" width="100%">
+<video src="https://github.com/user-attachments/assets/a5261189-639e-420d-9317-0e05dba06df3" width="80%" autoplay loop muted playsinline></video>
 </p>
 
 <p align="center">
