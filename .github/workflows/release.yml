@@ -6,12 +6,14 @@ on:
       - 'v*'
 
 jobs:
-  build:
+  build-mac:
     runs-on: macos-latest
     permissions:
       contents: write
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    outputs:
+      sha256: ${{ steps.sha256.outputs.hash }}
 
     steps:
       - name: Checkout
@@ -25,11 +27,8 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build macOS binary
+      - name: Build binary
         run: bun build --compile src/index.tsx --outfile lazyhire-mac-arm64
-
-      - name: Build Windows binary
-        run: bun build --compile --target bun-windows-x64 src/index.tsx --outfile lazyhire-windows-x64
 
       - name: Import signing certificate
         env:
@@ -83,10 +82,67 @@ jobs:
       - name: Compute SHA256
         id: sha256
         run: |
-          MAC_HASH=$(shasum -a 256 lazyhire-mac-arm64 | cut -d' ' -f1)
-          WIN_HASH=$(shasum -a 256 lazyhire-windows-x64.exe | cut -d' ' -f1)
-          echo "mac=$MAC_HASH" >> "$GITHUB_OUTPUT"
-          echo "win=$WIN_HASH" >> "$GITHUB_OUTPUT"
+          HASH=$(shasum -a 256 lazyhire-mac-arm64 | cut -d' ' -f1)
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lazyhire-mac-arm64
+          path: lazyhire-mac-arm64
+
+  build-windows:
+    runs-on: windows-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    outputs:
+      sha256: ${{ steps.sha256.outputs.hash }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build binary
+        run: bun build --compile src/index.tsx --outfile lazyhire-windows-x64
+
+      - name: Compute SHA256
+        id: sha256
+        run: |
+          $hash = (Get-FileHash lazyhire-windows-x64.exe -Algorithm SHA256).Hash.ToLower()
+          echo "hash=$hash" >> $env:GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lazyhire-windows-x64
+          path: lazyhire-windows-x64.exe
+
+  release:
+    needs: [build-mac, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Download Mac artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lazyhire-mac-arm64
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lazyhire-windows-x64
 
       - name: Write release files
         run: |
@@ -99,11 +155,11 @@ jobs:
             "platforms": {
               "darwin-arm64": {
                 "url": "https://github.com/$REPO/releases/download/$TAG/lazyhire-mac-arm64",
-                "sha256": "${{ steps.sha256.outputs.mac }}"
+                "sha256": "${{ needs.build-mac.outputs.sha256 }}"
               },
               "windows-x64": {
                 "url": "https://github.com/$REPO/releases/download/$TAG/lazyhire-windows-x64.exe",
-                "sha256": "${{ steps.sha256.outputs.win }}"
+                "sha256": "${{ needs.build-windows.outputs.sha256 }}"
               }
             }
           }
@@ -118,5 +174,6 @@ jobs:
             lazyhire-windows-x64.exe \
             manifest.json \
             latest.txt \
+            --repo "${{ github.repository }}" \
             --title "${{ github.ref_name }}" \
             --generate-notes
