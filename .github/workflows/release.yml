@@ -25,8 +25,11 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build binary
+      - name: Build macOS binary
         run: bun build --compile src/index.tsx --outfile lazyhire-mac-arm64
+
+      - name: Build Windows binary
+        run: bun build --compile --target bun-windows-x64 src/index.tsx --outfile lazyhire-windows-x64
 
       - name: Import signing certificate
         env:
@@ -80,18 +83,29 @@ jobs:
       - name: Compute SHA256
         id: sha256
         run: |
-          HASH=$(shasum -a 256 lazyhire-mac-arm64 | cut -d' ' -f1)
-          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+          MAC_HASH=$(shasum -a 256 lazyhire-mac-arm64 | cut -d' ' -f1)
+          WIN_HASH=$(shasum -a 256 lazyhire-windows-x64.exe | cut -d' ' -f1)
+          echo "mac=$MAC_HASH" >> "$GITHUB_OUTPUT"
+          echo "win=$WIN_HASH" >> "$GITHUB_OUTPUT"
 
       - name: Write release files
         run: |
           TAG="${{ github.ref_name }}"
+          REPO="${{ github.repository }}"
           echo "$TAG" > latest.txt
           cat > manifest.json <<EOF
           {
             "version": "$TAG",
-            "url": "https://github.com/${{ github.repository }}/releases/download/$TAG/lazyhire-mac-arm64",
-            "sha256": "${{ steps.sha256.outputs.hash }}"
+            "platforms": {
+              "darwin-arm64": {
+                "url": "https://github.com/$REPO/releases/download/$TAG/lazyhire-mac-arm64",
+                "sha256": "${{ steps.sha256.outputs.mac }}"
+              },
+              "windows-x64": {
+                "url": "https://github.com/$REPO/releases/download/$TAG/lazyhire-windows-x64.exe",
+                "sha256": "${{ steps.sha256.outputs.win }}"
+              }
+            }
           }
           EOF
 
@@ -101,6 +115,7 @@ jobs:
         run: |
           gh release create "${{ github.ref_name }}" \
             lazyhire-mac-arm64 \
+            lazyhire-windows-x64.exe \
             manifest.json \
             latest.txt \
             --title "${{ github.ref_name }}" \

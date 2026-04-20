@@ -12,14 +12,17 @@ import { homedir } from 'os';
 import { dirname, join } from 'path';
 
 export async function runInstall(): Promise<void> {
-  const dest = join(homedir(), '.local', 'bin', 'lazyhire');
+  const isWindows = process.platform === 'win32';
+  const binaryName = isWindows ? 'lazyhire.exe' : 'lazyhire';
+  const dest = join(homedir(), '.local', 'bin', binaryName);
   mkdirSync(dirname(dest), { recursive: true });
 
   copyFileSync(process.execPath, dest);
-  chmodSync(dest, 0o755);
+  if (!isWindows) chmodSync(dest, 0o755);
 
-  const shell = process.env.SHELL ?? '/bin/zsh';
-  const configFile = shell.includes('zsh')
+  // On Windows (Git Bash), SHELL is unset — default to .bash_profile
+  const shell = process.env.SHELL ?? '';
+  const configFile = !isWindows && shell.includes('zsh')
     ? join(homedir(), '.zshrc')
     : join(homedir(), '.bash_profile');
 

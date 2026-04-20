@@ -12,6 +12,22 @@ fi
 
 echo "Installing lazyhire..."
 
+# Detect platform
+OS=$(uname -s)
+
+case "$OS" in
+  Darwin*)
+    PLATFORM="darwin-arm64"
+    ;;
+  MINGW*|MSYS*|CYGWIN*)
+    PLATFORM="windows-x64"
+    ;;
+  *)
+    echo "Error: Unsupported platform: $OS." >&2
+    exit 1
+    ;;
+esac
+
 # Fetch latest version tag
 VERSION=$(curl -fsSL "$GH_BASE/latest/download/latest.txt")
 
@@ -20,20 +36,22 @@ if [ -z "$VERSION" ]; then
   exit 1
 fi
 
-# Fetch manifest (contains download URL + SHA256)
+# Fetch manifest (contains platform download URLs + SHA256s)
 MANIFEST=$(curl -fsSL "$GH_BASE/download/$VERSION/manifest.json")
 
-# Parse manifest — use jq if available, fall back to bash regex
+# Parse manifest for the target platform
 if command -v jq &>/dev/null; then
-  URL=$(echo "$MANIFEST" | jq -r '.url')
-  CHECKSUM=$(echo "$MANIFEST" | jq -r '.sha256')
+  URL=$(echo "$MANIFEST" | jq -r ".platforms[\"$PLATFORM\"].url")
+  CHECKSUM=$(echo "$MANIFEST" | jq -r ".platforms[\"$PLATFORM\"].sha256")
 else
-  URL=$(echo "$MANIFEST" | grep -o '"url":"[^"]*"' | cut -d'"' -f4)
-  CHECKSUM=$(echo "$MANIFEST" | grep -o '"sha256":"[^"]*"' | cut -d'"' -f4)
+  # Minimal bash regex fallback — extract the block for PLATFORM then pull fields
+  BLOCK=$(echo "$MANIFEST" | grep -A2 "\"$PLATFORM\"")
+  URL=$(echo "$BLOCK" | grep '"url"' | grep -o '"url":"[^"]*"' | cut -d'"' -f4)
+  CHECKSUM=$(echo "$BLOCK" | grep '"sha256"' | grep -o '"sha256":"[^"]*"' | cut -d'"' -f4)
 fi
 
 if [ -z "$URL" ] || [ -z "$CHECKSUM" ]; then
-  echo "Error: Could not parse manifest." >&2
+  echo "Error: Could not parse manifest for platform $PLATFORM." >&2
   exit 1
 fi
 
@@ -42,11 +60,13 @@ TMP=$(mktemp)
 curl -fsSL "$URL" -o "$TMP"
 
 # Verify SHA256 checksum
-echo "$CHECKSUM  $TMP" | shasum -a 256 -c - >/dev/null 2>&1 || {
-  echo "Error: Checksum verification failed." >&2
-  rm -f "$TMP"
-  exit 1
-}
+if command -v shasum &>/dev/null; then
+  echo "$CHECKSUM  $TMP" | shasum -a 256 -c - >/dev/null 2>&1 || { echo "Error: Checksum verification failed." >&2; rm -f "$TMP"; exit 1; }
+elif command -v sha256sum &>/dev/null; then
+  echo "$CHECKSUM  $TMP" | sha256sum -c - >/dev/null 2>&1 || { echo "Error: Checksum verification failed." >&2; rm -f "$TMP"; exit 1; }
+else
+  echo "Warning: No checksum tool found, skipping verification." >&2
+fi
 
 # Run the binary's own install subcommand (handles PATH setup)
 chmod +x "$TMP"
