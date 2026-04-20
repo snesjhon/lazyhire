@@ -16,6 +16,7 @@ You may also receive application-specific guidance from the candidate. Use it wh
 - Use exact terminology from the JD where it truthfully matches the candidate's experience
 - The most recent role gets exactly 3 bullets; all other roles get exactly 2 bullets
 - Order roles chronologically (most recent first)
+- NEVER include education in the `roles` array — education belongs only in the `education` array
 - Prefer a plain ATS-safe structure: name, title, contact, skills, experience, education
 - Use plain separators such as "|" for contact info, not decorative separators
 - Make every bullet information-dense: include scope, systems, technologies, constraints, and measurable impact when the source material supports it

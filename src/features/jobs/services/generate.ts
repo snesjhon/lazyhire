@@ -221,6 +221,13 @@ export function parseGeneratedCV(text: string): GeneratedCV {
   }
   if (!Array.isArray(parsed.skills)) throw new Error('Missing skills in generated CV');
 
+  // Guard: strip any education entries that leaked into the roles array (no bullets = not a role)
+  parsed.roles = parsed.roles.filter((r) => Array.isArray(r.bullets) && r.bullets.length > 0);
+
+  if (parsed.roles.length === 0) {
+    throw new Error('All roles were filtered out — possible education/roles mix-up in generation');
+  }
+
   return parsed as GeneratedCV;
 }
 
