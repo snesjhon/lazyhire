@@ -5,7 +5,13 @@ import { join } from 'path';
 
 const REPO = 'snesjhon/lazyhire';
 const GH_BASE = `https://github.com/${REPO}/releases`;
-export const INSTALLED_PATH = join(homedir(), '.local', 'bin', 'lazyhire');
+const binaryName = process.platform === 'win32' ? 'lazyhire.exe' : 'lazyhire';
+export const INSTALLED_PATH = join(homedir(), '.local', 'bin', binaryName);
+
+function platformKey(): string {
+  if (process.platform === 'win32') return 'windows-x64';
+  return 'darwin-arm64';
+}
 
 declare const __LAZYHIRE_VERSION__: string | undefined;
 export const CURRENT_VERSION =
@@ -47,17 +53,23 @@ export async function runUpdate(): Promise<void> {
 
   try {
     const manifest = await fetch(`${GH_BASE}/download/${latestVersion}/manifest.json`)
-      .then((r) => r.json()) as { url: string; sha256: string };
+      .then((r) => r.json()) as { platforms: Record<string, { url: string; sha256: string }> };
 
-    const bytes = await fetch(manifest.url).then((r) => r.bytes());
+    const platform = manifest.platforms?.[platformKey()];
+    if (!platform?.url) {
+      console.error('No binary available for this platform.');
+      return;
+    }
+
+    const bytes = await fetch(platform.url).then((r) => r.bytes());
 
     const hash = createHash('sha256').update(bytes as unknown as Buffer).digest('hex');
-    if (hash !== manifest.sha256) {
+    if (hash !== platform.sha256) {
       console.error('Checksum verification failed, aborting.');
       return;
     }
 
-    const tmp = join(homedir(), '.local', 'bin', `.lazyhire-update-${Date.now()}`);
+    const tmp = join(homedir(), '.local', 'bin', `.lazyhire-update-${Date.now()}${process.platform === 'win32' ? '.exe' : ''}`);
     writeFileSync(tmp, bytes);
     chmodSync(tmp, 0o755);
     renameSync(tmp, INSTALLED_PATH);
