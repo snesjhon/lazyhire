@@ -21,6 +21,7 @@
     "unpdf": "^1.6.0"
   },
   "devDependencies": {
+    "@opentui/core-darwin-x64": "0.1.97",
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.2",
     "react-devtools-core": "7",
