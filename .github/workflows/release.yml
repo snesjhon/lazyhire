@@ -28,6 +28,13 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Install x64 native module for cross-compilation
+        run: |
+          VERSION=$(jq -r '.version' node_modules/@opentui/core/package.json)
+          mkdir -p node_modules/@opentui/core-darwin-x64
+          curl -fsSL "https://registry.npmjs.org/@opentui/core-darwin-x64/-/core-darwin-x64-${VERSION}.tgz" \
+            | tar -xz --strip-components=1 -C node_modules/@opentui/core-darwin-x64
+
       - name: Build binaries
         run: |
           bun build --compile src/index.tsx --outfile lazyhire-mac-arm64

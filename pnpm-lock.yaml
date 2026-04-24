@@ -30,9 +30,6 @@ importers:
         specifier: ^1.6.0
         version: 1.6.0(@napi-rs/canvas@0.1.80)
     devDependencies:
-      '@opentui/core-darwin-x64':
-        specifier: 0.1.97
-        version: 0.1.97
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.17
@@ -2061,7 +2058,8 @@ snapshots:
   '@opentui/core-darwin-arm64@0.1.97':
     optional: true
 
-  '@opentui/core-darwin-x64@0.1.97': {}
+  '@opentui/core-darwin-x64@0.1.97':
+    optional: true
 
   '@opentui/core-linux-arm64@0.1.97':
     optional: true
