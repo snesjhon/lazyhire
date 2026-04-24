@@ -17,7 +17,12 @@ OS=$(uname -s)
 
 case "$OS" in
   Darwin*)
-    PLATFORM="darwin-arm64"
+    ARCH=$(uname -m)
+    if [ "$ARCH" = "x86_64" ]; then
+      PLATFORM="darwin-x64"
+    else
+      PLATFORM="darwin-arm64"
+    fi
     ;;
   MINGW*|MSYS*|CYGWIN*)
     PLATFORM="windows-x64"

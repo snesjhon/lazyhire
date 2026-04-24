@@ -13,7 +13,8 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     outputs:
-      sha256: ${{ steps.sha256.outputs.hash }}
+      sha256_arm64: ${{ steps.sha256_arm64.outputs.hash }}
+      sha256_x64: ${{ steps.sha256_x64.outputs.hash }}
 
     steps:
       - name: Checkout
@@ -27,8 +28,10 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build binary
-        run: bun build --compile src/index.tsx --outfile lazyhire-mac-arm64
+      - name: Build binaries
+        run: |
+          bun build --compile src/index.tsx --outfile lazyhire-mac-arm64
+          bun build --compile --target bun-darwin-x64 src/index.tsx --outfile lazyhire-mac-x64
 
       - name: Import signing certificate
         env:
@@ -57,13 +60,15 @@ jobs:
             '  <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>' \
             '  <key>com.apple.security.cs.disable-library-validation</key><true/>' \
             '</dict></plist>' > entitlements.plist
-          codesign --remove-signature lazyhire-mac-arm64 || true
-          codesign --sign "Developer ID Application: Jhonatan Paredes ($APPLE_TEAM_ID)" \
-            --options runtime \
-            --timestamp \
-            --force \
-            --entitlements entitlements.plist \
-            lazyhire-mac-arm64
+          for binary in lazyhire-mac-arm64 lazyhire-mac-x64; do
+            codesign --remove-signature "$binary" || true
+            codesign --sign "Developer ID Application: Jhonatan Paredes ($APPLE_TEAM_ID)" \
+              --options runtime \
+              --timestamp \
+              --force \
+              --entitlements entitlements.plist \
+              "$binary"
+          done
 
       - name: Notarize binary
         env:
@@ -71,25 +76,39 @@ jobs:
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          zip lazyhire-mac-arm64.zip lazyhire-mac-arm64
-          xcrun notarytool submit lazyhire-mac-arm64.zip \
-            --apple-id "$APPLE_ID" \
-            --team-id "$APPLE_TEAM_ID" \
-            --password "$APPLE_APP_PASSWORD" \
-            --wait
-          rm lazyhire-mac-arm64.zip
+          for binary in lazyhire-mac-arm64 lazyhire-mac-x64; do
+            zip "$binary.zip" "$binary"
+            xcrun notarytool submit "$binary.zip" \
+              --apple-id "$APPLE_ID" \
+              --team-id "$APPLE_TEAM_ID" \
+              --password "$APPLE_APP_PASSWORD" \
+              --wait
+            rm "$binary.zip"
+          done
 
       - name: Compute SHA256
-        id: sha256
+        id: sha256_arm64
         run: |
           HASH=$(shasum -a 256 lazyhire-mac-arm64 | cut -d' ' -f1)
           echo "hash=$HASH" >> "$GITHUB_OUTPUT"
 
-      - name: Upload artifact
+      - name: Compute SHA256 x64
+        id: sha256_x64
+        run: |
+          HASH=$(shasum -a 256 lazyhire-mac-x64 | cut -d' ' -f1)
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Upload arm64 artifact
         uses: actions/upload-artifact@v4
         with:
           name: lazyhire-mac-arm64
           path: lazyhire-mac-arm64
+
+      - name: Upload x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lazyhire-mac-x64
+          path: lazyhire-mac-x64
 
   build-windows:
     runs-on: windows-latest
@@ -134,10 +153,15 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
-      - name: Download Mac artifact
+      - name: Download Mac arm64 artifact
         uses: actions/download-artifact@v4
         with:
           name: lazyhire-mac-arm64
+
+      - name: Download Mac x64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lazyhire-mac-x64
 
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
@@ -155,7 +179,11 @@ jobs:
             "platforms": {
               "darwin-arm64": {
                 "url": "https://github.com/$REPO/releases/download/$TAG/lazyhire-mac-arm64",
-                "sha256": "${{ needs.build-mac.outputs.sha256 }}"
+                "sha256": "${{ needs.build-mac.outputs.sha256_arm64 }}"
+              },
+              "darwin-x64": {
+                "url": "https://github.com/$REPO/releases/download/$TAG/lazyhire-mac-x64",
+                "sha256": "${{ needs.build-mac.outputs.sha256_x64 }}"
               },
               "windows-x64": {
                 "url": "https://github.com/$REPO/releases/download/$TAG/lazyhire-windows-x64.exe",
@@ -171,6 +199,7 @@ jobs:
         run: |
           gh release create "${{ github.ref_name }}" \
             lazyhire-mac-arm64 \
+            lazyhire-mac-x64 \
             lazyhire-windows-x64.exe \
             manifest.json \
             latest.txt \
