@@ -163,6 +163,33 @@ export interface AnswerEntry {
 
 export type ScanSource = 'greenhouse' | 'lever' | 'ashby' | 'remoteok' | 'remotive' | 'hn-hiring' | 'websearch';
 
+export interface DiscoveredJob {
+  slug: string;
+  name: string;
+  ats: 'greenhouse' | 'ashby';
+  jobTitle: string;
+  jobUrl: string;
+  score: number;
+  snippet: string | null;
+  status: 'pending' | 'added' | 'passed';
+}
+
+export interface DiscoveredStore {
+  batch: DiscoveredJob[];
+  batchOffset: number;
+  queue: DiscoveredJob[];
+  cursor: {
+    greenhouse: number;
+    ashby: number;
+  };
+  lastSourcedAt: string;
+  slugCache?: {
+    greenhouse: string[];
+    ashby: string[];
+    fetchedAt: string;
+  };
+}
+
 export interface ScanJob {
   title: string;
   company: string;
