@@ -6,6 +6,7 @@ export type FocusTarget =
   | 'jobs'
   | 'profile'
   | 'answers'
+  | 'discovery'
   | 'detail';
 export type JobIntakeState =
   | 'none'

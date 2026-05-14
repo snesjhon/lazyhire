@@ -38,6 +38,7 @@ import type {
   JobActionView,
 } from './features/jobs/ui/JobActionWorkspace.js';
 import type { ProfileActionView } from './features/profile/ui/ProfileActionWorkspace.js';
+import { PROFILE_OPTIONS } from './features/profile/ui/ProfileDashboardDetail.js';
 import { resolveUiTheme } from './shared/ui/theme.js';
 import {
   createEmptyProfile,
@@ -158,6 +159,8 @@ export default function App() {
   const [detailSource, setDetailSource] = useState<
     'status' | 'jobs' | 'profile' | 'answers'
   >('jobs');
+  const [profileIndex, setProfileIndex] = useState(0);
+  const [answerIndex, setAnswerIndex] = useState(0);
   const [filter, setFilter] = useState<JobFilter>('Queue');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [jobIntakeState, setJobIntakeState] = useState<JobIntakeState>('none');
@@ -758,10 +761,6 @@ export default function App() {
     openCompanyAnswers(selectedJob.id);
   }
 
-  function activeConfigTarget(): Extract<FocusTarget, 'profile' | 'answers'> {
-    return detailSource === 'answers' ? 'answers' : 'profile';
-  }
-
   function setConfigTab(
     tab: Extract<FocusTarget, 'profile' | 'answers'>,
     nextFocus: FocusTarget = focus,
@@ -783,9 +782,30 @@ export default function App() {
       return;
     }
 
-    if (panel === 'profile' || panel === 'answers') {
-      const nextTab = panel === 'profile' ? 'answers' : 'profile';
-      setConfigTab(nextTab, focus);
+    if (panel === 'status' || panel === 'profile' || panel === 'answers') {
+      const ABOUT_TABS = ['status', 'profile', 'answers'] as const;
+      const currentIndex = ABOUT_TABS.indexOf(panel);
+      const nextTab =
+        ABOUT_TABS[(currentIndex + direction + ABOUT_TABS.length) % ABOUT_TABS.length]!;
+      if (nextTab === 'status') {
+        setFocus('status');
+        setDetailSource('status');
+      } else {
+        setConfigTab(nextTab, focus);
+      }
+    }
+
+  }
+
+  function cycleDetailItem(direction: -1 | 1) {
+    if (detailSource === 'profile') {
+      setProfileIndex(
+        (i) => (i + direction + PROFILE_OPTIONS.length) % PROFILE_OPTIONS.length,
+      );
+    }
+    if (detailSource === 'answers') {
+      const count = answers.length;
+      if (count > 0) setAnswerIndex((i) => (i + direction + count) % count);
     }
   }
 
@@ -795,12 +815,11 @@ export default function App() {
   }
 
   useKeyboard((key) => {
-    const PANEL_ORDER: Array<'status' | 'jobs' | 'profile'> = [
-      'status',
+    const PANEL_ORDER: Array<'about' | 'jobs' | 'discovery'> = [
+      'about',
       'jobs',
-      'profile',
+      'discovery',
     ];
-    const configTarget = activeConfigTarget();
 
     if (key.ctrl && key.name === 'c') quit();
     if (key.ctrl && key.name === 'q') quit();
@@ -822,32 +841,56 @@ export default function App() {
       return;
     if (key.name === '0') setFocus('detail');
     if (key.name === '1') {
-      setFocus('status');
-      setDetailSource('status');
+      const aboutFocus =
+        detailSource === 'profile' || detailSource === 'answers'
+          ? detailSource
+          : 'status';
+      setFocus(aboutFocus);
     }
     if (key.name === '2') {
       setFocus('jobs');
       setDetailSource('jobs');
     }
     if (key.name === '3') {
-      setFocus(configTarget);
-      setDetailSource(configTarget);
+      setFocus('discovery');
     }
     if (key.name === 'tab') {
-      let currentPanel: 'status' | 'jobs' | 'profile' = 'status';
+      let currentPanel: 'about' | 'jobs' | 'discovery' = 'about';
       if (focus === 'jobs') currentPanel = 'jobs';
-      if (focus === 'profile' || focus === 'answers') currentPanel = 'profile';
+      if (focus === 'discovery') currentPanel = 'discovery';
       const currentIndex = PANEL_ORDER.indexOf(currentPanel);
       const step = key.shift ? -1 : 1;
       const nextIndex =
         (currentIndex + step + PANEL_ORDER.length) % PANEL_ORDER.length;
       const nextPanel = PANEL_ORDER[nextIndex]!;
-      setFocus(nextPanel === 'profile' ? configTarget : nextPanel);
-      if (nextPanel !== 'profile') setDetailSource(nextPanel);
+      if (nextPanel === 'about') {
+        const aboutFocus =
+          detailSource === 'profile' || detailSource === 'answers'
+            ? detailSource
+            : 'status';
+        setFocus(aboutFocus);
+      } else if (nextPanel === 'jobs') {
+        setFocus('jobs');
+        setDetailSource('jobs');
+      } else {
+        setFocus('discovery');
+      }
       return;
     }
-    if (key.sequence === '[') cycleFocusedPanel(-1);
-    if (key.sequence === ']') cycleFocusedPanel(1);
+    if (key.sequence === '[') {
+      if (focus === 'detail') cycleDetailItem(-1);
+      else cycleFocusedPanel(-1);
+    }
+    if (key.sequence === ']') {
+      if (focus === 'detail') cycleDetailItem(1);
+      else cycleFocusedPanel(1);
+    }
+    if (
+      (focus === 'status' || focus === 'profile' || focus === 'answers') &&
+      key.name === 'return'
+    ) {
+      setFocus('detail');
+    }
     if (key.name === 'a') setJobIntakeState('choose-source');
     if (focus === 'jobs') {
       if (key.name === 'e' && selectedJob) void runEvaluate(selectedJob);
@@ -1239,7 +1282,6 @@ export default function App() {
         jobs={jobs}
         filteredJobs={filteredJobs}
         answers={answers}
-        profile={profile}
         selectedJob={selectedJob}
         selectedIndex={selectedIndex}
         focus={focus}
@@ -1255,9 +1297,13 @@ export default function App() {
             ]!,
           )
         }
-        onOpenActions={() => openJobActions('menu')}
+        profileIndex={profileIndex}
+        answerIndex={answerIndex}
+        onProfileIndexChange={setProfileIndex}
+        onAnswerIndexChange={setAnswerIndex}
         onOpenProfileActions={openProfileActions}
         onOpenSavedAnswer={openSavedAnswer}
+        onOpenActions={() => openJobActions('menu')}
       />
       <TasksIndicator tasks={tasks} theme={theme} />
     </box>
