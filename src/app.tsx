@@ -44,8 +44,18 @@ import {
   createEmptyProfile,
   hasProfile,
   loadProfileOrDefault,
+  loadProfile,
   saveProfile,
 } from './shared/models/profile.js';
+import {
+  runCCFetchGreenhouse,
+  runCCFetchAshby,
+  runScanAshby,
+  runScanGreenhouse,
+} from './features/scan/discover.js';
+import type { DiscoveryProgress } from './features/scan/discover.js';
+import DiscoveryChoicesPane from './features/discovery/ui/DiscoveryChoicesPane.js';
+import DiscoveryScanPane from './features/discovery/ui/DiscoveryScanPane.js';
 import type {
   CvBulletWordRange,
   CvTextSizeScale,
@@ -196,6 +206,9 @@ export default function App() {
   const [flash, setFlashState] = useState<Flash | null>(null);
   const [tasks, setTasks] = useState<string[]>([]);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [discoveryMenuIndex, setDiscoveryMenuIndex] = useState(0);
+  const [discoveryChoicesOpen, setDiscoveryChoicesOpen] = useState(false);
+  const [discoveryScanProgress, setDiscoveryScanProgress] = useState<DiscoveryProgress[] | null>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode | null>(
     activeRenderer.themeMode,
   );
@@ -214,7 +227,7 @@ export default function App() {
   const filteredJobs = useMemo(() => {
     const next = jobs.filter((job) => {
       if (filter === 'Queue') {
-        return job.status === 'Evaluated';
+        return job.status === 'Evaluated' || job.status === 'Pending';
       }
       return job.status === filter;
     });
@@ -745,6 +758,42 @@ export default function App() {
     setFocus('profile');
   }
 
+  function startDiscoveryStep(label: string, runner: (onProgress: (p: DiscoveryProgress) => void) => Promise<void>) {
+    setDiscoveryScanProgress([]);
+    setDiscoveryChoicesOpen(false);
+    setFocus('detail');
+    const finishTask = startTask(label);
+    runner((p) => {
+      setDiscoveryScanProgress((prev) => [...(prev ?? []), p]);
+    }).finally(() => {
+      finishTask();
+    });
+  }
+
+  function handleCCFetchGreenhouse() {
+    startDiscoveryStep('CC Fetch Greenhouse', (onProgress) => runCCFetchGreenhouse(onProgress));
+  }
+
+  function handleCCFetchAshby() {
+    startDiscoveryStep('CC Fetch Ashby', (onProgress) => runCCFetchAshby(onProgress));
+  }
+
+  function handleScanAshby() {
+    const profile = loadProfile();
+    startDiscoveryStep('Scan Ashby', (onProgress) => runScanAshby(profile, onProgress));
+  }
+
+  function handleScanGreenhouse() {
+    const profile = loadProfile();
+    startDiscoveryStep('Scan Greenhouse', (onProgress) => runScanGreenhouse(profile, onProgress));
+  }
+
+  function handleOpenAddToQueue() {
+    setDiscoveryChoicesOpen(true);
+    setDiscoveryScanProgress(null);
+    setFocus('detail');
+  }
+
   function startAnswerWorkspace() {
     if (!selectedJob) return;
     setJobActionState(null);
@@ -892,6 +941,19 @@ export default function App() {
       setFocus('detail');
     }
     if (key.name === 'a') setJobIntakeState('choose-source');
+    if (focus === 'discovery') {
+      if (key.name === 'j' || key.name === 'down')
+        setDiscoveryMenuIndex((i) => (i + 1) % 5);
+      if (key.name === 'k' || key.name === 'up')
+        setDiscoveryMenuIndex((i) => (i + 4) % 5);
+      if (key.name === 'return') {
+        if (discoveryMenuIndex === 0) handleCCFetchGreenhouse();
+        else if (discoveryMenuIndex === 1) handleCCFetchAshby();
+        else if (discoveryMenuIndex === 2) handleScanAshby();
+        else if (discoveryMenuIndex === 3) handleScanGreenhouse();
+        else if (discoveryMenuIndex === 4) handleOpenAddToQueue();
+      }
+    }
     if (focus === 'jobs') {
       if (key.name === 'e' && selectedJob) void runEvaluate(selectedJob);
       if (key.name === 'g' && selectedJob) openJobActions('generate-cv');
@@ -1205,7 +1267,64 @@ export default function App() {
                         />
                       ),
                     }
-                  : null;
+                  : discoveryScanProgress !== null
+                    ? {
+                        kind: 'discovery-scan' as const,
+                        render: ({
+                          width,
+                          height: _height,
+                        }: {
+                          width: number;
+                          height: number;
+                        }) => (
+                          <DiscoveryScanPane
+                            theme={theme}
+                            width={width}
+                            progress={discoveryScanProgress}
+                            onClose={() => {
+                              setDiscoveryScanProgress(null);
+                              setFocus('discovery');
+                            }}
+                          />
+                        ),
+                      }
+                  : discoveryChoicesOpen
+                    ? {
+                        kind: 'discovery-choices' as const,
+                        render: ({
+                          width,
+                          height,
+                        }: {
+                          width: number;
+                          height: number;
+                        }) => (
+                          <DiscoveryChoicesPane
+                            theme={theme}
+                            width={width}
+                            height={height}
+                            onClose={() => {
+                              setDiscoveryChoicesOpen(false);
+                              setFocus('discovery');
+                            }}
+                            onAddToQueue={(job) => {
+                              const pending = saveJob({
+                                ...createPendingJob({ company: job.name, role: job.jobTitle, url: job.jobUrl, jd: '' }),
+                                score: job.score,
+                              });
+                              refreshJobs();
+                              const finishTask = startTask(`Evaluating ${job.name}`);
+                              hydrateJobFromUrl(job.jobUrl)
+                                .then((hydrated) => {
+                                  db.updateJob(pending.id, { company: hydrated.company, role: hydrated.role, jd: hydrated.jd });
+                                  return evaluateAndPersistJob({ ...pending, company: hydrated.company, role: hydrated.role, jd: hydrated.jd });
+                                })
+                                .catch(() => evaluateAndPersistJob(pending))
+                                .finally(() => { refreshJobs(); finishTask(); });
+                            }}
+                          />
+                        ),
+                      }
+                    : null;
 
   if (requiresOnboarding) {
     return (
@@ -1287,6 +1406,7 @@ export default function App() {
         focus={focus}
         detailSource={detailSource}
         detailPane={dashboardDetailPane}
+        discoveryMenuIndex={discoveryMenuIndex}
         onFilterChange={setFilter}
         onJobSelect={setSelectedJobId}
         onCycleFilter={(direction) =>

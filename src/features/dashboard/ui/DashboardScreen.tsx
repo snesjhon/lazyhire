@@ -50,6 +50,12 @@ function detailPaneTitle(
   if (detailPane.kind === 'job-actions') {
     return 'Job Actions';
   }
+  if (detailPane.kind === 'discovery-choices') {
+    return 'Discovery Choices';
+  }
+  if (detailPane.kind === 'discovery-scan') {
+    return 'Scanning Sources';
+  }
   return 'Profile Actions';
 }
 
@@ -75,6 +81,7 @@ export interface DashboardScreenProps {
   selectedIndex: number;
   focus: FocusTarget;
   detailSource: 'status' | 'jobs' | 'profile' | 'answers';
+  discoveryMenuIndex: number;
   detailPane?:
     | {
         kind: 'job-intake';
@@ -110,6 +117,14 @@ export interface DashboardScreenProps {
         kind: 'profile-actions';
         render: (args: { width: number; height: number }) => ReactNode;
       }
+    | {
+        kind: 'discovery-choices';
+        render: (args: { width: number; height: number }) => ReactNode;
+      }
+    | {
+        kind: 'discovery-scan';
+        render: (args: { width: number; height: number }) => ReactNode;
+      }
     | null;
   profileIndex: number;
   answerIndex: number;
@@ -138,6 +153,7 @@ export default function DashboardScreen({
   focus,
   detailSource,
   detailPane,
+  discoveryMenuIndex,
   profileIndex,
   answerIndex,
   onProfileIndexChange,
@@ -318,7 +334,27 @@ export default function DashboardScreen({
             height={discoveryHeight}
             overflow="hidden"
             flexDirection="column"
-          />
+          >
+            {(['CC Fetch Greenhouse', 'CC Fetch Ashby', 'Scan Ashby', 'Scan Greenhouse', 'Add to Queue'] as const).map(
+              (label, i) => {
+                const isSelected = discoveryMenuIndex === i;
+                return (
+                  <text
+                    key={label}
+                    fg={isSelected && discoveryFocused ? theme.brand : theme.muted}
+                  >
+                    {isSelected ? (
+                      <u>
+                        <strong>{`> ${label}`}</strong>
+                      </u>
+                    ) : (
+                      `  ${label}`
+                    )}
+                  </text>
+                );
+              },
+            )}
+          </box>
         </box>
 
         <box width={detailWidth} flexDirection="column" overflow="hidden">

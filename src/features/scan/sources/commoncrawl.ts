@@ -1,6 +1,7 @@
 const CC_BASE = 'https://index.commoncrawl.org';
 const PAGE_SIZE = 10_000;
 const MAX_PAGES = 5;
+const PAGE_CONCURRENCY = 2;
 
 export interface SlugList {
   greenhouse: string[];
@@ -56,30 +57,41 @@ async function fetchSlugsSorted(
   }
 
   const pagesToFetch = Math.min(totalPages, MAX_PAGES);
+  const pageNums = Array.from({ length: pagesToFetch }, (_, i) => i);
 
-  for (let page = 0; page < pagesToFetch; page++) {
-    const queryUrl =
-      `${CC_BASE}/${crawlId}-index` +
-      `?url=${encodeURIComponent(urlPattern)}&output=json&fl=url&page=${page}&pageSize=${PAGE_SIZE}`;
-    try {
-      const res = await fetch(queryUrl, { signal: AbortSignal.timeout(30_000) });
-      if (!res.ok) continue;
-      const text = await res.text();
-      for (const line of text.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        let rawUrl = trimmed;
-        try {
-          const obj = JSON.parse(trimmed) as { url?: string };
-          rawUrl = obj.url ?? trimmed;
-        } catch {
-          // treat as plain URL string
-        }
-        const slug = parseSlug(rawUrl, hostname);
-        if (slug) freq.set(slug, (freq.get(slug) ?? 0) + 1);
+  const pageTexts: string[] = [];
+  for (let i = 0; i < pageNums.length; i += PAGE_CONCURRENCY) {
+    const batch = pageNums.slice(i, i + PAGE_CONCURRENCY);
+    const batchResults = await Promise.allSettled(
+      batch.map(async (page) => {
+        const queryUrl =
+          `${CC_BASE}/${crawlId}-index` +
+          `?url=${encodeURIComponent(urlPattern)}&output=json&fl=url&page=${page}&pageSize=${PAGE_SIZE}`;
+        const res = await fetch(queryUrl, { signal: AbortSignal.timeout(90_000) });
+        if (!res.ok) return '';
+        return res.text();
+      }),
+    );
+    for (const r of batchResults) {
+      if (r.status === 'fulfilled' && r.value) pageTexts.push(r.value);
+    }
+  }
+
+  const pageResults = pageTexts;
+
+  for (const result of pageResults) {
+    for (const line of result.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      let rawUrl = trimmed;
+      try {
+        const obj = JSON.parse(trimmed) as { url?: string };
+        rawUrl = obj.url ?? trimmed;
+      } catch {
+        // treat as plain URL string
       }
-    } catch {
-      // skip failed pages
+      const slug = parseSlug(rawUrl, hostname);
+      if (slug) freq.set(slug, (freq.get(slug) ?? 0) + 1);
     }
   }
 
@@ -90,11 +102,21 @@ async function fetchSlugsSorted(
 
 export async function fetchCCSlugs(): Promise<SlugList> {
   const crawlId = await getLatestCrawlId();
-
   const [greenhouse, ashby] = await Promise.all([
     fetchSlugsSorted(crawlId, 'boards.greenhouse.io/*', 'boards.greenhouse.io'),
     fetchSlugsSorted(crawlId, 'jobs.ashbyhq.com/*', 'jobs.ashbyhq.com'),
   ]);
-
   return { greenhouse, ashby };
+}
+
+export async function fetchCCCrawlId(): Promise<string> {
+  return getLatestCrawlId();
+}
+
+export async function fetchGreenhouseSlugs(crawlId: string): Promise<string[]> {
+  return fetchSlugsSorted(crawlId, 'boards.greenhouse.io/*', 'boards.greenhouse.io');
+}
+
+export async function fetchAshbySlugs(crawlId: string): Promise<string[]> {
+  return fetchSlugsSorted(crawlId, 'jobs.ashbyhq.com/*', 'jobs.ashbyhq.com');
 }
