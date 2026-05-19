@@ -2,17 +2,14 @@
 import type { ReactNode } from 'react';
 import type { FocusTarget, JobIntakeState } from '../../../shared/ui/state.js';
 import { clip, scoreDisplay } from '../../../shared/lib/utils.js';
-import { selectColors } from '../../../shared/ui/selectTheme.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
-import type {
-  AnswerEntry,
-  Job,
-} from '../../../shared/models/types.js';
+import type { AnswerEntry, Job } from '../../../shared/models/types.js';
 import type { ProfileActionView } from '../../profile/ui/ProfileActionWorkspace.js';
-import {
-  PROFILE_OPTIONS,
-} from '../../profile/ui/ProfileDashboardDetail.js';
 import { renderDashboardDetailContent } from './DashboardDetailContent.js';
+import { AboutPanel } from './AboutPanel.js';
+import { JobsPanel } from './JobsPanel.js';
+import { DiscoveryPanel } from './DiscoveryPanel.js';
+import { DetailPanel } from './DetailPanel.js';
 
 const LEFT_PANEL_ORDER: FocusTarget[] = [
   'status',
@@ -22,40 +19,22 @@ const LEFT_PANEL_ORDER: FocusTarget[] = [
   'discovery',
 ];
 
-
-function detailPaneTitle(
-  detailPane: DashboardScreenProps['detailPane'],
-): string {
+function detailPaneTitle(detailPane: DashboardScreenProps['detailPane']): string {
   if (!detailPane) return 'Detail';
   if (detailPane.kind === 'job-intake') {
     if (detailPane.state === 'choose-source') return 'Add Job';
     if (detailPane.state === 'paste-url') return 'Paste Job Link';
-    if (detailPane.state === 'paste-description')
-      return 'Paste Job Description';
+    if (detailPane.state === 'paste-description') return 'Paste Job Description';
     if (detailPane.state === 'crawl-failed') return 'Crawl Failed';
     return 'Evaluating Job';
   }
-  if (detailPane.kind === 'answer') {
-    return 'Job Answer';
-  }
-  if (detailPane.kind === 'saved-answer') {
-    return 'Saved Answer';
-  }
-  if (detailPane.kind === 'company-answers') {
-    return 'Previous Answers';
-  }
-  if (detailPane.kind === 'job-saved-answers') {
-    return 'Saved Answers';
-  }
-  if (detailPane.kind === 'job-actions') {
-    return 'Job Actions';
-  }
-  if (detailPane.kind === 'discovery-choices') {
-    return 'Discovery Choices';
-  }
-  if (detailPane.kind === 'discovery-scan') {
-    return 'Scanning Sources';
-  }
+  if (detailPane.kind === 'answer') return 'Job Answer';
+  if (detailPane.kind === 'saved-answer') return 'Saved Answer';
+  if (detailPane.kind === 'company-answers') return 'Previous Answers';
+  if (detailPane.kind === 'job-saved-answers') return 'Saved Answers';
+  if (detailPane.kind === 'job-actions') return 'Job Actions';
+  if (detailPane.kind === 'discovery-choices') return 'Discovery Choices';
+  if (detailPane.kind === 'discovery-scan') return 'Scanning Sources';
   return 'Profile Actions';
 }
 
@@ -82,6 +61,8 @@ export interface DashboardScreenProps {
   focus: FocusTarget;
   detailSource: 'status' | 'jobs' | 'profile' | 'answers';
   discoveryMenuIndex: number;
+  hasSourcedCompanies: boolean;
+  pendingDiscoveredCount: number;
   detailPane?:
     | {
         kind: 'job-intake';
@@ -154,14 +135,14 @@ export default function DashboardScreen({
   detailSource,
   detailPane,
   discoveryMenuIndex,
+  hasSourcedCompanies,
+  pendingDiscoveredCount,
   profileIndex,
   answerIndex,
   onProfileIndexChange,
   onAnswerIndexChange,
   onOpenProfileActions,
   onOpenSavedAnswer,
-  onFilterChange,
-  onCycleFilter,
   onJobSelect,
   onOpenActions,
 }: DashboardScreenProps) {
@@ -173,6 +154,10 @@ export default function DashboardScreen({
 
   const companyWidth = Math.max(10, Math.floor((queueWidth - 12) * 0.34));
   const roleWidth = Math.max(12, queueWidth - companyWidth - 18);
+
+  const activePanel = LEFT_PANEL_ORDER.includes(focus) ? focus : detailSource;
+  const activeAboutTab: 'status' | 'profile' | 'answers' =
+    activePanel === 'answers' ? 'answers' : activePanel === 'profile' ? 'profile' : 'status';
 
   const jobOptions = filteredJobs.map((job) => ({
     name: `${clip(job.company || 'Unknown', companyWidth).padEnd(companyWidth)} ${clip(job.role || 'Untitled', roleWidth).padEnd(roleWidth)} ${scoreDisplay(job.score).padStart(4)}`,
@@ -189,265 +174,69 @@ export default function DashboardScreen({
       value: answer.id,
     }));
 
-  const activePanel = LEFT_PANEL_ORDER.includes(focus) ? focus : detailSource;
-  const activeAboutTab: 'status' | 'profile' | 'answers' =
-    activePanel === 'answers'
-      ? 'answers'
-      : activePanel === 'profile'
-        ? 'profile'
-        : 'status';
-  const jobsFocused = focus === 'jobs' && !workspaceVisible;
-  const aboutFocused =
-    (focus === 'status' || focus === 'profile' || focus === 'answers') &&
-    !workspaceVisible;
-  const discoveryFocused = focus === 'discovery' && !workspaceVisible;
-  const detailFocused = focus === 'detail' && !workspaceVisible;
-  const detailBoxTitle = `[0] ${detailPaneTitle(detailPane)}`;
-  const detailListHeight = Math.max(4, detailHeight - 4);
-  const showProfileList = !detailPane && activePanel === 'profile';
-  const showAnswerList = !detailPane && activePanel === 'answers';
-  const detailContent =
-    detailPane
-      ? detailPane.render({
-          width: Math.max(20, detailWidth - 6),
-          height: detailHeight - 2,
-        })
-      : renderDashboardDetailContent({
-          theme,
-          activePanel,
-          filter,
-          filters,
-          jobs,
-          selectedJob,
-        });
+  const detailContent = detailPane
+    ? detailPane.render({
+        width: Math.max(20, detailWidth - 6),
+        height: detailHeight - 2,
+      })
+    : renderDashboardDetailContent({
+        theme,
+        activePanel,
+        filter,
+        filters,
+        jobs,
+        selectedJob,
+      });
 
   return (
     <>
       <box flexDirection="row" height={contentHeight}>
         <box width={queueWidth} flexDirection="column" overflow="hidden">
-          <box
-            title="[1] About"
-            border
-            borderColor={aboutFocused ? theme.borderActive : theme.border}
-            borderStyle={aboutFocused ? 'heavy' : 'single'}
-            paddingX={1}
+          <AboutPanel
+            theme={theme}
             height={aboutHeight}
-            overflow="hidden"
-            flexDirection="column"
-          >
-            <box flexDirection="row" columnGap={1} paddingX={1}>
-              {(['status', 'profile', 'answers'] as const).map((tab) => {
-                const label =
-                  tab === 'status'
-                    ? 'Status'
-                    : tab === 'profile'
-                      ? 'Profile'
-                      : 'Answers';
-                const isActive = activeAboutTab === tab;
-                return (
-                  <text
-                    key={tab}
-                    fg={isActive && aboutFocused ? theme.brand : theme.muted}
-                  >
-                    {isActive ? (
-                      <u>
-                        <strong>{label}</strong>
-                      </u>
-                    ) : (
-                      label
-                    )}
-                  </text>
-                );
-              })}
-            </box>
-          </box>
-
-          <box
-            title="[2] Jobs"
-            border
-            borderColor={jobsFocused ? theme.borderActive : theme.border}
-            paddingX={1}
-            height={jobsHeight + 2}
-            borderStyle={jobsFocused ? 'heavy' : 'single'}
-            overflow="hidden"
-            flexDirection="column"
-          >
-            <box
-              flexDirection="row"
-              columnGap={1}
-              paddingX={1}
-              marginBottom={2}
-            >
-              {filters.map((item) => (
-                <text
-                  key={item}
-                  fg={
-                    item === filter && jobsFocused ? theme.brand : theme.muted
-                  }
-                >
-                  {item === filter ? (
-                    <u>
-                      <strong>{item}</strong>
-                    </u>
-                  ) : (
-                    item
-                  )}
-                </text>
-              ))}
-            </box>
-            {jobOptions.length > 0 ? (
-              <select
-                height={jobsHeight - 1}
-                width="100%"
-                options={jobOptions}
-                selectedIndex={selectedIndex}
-                showDescription
-                showScrollIndicator
-                itemSpacing={1}
-                {...selectColors(theme)}
-                selectedTextColor={jobsFocused ? theme.brand : theme.muted}
-                focused={jobsFocused}
-                onChange={(_, option) => {
-                  if (option?.value) onJobSelect(String(option.value));
-                }}
-                onSelect={(_, option) => {
-                  if (option?.value) onJobSelect(String(option.value));
-                  onOpenActions();
-                }}
-              />
-            ) : (
-              <text
-                fg={theme.muted}
-                content="No jobs yet. Press a to add one."
-              />
-            )}
-          </box>
-
-          <box
-            title="[3] Discovery"
-            border
-            borderColor={
-              discoveryFocused ? theme.borderActive : theme.border
-            }
-            borderStyle={discoveryFocused ? 'heavy' : 'single'}
-            paddingX={1}
+            focused={(focus === 'status' || focus === 'profile' || focus === 'answers') && !workspaceVisible}
+            activeTab={activeAboutTab}
+          />
+          <JobsPanel
+            theme={theme}
+            height={jobsHeight}
+            focused={focus === 'jobs' && !workspaceVisible}
+            filter={filter}
+            filters={filters}
+            jobOptions={jobOptions}
+            selectedIndex={selectedIndex}
+            onJobSelect={onJobSelect}
+            onOpenActions={onOpenActions}
+          />
+          <DiscoveryPanel
+            theme={theme}
             height={discoveryHeight}
-            overflow="hidden"
-            flexDirection="column"
-          >
-            {(['Source Companies', 'Scan Jobs', 'Add to Queue'] as const).map(
-              (label, i) => {
-                const isSelected = discoveryMenuIndex === i;
-                return (
-                  <text
-                    key={label}
-                    fg={isSelected && discoveryFocused ? theme.brand : theme.muted}
-                  >
-                    {isSelected ? (
-                      <u>
-                        <strong>{`> ${label}`}</strong>
-                      </u>
-                    ) : (
-                      `  ${label}`
-                    )}
-                  </text>
-                );
-              },
-            )}
-          </box>
+            focused={focus === 'discovery' && !workspaceVisible}
+            menuIndex={discoveryMenuIndex}
+            hasSourcedCompanies={hasSourcedCompanies}
+            pendingJobCount={pendingDiscoveredCount}
+          />
         </box>
 
-        <box width={detailWidth} flexDirection="column" overflow="hidden">
-          <box
-            title={detailBoxTitle}
-            border
-            borderColor={
-              focus === 'detail' || workspaceVisible
-                ? theme.borderActive
-                : theme.border
-            }
-            paddingX={2}
-            paddingTop={1}
-            height={detailHeight}
-            borderStyle={
-              focus === 'detail' || workspaceVisible ? 'heavy' : 'single'
-            }
-            overflow="hidden"
-          >
-            {showProfileList ? (
-              <select
-                height={detailListHeight}
-                width="100%"
-                options={PROFILE_OPTIONS}
-                selectedIndex={profileIndex}
-                showDescription={false}
-                {...selectColors(theme)}
-                selectedTextColor={detailFocused ? theme.brand : theme.muted}
-                focused={detailFocused}
-                onChange={(_, option) => {
-                  const idx = PROFILE_OPTIONS.findIndex(
-                    (o) => o.value === option?.value,
-                  );
-                  if (idx >= 0) onProfileIndexChange(idx);
-                }}
-                onSelect={(_, option) => {
-                  const idx = PROFILE_OPTIONS.findIndex(
-                    (o) => o.value === option?.value,
-                  );
-                  if (idx >= 0) {
-                    onProfileIndexChange(idx);
-                    onOpenProfileActions(PROFILE_OPTIONS[idx]!.value);
-                  }
-                }}
-              />
-            ) : showAnswerList ? (
-              answerOptions.length === 0 ? (
-                <text fg={theme.muted} content="No saved answers yet." />
-              ) : (
-                <select
-                  height={detailListHeight}
-                  width="100%"
-                  options={answerOptions}
-                  selectedIndex={answerIndex}
-                  showDescription
-                  {...selectColors(theme)}
-                  selectedTextColor={detailFocused ? theme.brand : theme.muted}
-                  focused={detailFocused}
-                  onChange={(_, option) => {
-                    const idx = answerOptions.findIndex(
-                      (o) => o.value === option?.value,
-                    );
-                    if (idx >= 0) onAnswerIndexChange(idx);
-                  }}
-                  onSelect={(_, option) => {
-                    if (option?.value) onOpenSavedAnswer(String(option.value));
-                  }}
-                />
-              )
-            ) : (
-              <scrollbox
-                height={detailHeight - 2}
-                width="100%"
-                scrollX={false}
-                scrollY
-                focused={focus === 'detail' && !workspaceVisible}
-                rootOptions={{ overflow: 'hidden' }}
-                wrapperOptions={{ overflow: 'hidden' }}
-                viewportOptions={{ overflow: 'hidden' }}
-                contentOptions={{ overflow: 'hidden' }}
-                scrollbarOptions={{ showArrows: true }}
-              >
-                <box
-                  flexDirection="column"
-                  width={Math.max(20, detailWidth - 6)}
-                  flexGrow={1}
-                >
-                  {detailContent}
-                </box>
-              </scrollbox>
-            )}
-          </box>
-        </box>
+        <DetailPanel
+          theme={theme}
+          width={detailWidth}
+          height={detailHeight}
+          focus={focus}
+          workspaceVisible={workspaceVisible}
+          title={`[0] ${detailPaneTitle(detailPane)}`}
+          showProfileList={!detailPane && activePanel === 'profile'}
+          showAnswerList={!detailPane && activePanel === 'answers'}
+          profileIndex={profileIndex}
+          answerIndex={answerIndex}
+          answerOptions={answerOptions}
+          detailContent={detailContent}
+          onProfileIndexChange={onProfileIndexChange}
+          onAnswerIndexChange={onAnswerIndexChange}
+          onOpenProfileActions={onOpenProfileActions}
+          onOpenSavedAnswer={onOpenSavedAnswer}
+        />
       </box>
 
       <box

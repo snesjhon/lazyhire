@@ -9,6 +9,7 @@ import { spawn } from 'child_process';
 import { useEffect, useMemo, useState } from 'react';
 import path from 'path';
 import { db } from './shared/data/db.js';
+import { discoveredDb } from './shared/data/discoveredDb.js';
 import {
   createPendingJob,
   evaluateAndPersistJob,
@@ -50,6 +51,7 @@ import {
 import {
   runSourceCompanies,
   runScanJobs,
+  getPendingCount,
 } from './features/scan/discover.js';
 import type { DiscoveryProgress } from './features/scan/discover.js';
 import DiscoveryChoicesPane from './features/discovery/ui/DiscoveryChoicesPane.js';
@@ -221,6 +223,9 @@ export default function App() {
 
   const jobs = useMemo(() => db.readJobs(), [refreshToken]);
   const answers = useMemo(() => answersDb.readAnswers(), [refreshToken]);
+  const discoveredStore = useMemo(() => discoveredDb.readDiscovered(), [refreshToken]);
+  const hasSourcedCompanies = Boolean(discoveredStore.lastSourcedAt);
+  const pendingDiscoveredCount = useMemo(() => getPendingCount().batch, [refreshToken]);
   const theme = useMemo(() => resolveUiTheme(themeMode), [themeMode]);
 
   const filteredJobs = useMemo(() => {
@@ -1400,6 +1405,8 @@ export default function App() {
         detailSource={detailSource}
         detailPane={dashboardDetailPane}
         discoveryMenuIndex={discoveryMenuIndex}
+        hasSourcedCompanies={hasSourcedCompanies}
+        pendingDiscoveredCount={pendingDiscoveredCount}
         onFilterChange={setFilter}
         onJobSelect={setSelectedJobId}
         onCycleFilter={(direction) =>
