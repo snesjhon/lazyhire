@@ -11,6 +11,7 @@ const EMPTY_STORE: DiscoveredStore = {
   queue: [],
   cursor: { greenhouse: 0, ashby: 0 },
   lastSourcedAt: '',
+  companyIndex: {},
 };
 
 function readDiscovered(): DiscoveredStore {

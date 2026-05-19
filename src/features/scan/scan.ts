@@ -336,49 +336,57 @@ function rankJob(job: ScanJob, profile: Profile): number {
     }
   }
 
-  // Role token overlap in title/snippet
+  // Role token overlap — strip generic seniority/function words so "Lead Product Designer"
+  // and "Senior Product Designer" both reduce to ["product","designer"] and match any level.
+  // Require ALL meaningful tokens to appear; partial single-token matches don't score.
   for (const role of profile.targets.roles) {
-    const words = tokenize(role).filter((w) => w.length > 2);
+    const words = tokenize(role).filter((w) => w.length > 2 && !GENERIC_ROLE_WORDS.has(w));
+    if (words.length === 0) continue;
+
     const titleMatches = words.filter((w) => titleLower.includes(w)).length;
     const snippetMatches = words.filter((w) => snippetLower.includes(w)).length;
-    const allMatch = words.every((w) => titleLower.includes(w));
-    if (allMatch) {
+
+    if (titleMatches === words.length) {
       score += 4;
       break;
     }
-    if (titleMatches >= 2) score += 3;
-    else if (titleMatches === 1) score += 1;
-
-    if (snippetMatches >= 2) score += 2;
-    else if (snippetMatches === 1) score += 1;
-  }
-
-  // Seniority boost
-  if (SENIORITY_WORDS.some((w) => titleLower.includes(w))) score += 2;
-
-  // Category alignment
-  for (const category of profile.targets.categories) {
-    const kws = CATEGORY_KEYWORDS[category] ?? [];
-    if (kws.some((k) => titleLower.includes(k) || snippetLower.includes(k))) {
-      score += 1;
+    // Partial credit only for longer roles (3+ meaningful tokens) where 2+ match
+    if (words.length >= 3 && titleMatches >= 2) {
+      score += 2;
       break;
     }
-  }
-
-  // Focus alignment
-  for (const focus of profile.targets.focuses) {
-    const kws = FOCUS_KEYWORDS[focus] ?? tokenize(focus).filter((w) => w.length > 2);
-    if (kws.some((k) => titleLower.includes(k) || snippetLower.includes(k))) {
+    if (snippetMatches === words.length) {
       score += 2;
       break;
     }
   }
 
-  // Remote match
-  if (profile.targets.remote === 'full' && (
-    USER_FACING_REMOTE_WORDS.some((word) => snippetLower.includes(word) || titleLower.includes(word))
-  )) {
-    score += 1;
+  // Seniority, category, focus, and remote boosts only apply when there is already
+  // a base role signal — prevents them from inflating zero-match titles.
+  if (score > 0) {
+    if (SENIORITY_WORDS.some((w) => titleLower.includes(w))) score += 2;
+
+    for (const category of profile.targets.categories) {
+      const kws = CATEGORY_KEYWORDS[category] ?? [];
+      if (kws.some((k) => titleLower.includes(k) || snippetLower.includes(k))) {
+        score += 1;
+        break;
+      }
+    }
+
+    for (const focus of profile.targets.focuses) {
+      const kws = FOCUS_KEYWORDS[focus] ?? tokenize(focus).filter((w) => w.length > 2);
+      if (kws.some((k) => titleLower.includes(k) || snippetLower.includes(k))) {
+        score += 2;
+        break;
+      }
+    }
+
+    if (profile.targets.remote === 'full' &&
+      USER_FACING_REMOTE_WORDS.some((w) => snippetLower.includes(w) || titleLower.includes(w))
+    ) {
+      score += 1;
+    }
   }
 
   return score;

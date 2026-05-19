@@ -174,6 +174,14 @@ export interface DiscoveredJob {
   status: 'pending' | 'added' | 'passed';
 }
 
+export interface CompanyEntry {
+  slug: string;
+  name: string;
+  ats: 'greenhouse' | 'ashby';
+  vertical: string | null;
+  classifiedAt: string | null;
+}
+
 export interface DiscoveredStore {
   batch: DiscoveredJob[];
   batchOffset: number;
@@ -188,6 +196,7 @@ export interface DiscoveredStore {
     ashby: string[];
     fetchedAt: string;
   };
+  companyIndex?: Record<string, CompanyEntry>;
 }
 
 export interface ScanJob {

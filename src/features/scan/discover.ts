@@ -1,4 +1,5 @@
-import type { DiscoveredJob, DiscoveredStore, Profile, ScanJob } from '../../shared/models/types.js';
+import { query } from '@anthropic-ai/claude-code';
+import type { CompanyEntry, DiscoveredJob, DiscoveredStore, Profile, ScanJob } from '../../shared/models/types.js';
 import { db } from '../../shared/data/db.js';
 import { discoveredDb } from '../../shared/data/discoveredDb.js';
 import { dismissedDb } from '../../shared/data/dismissedDb.js';
@@ -6,6 +7,7 @@ import { fetchCCCrawlId, fetchGreenhouseSlugs, fetchAshbySlugs } from './sources
 import { fetchGreenhouse } from './sources/greenhouse.js';
 import { fetchAshby } from './sources/ashby.js';
 import { canonicalizeJobUrl, shortlistJobs, keepBestJobPerCompany } from './scan.js';
+import { getClaudeQueryOptions } from '../../shared/ai/claude.js';
 
 const SLUGS_PER_RUN = 120;
 const BATCH_SIZE = 40;
@@ -67,7 +69,7 @@ function readSlugCache(store: DiscoveredStore): DiscoveredStore | null {
   return store;
 }
 
-export type DiscoveryStepName = 'cc-greenhouse' | 'cc-ashby' | 'scan-ashby' | 'scan-greenhouse' | 'done';
+export type DiscoveryStepName = 'cc-greenhouse' | 'cc-ashby' | 'scan-ashby' | 'scan-greenhouse' | 'classify' | 'done';
 
 export interface DiscoveryProgress {
   step: DiscoveryStepName;
@@ -337,6 +339,253 @@ export async function runScanGreenhouse(
   } catch (e) {
     onProgress?.({ step: 'scan-greenhouse', status: 'failed', error: String(e) });
   }
+}
+
+export async function runScanCompanies(
+  profile: Profile,
+  onProgress?: (p: DiscoveryProgress) => void,
+): Promise<void> {
+  const store = discoveredDb.readDiscovered();
+  const ghSlugs = store.slugCache?.greenhouse ?? [];
+  const asSlugs = store.slugCache?.ashby ?? [];
+
+  if (ghSlugs.length === 0 && asSlugs.length === 0) {
+    onProgress?.({ step: 'scan-greenhouse', status: 'failed', error: 'No slugs in cache — run CC Fetch first.' });
+    return;
+  }
+
+  const ghSlice = ghSlugs.slice(store.cursor.greenhouse, store.cursor.greenhouse + SLUGS_PER_RUN);
+  const asSlice = asSlugs.slice(store.cursor.ashby, store.cursor.ashby + SLUGS_PER_RUN);
+
+  let ghJobs: ScanJob[] = [];
+  let asJobs: ScanJob[] = [];
+
+  await Promise.all([
+    (async () => {
+      if (ghSlice.length === 0) return;
+      onProgress?.({ step: 'scan-greenhouse', status: 'running' });
+      try {
+        ghJobs = await runBatchAts(ghSlice, (slug) => fetchGreenhouse(slug, slugToName(slug)));
+        onProgress?.({ step: 'scan-greenhouse', status: 'done', count: ghJobs.length });
+      } catch (e) {
+        onProgress?.({ step: 'scan-greenhouse', status: 'failed', error: String(e) });
+      }
+    })(),
+    (async () => {
+      if (asSlice.length === 0) return;
+      onProgress?.({ step: 'scan-ashby', status: 'running' });
+      try {
+        asJobs = await runBatchAts(asSlice, (slug) => fetchAshby(slug, slugToName(slug)));
+        onProgress?.({ step: 'scan-ashby', status: 'done', count: asJobs.length });
+      } catch (e) {
+        onProgress?.({ step: 'scan-ashby', status: 'failed', error: String(e) });
+      }
+    })(),
+  ]);
+
+  const newChoices = persistScanResults(store, [...ghJobs, ...asJobs], profile, {
+    greenhouse: store.cursor.greenhouse + ghSlice.length,
+    ashby: store.cursor.ashby + asSlice.length,
+  });
+
+  onProgress?.({ step: 'done', status: 'done', count: newChoices });
+}
+
+const VERTICALS = [
+  'fintech', 'healthtech', 'dev-tools', 'enterprise-saas', 'ai-ml',
+  'e-commerce', 'edtech', 'consumer', 'govtech', 'media', 'other',
+] as const;
+
+async function classifyCompanies(
+  companies: Array<{ slug: string; name: string; ats: 'greenhouse' | 'ashby'; titles: string[] }>,
+): Promise<Record<string, string>> {
+  if (companies.length === 0) return {};
+
+  const prompt = `Classify each company into one tech industry vertical based on its name and job titles.
+
+Companies:
+${companies.map((c) => `- ${c.slug} | ${c.name} | ${c.titles.slice(0, 3).join(', ')}`).join('\n')}
+
+Verticals (pick exactly one per company): ${VERTICALS.join(', ')}
+
+Respond with ONLY a JSON object mapping slug to vertical. No explanation, no markdown:
+{"slug1":"fintech","slug2":"dev-tools"}`;
+
+  let result = '';
+  try {
+    for await (const msg of query({
+      prompt,
+      options: getClaudeQueryOptions({ maxTurns: 1 }),
+    })) {
+      if (msg.type === 'result' && msg.subtype === 'success') result = msg.result;
+    }
+    const match = result.match(/\{[\s\S]*\}/);
+    if (!match) return {};
+    return JSON.parse(match[0]) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+export async function runSourceCompanies(
+  onProgress?: (p: DiscoveryProgress) => void,
+): Promise<void> {
+  const store = discoveredDb.readDiscovered();
+  const cached = readSlugCache(store);
+
+  if (cached) {
+    const { greenhouse, ashby } = cached.slugCache!;
+    onProgress?.({ step: 'cc-greenhouse', status: 'cached', count: greenhouse.length });
+    onProgress?.({ step: 'cc-ashby', status: 'cached', count: ashby.length });
+    onProgress?.({ step: 'done', status: 'done', count: greenhouse.length + ashby.length });
+    return;
+  }
+
+  let ghSlugs: string[] = [];
+  let asSlugs: string[] = [];
+
+  let crawlId: string;
+  try {
+    crawlId = await fetchCCCrawlId();
+  } catch (e) {
+    onProgress?.({ step: 'cc-greenhouse', status: 'failed', error: String(e) });
+    return;
+  }
+
+  onProgress?.({ step: 'cc-greenhouse', status: 'running' });
+  try {
+    ghSlugs = await fetchGreenhouseSlugs(crawlId);
+    onProgress?.({ step: 'cc-greenhouse', status: 'done', count: ghSlugs.length });
+  } catch (e) {
+    onProgress?.({ step: 'cc-greenhouse', status: 'failed', error: String(e) });
+  }
+
+  onProgress?.({ step: 'cc-ashby', status: 'running' });
+  try {
+    asSlugs = await fetchAshbySlugs(crawlId);
+    onProgress?.({ step: 'cc-ashby', status: 'done', count: asSlugs.length });
+  } catch (e) {
+    onProgress?.({ step: 'cc-ashby', status: 'failed', error: String(e) });
+  }
+
+  if (ghSlugs.length === 0 && asSlugs.length === 0) {
+    onProgress?.({ step: 'cc-greenhouse', status: 'failed', error: 'Common Crawl returned no slugs.' });
+    return;
+  }
+
+  discoveredDb.writeDiscovered({
+    ...store,
+    cursor: { greenhouse: 0, ashby: 0 },
+    slugCache: { greenhouse: ghSlugs, ashby: asSlugs, fetchedAt: new Date().toISOString() },
+  });
+
+  onProgress?.({ step: 'done', status: 'done', count: ghSlugs.length + asSlugs.length });
+}
+
+export async function runScanJobs(
+  profile: Profile,
+  onProgress?: (p: DiscoveryProgress) => void,
+): Promise<void> {
+  const store = discoveredDb.readDiscovered();
+  const ghSlugs = store.slugCache?.greenhouse ?? [];
+  const asSlugs = store.slugCache?.ashby ?? [];
+
+  if (ghSlugs.length === 0 && asSlugs.length === 0) {
+    onProgress?.({ step: 'scan-greenhouse', status: 'failed', error: 'No slugs in cache — run Source Companies first.' });
+    return;
+  }
+
+  const ghSlice = ghSlugs.slice(store.cursor.greenhouse, store.cursor.greenhouse + SLUGS_PER_RUN);
+  const asSlice = asSlugs.slice(store.cursor.ashby, store.cursor.ashby + SLUGS_PER_RUN);
+
+  let ghJobs: ScanJob[] = [];
+  let asJobs: ScanJob[] = [];
+
+  await Promise.all([
+    (async () => {
+      if (ghSlice.length === 0) return;
+      onProgress?.({ step: 'scan-greenhouse', status: 'running' });
+      try {
+        ghJobs = await runBatchAts(ghSlice, (slug) => fetchGreenhouse(slug, slugToName(slug)));
+        onProgress?.({ step: 'scan-greenhouse', status: 'done', count: ghJobs.length });
+      } catch (e) {
+        onProgress?.({ step: 'scan-greenhouse', status: 'failed', error: String(e) });
+      }
+    })(),
+    (async () => {
+      if (asSlice.length === 0) return;
+      onProgress?.({ step: 'scan-ashby', status: 'running' });
+      try {
+        asJobs = await runBatchAts(asSlice, (slug) => fetchAshby(slug, slugToName(slug)));
+        onProgress?.({ step: 'scan-ashby', status: 'done', count: asJobs.length });
+      } catch (e) {
+        onProgress?.({ step: 'scan-ashby', status: 'failed', error: String(e) });
+      }
+    })(),
+  ]);
+
+  // Group fetched jobs by slug for classification
+  const allFetched = [...ghJobs, ...asJobs];
+  const bySlug = new Map<string, { name: string; ats: 'greenhouse' | 'ashby'; titles: string[] }>();
+  for (const job of allFetched) {
+    const slug = extractSlugFromUrl(job.url);
+    if (!slug) continue;
+    const ats = ghJobs.includes(job) ? 'greenhouse' : 'ashby';
+    const entry = bySlug.get(slug) ?? { name: job.company, ats, titles: [] };
+    entry.titles.push(job.title);
+    bySlug.set(slug, entry);
+  }
+
+  // Classify companies by vertical
+  onProgress?.({ step: 'classify', status: 'running' });
+  const toClassify = [...bySlug.entries()].map(([slug, v]) => ({ slug, ...v }));
+  const verticals = await classifyCompanies(toClassify);
+  onProgress?.({ step: 'classify', status: 'done', count: Object.keys(verticals).length });
+
+  // Build company index updates
+  const now = new Date().toISOString();
+  const indexUpdates: Record<string, CompanyEntry> = {};
+  for (const { slug, name, ats } of toClassify) {
+    indexUpdates[slug] = {
+      slug,
+      name,
+      ats,
+      vertical: verticals[slug] ?? null,
+      classifiedAt: now,
+    };
+  }
+
+  // Dedup, filter, rank, and write everything in one store update
+  const existingUrls = new Set(db.readJobs().map((j) => canonicalizeJobUrl(j.url)));
+  const dismissedUrls = new Set(dismissedDb.readDismissed().map(canonicalizeJobUrl));
+  const dedupSeen = new Set<string>();
+  const deduped = allFetched.filter((job) => {
+    const url = canonicalizeJobUrl(job.url);
+    if (existingUrls.has(url) || dismissedUrls.has(url) || dedupSeen.has(url)) return false;
+    dedupSeen.add(url);
+    return true;
+  });
+
+  const filtered = shortlistJobs(deduped, profile, FILTER_MAX);
+  const companyDeduped = keepBestJobPerCompany(filtered);
+  const sorted = companyDeduped.sort((a, b) => b.score - a.score);
+  const newBatch = sorted.slice(0, BATCH_SIZE).map(toDiscoveredJob);
+  const newQueue = sorted.slice(BATCH_SIZE).map(toDiscoveredJob);
+
+  discoveredDb.writeDiscovered({
+    ...store,
+    batch: newBatch,
+    batchOffset: 0,
+    queue: newQueue,
+    cursor: {
+      greenhouse: store.cursor.greenhouse + ghSlice.length,
+      ashby: store.cursor.ashby + asSlice.length,
+    },
+    lastSourcedAt: now,
+    companyIndex: { ...(store.companyIndex ?? {}), ...indexUpdates },
+  });
+
+  onProgress?.({ step: 'done', status: 'done', count: newBatch.length });
 }
 
 export function loadNextBatch(): boolean {

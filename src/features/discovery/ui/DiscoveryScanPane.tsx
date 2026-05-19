@@ -7,23 +7,31 @@ import type { DiscoveryProgress, DiscoveryStepName } from '../../scan/discover.j
 interface Props {
   theme: UiTheme;
   width: number;
+  mode: 'source' | 'scan';
   progress: DiscoveryProgress[];
   onClose: () => void;
 }
 
-const STEPS: { name: DiscoveryStepName; label: string }[] = [
-  { name: 'cc-greenhouse', label: 'CC fetch Greenhouse' },
-  { name: 'cc-ashby',      label: 'CC fetch Ashby' },
-  { name: 'scan-ashby',    label: 'Scan Ashby' },
-  { name: 'scan-greenhouse', label: 'Scan Greenhouse' },
-];
+const STEPS_BY_MODE: Record<'source' | 'scan', { name: DiscoveryStepName; label: string }[]> = {
+  source: [
+    { name: 'cc-greenhouse', label: 'Fetch Greenhouse slugs' },
+    { name: 'cc-ashby',      label: 'Fetch Ashby slugs' },
+  ],
+  scan: [
+    { name: 'scan-greenhouse', label: 'Scan Greenhouse' },
+    { name: 'scan-ashby',      label: 'Scan Ashby' },
+    { name: 'classify',        label: 'Classify companies' },
+  ],
+};
 
 export default function DiscoveryScanPane({
   theme,
   width: _width,
+  mode,
   progress,
   onClose,
 }: Props) {
+  const STEPS = STEPS_BY_MODE[mode];
   const latest = progress[progress.length - 1];
   const isDone = latest?.step === 'done' && latest.status === 'done';
   const isFailed = progress.some((p) => p.status === 'failed');

@@ -168,7 +168,7 @@ export default function DashboardScreen({
   const workspaceVisible = Boolean(detailPane);
   const detailHeight = Math.max(8, contentHeight);
   const aboutHeight = 3;
-  const discoveryHeight = 12;
+  const discoveryHeight = 8;
   const jobsHeight = Math.max(12, contentHeight - aboutHeight - discoveryHeight - 2);
 
   const companyWidth = Math.max(10, Math.floor((queueWidth - 12) * 0.34));
@@ -335,7 +335,7 @@ export default function DashboardScreen({
             overflow="hidden"
             flexDirection="column"
           >
-            {(['CC Fetch Greenhouse', 'CC Fetch Ashby', 'Scan Ashby', 'Scan Greenhouse', 'Add to Queue'] as const).map(
+            {(['Source Companies', 'Scan Jobs', 'Add to Queue'] as const).map(
               (label, i) => {
                 const isSelected = discoveryMenuIndex === i;
                 return (

@@ -48,10 +48,8 @@ import {
   saveProfile,
 } from './shared/models/profile.js';
 import {
-  runCCFetchGreenhouse,
-  runCCFetchAshby,
-  runScanAshby,
-  runScanGreenhouse,
+  runSourceCompanies,
+  runScanJobs,
 } from './features/scan/discover.js';
 import type { DiscoveryProgress } from './features/scan/discover.js';
 import DiscoveryChoicesPane from './features/discovery/ui/DiscoveryChoicesPane.js';
@@ -209,6 +207,7 @@ export default function App() {
   const [discoveryMenuIndex, setDiscoveryMenuIndex] = useState(0);
   const [discoveryChoicesOpen, setDiscoveryChoicesOpen] = useState(false);
   const [discoveryScanProgress, setDiscoveryScanProgress] = useState<DiscoveryProgress[] | null>(null);
+  const [discoveryScanMode, setDiscoveryScanMode] = useState<'source' | 'scan'>('source');
   const [themeMode, setThemeMode] = useState<ThemeMode | null>(
     activeRenderer.themeMode,
   );
@@ -758,8 +757,13 @@ export default function App() {
     setFocus('profile');
   }
 
-  function startDiscoveryStep(label: string, runner: (onProgress: (p: DiscoveryProgress) => void) => Promise<void>) {
+  function startDiscoveryStep(
+    label: string,
+    mode: 'source' | 'scan',
+    runner: (onProgress: (p: DiscoveryProgress) => void) => Promise<void>,
+  ) {
     setDiscoveryScanProgress([]);
+    setDiscoveryScanMode(mode);
     setDiscoveryChoicesOpen(false);
     setFocus('detail');
     const finishTask = startTask(label);
@@ -770,22 +774,13 @@ export default function App() {
     });
   }
 
-  function handleCCFetchGreenhouse() {
-    startDiscoveryStep('CC Fetch Greenhouse', (onProgress) => runCCFetchGreenhouse(onProgress));
+  function handleSourceCompanies() {
+    startDiscoveryStep('Source Companies', 'source', (onProgress) => runSourceCompanies(onProgress));
   }
 
-  function handleCCFetchAshby() {
-    startDiscoveryStep('CC Fetch Ashby', (onProgress) => runCCFetchAshby(onProgress));
-  }
-
-  function handleScanAshby() {
+  function handleScanJobs() {
     const profile = loadProfile();
-    startDiscoveryStep('Scan Ashby', (onProgress) => runScanAshby(profile, onProgress));
-  }
-
-  function handleScanGreenhouse() {
-    const profile = loadProfile();
-    startDiscoveryStep('Scan Greenhouse', (onProgress) => runScanGreenhouse(profile, onProgress));
+    startDiscoveryStep('Scan Jobs', 'scan', (onProgress) => runScanJobs(profile, onProgress));
   }
 
   function handleOpenAddToQueue() {
@@ -943,15 +938,13 @@ export default function App() {
     if (key.name === 'a') setJobIntakeState('choose-source');
     if (focus === 'discovery') {
       if (key.name === 'j' || key.name === 'down')
-        setDiscoveryMenuIndex((i) => (i + 1) % 5);
+        setDiscoveryMenuIndex((i) => (i + 1) % 3);
       if (key.name === 'k' || key.name === 'up')
-        setDiscoveryMenuIndex((i) => (i + 4) % 5);
+        setDiscoveryMenuIndex((i) => (i + 2) % 3);
       if (key.name === 'return') {
-        if (discoveryMenuIndex === 0) handleCCFetchGreenhouse();
-        else if (discoveryMenuIndex === 1) handleCCFetchAshby();
-        else if (discoveryMenuIndex === 2) handleScanAshby();
-        else if (discoveryMenuIndex === 3) handleScanGreenhouse();
-        else if (discoveryMenuIndex === 4) handleOpenAddToQueue();
+        if (discoveryMenuIndex === 0) handleSourceCompanies();
+        else if (discoveryMenuIndex === 1) handleScanJobs();
+        else if (discoveryMenuIndex === 2) handleOpenAddToQueue();
       }
     }
     if (focus === 'jobs') {
@@ -1280,6 +1273,7 @@ export default function App() {
                           <DiscoveryScanPane
                             theme={theme}
                             width={width}
+                            mode={discoveryScanMode}
                             progress={discoveryScanProgress}
                             onClose={() => {
                               setDiscoveryScanProgress(null);
@@ -1307,10 +1301,9 @@ export default function App() {
                               setFocus('discovery');
                             }}
                             onAddToQueue={(job) => {
-                              const pending = saveJob({
-                                ...createPendingJob({ company: job.name, role: job.jobTitle, url: job.jobUrl, jd: '' }),
-                                score: job.score,
-                              });
+                              const pending = saveJob(
+                                createPendingJob({ company: job.name, role: job.jobTitle, url: job.jobUrl, jd: '' }),
+                              );
                               refreshJobs();
                               const finishTask = startTask(`Evaluating ${job.name}`);
                               hydrateJobFromUrl(job.jobUrl)
