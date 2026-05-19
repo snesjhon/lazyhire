@@ -749,7 +749,7 @@ export default function App() {
     setShowInitWizard(false);
     setProfileActionView(null);
     setDetailSource('profile');
-    setFocus('profile');
+    setFocus('status');
     setFlash(message);
   }
 
@@ -759,7 +759,7 @@ export default function App() {
     setOnboardingInitialView(nextProfile ? 'salary-min' : 'candidate');
     setProfileActionView(nextProfile ? 'salary-min' : 'candidate');
     setDetailSource('profile');
-    setFocus('profile');
+    setFocus('status');
   }
 
   function startDiscoveryStep(
@@ -942,14 +942,21 @@ export default function App() {
     }
     if (key.name === 'a') setJobIntakeState('choose-source');
     if (focus === 'discovery') {
+      const discoveryItems = [
+        'source',
+        ...(hasSourcedCompanies ? ['scan'] : []),
+        ...(pendingDiscoveredCount > 0 ? ['queue'] : []),
+      ];
+      const menuLen = discoveryItems.length;
       if (key.name === 'j' || key.name === 'down')
-        setDiscoveryMenuIndex((i) => (i + 1) % 3);
+        setDiscoveryMenuIndex((i) => (i + 1) % menuLen);
       if (key.name === 'k' || key.name === 'up')
-        setDiscoveryMenuIndex((i) => (i + 2) % 3);
+        setDiscoveryMenuIndex((i) => (i + menuLen - 1) % menuLen);
       if (key.name === 'return') {
-        if (discoveryMenuIndex === 0) handleSourceCompanies();
-        else if (discoveryMenuIndex === 1) handleScanJobs();
-        else if (discoveryMenuIndex === 2) handleOpenAddToQueue();
+        const action = discoveryItems[discoveryMenuIndex];
+        if (action === 'source') handleSourceCompanies();
+        else if (action === 'scan') handleScanJobs();
+        else if (action === 'queue') handleOpenAddToQueue();
       }
     }
     if (focus === 'jobs') {

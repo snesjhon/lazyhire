@@ -27,13 +27,15 @@ export function DiscoveryPanel({
       description: 'Run first · refreshes company list',
       value: 'source',
     },
-    {
-      name: `Scan Jobs${!hasSourcedCompanies ? ' [locked]' : ''}`,
-      description: hasSourcedCompanies
-        ? 'Find new openings at tracked companies'
-        : 'Run Source Companies first',
-      value: 'scan',
-    },
+    ...(hasSourcedCompanies
+      ? [
+          {
+            name: 'Scan Jobs',
+            description: 'Find new openings at tracked companies',
+            value: 'scan',
+          },
+        ]
+      : []),
     ...(pendingJobCount > 0
       ? [
           {
