@@ -35,11 +35,11 @@ export default function DiscoveryChoicesPane({
   function removeItem(jobUrl: string) {
     setPending((prev) => {
       const next = prev.filter((j) => j.jobUrl !== jobUrl);
-      // If removing empties the current page and there's a page before it, step back
       const newTotalPages = Math.max(1, Math.ceil(next.length / PAGE_SIZE));
       const nextPage = Math.min(safePage, newTotalPages - 1);
       setPage(nextPage);
-      setSelectedIndex(0);
+      const newPageItems = next.slice(nextPage * PAGE_SIZE, (nextPage + 1) * PAGE_SIZE);
+      setSelectedIndex((i) => Math.min(i, Math.max(0, newPageItems.length - 1)));
       return next;
     });
   }
