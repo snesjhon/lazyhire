@@ -17,7 +17,7 @@ const FEATURE_BULLETS = [
   'Generate tailored CVs and cover letters with AI',
   'Evaluate and track opportunities across your pipeline',
   'Store answers to application questions for reuse',
-  'Discover jobs via GitHub, Ashby, HN Hiring, and more',
+  'Discover jobs via GreenHouse, Ashby, (more to come)',
   'Manage your profile and target roles in one place',
 ];
 
