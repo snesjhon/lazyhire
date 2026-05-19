@@ -470,6 +470,13 @@ export async function runSourceCompanies(
   }
 
   if (ghSlugs.length === 0 && asSlugs.length === 0) {
+    const existing = store.slugCache;
+    if (existing && (existing.greenhouse.length > 0 || existing.ashby.length > 0)) {
+      onProgress?.({ step: 'cc-greenhouse', status: 'cached', count: existing.greenhouse.length });
+      onProgress?.({ step: 'cc-ashby', status: 'cached', count: existing.ashby.length });
+      onProgress?.({ step: 'done', status: 'done', count: existing.greenhouse.length + existing.ashby.length });
+      return;
+    }
     onProgress?.({ step: 'cc-greenhouse', status: 'failed', error: 'Common Crawl returned no slugs.' });
     return;
   }
@@ -496,15 +503,20 @@ export async function runScanJobs(
     return;
   }
 
-  const ghSlice = ghSlugs.slice(store.cursor.greenhouse, store.cursor.greenhouse + SLUGS_PER_RUN);
-  const asSlice = asSlugs.slice(store.cursor.ashby, store.cursor.ashby + SLUGS_PER_RUN);
+  const ghCursor = store.cursor.greenhouse >= ghSlugs.length ? 0 : store.cursor.greenhouse;
+  const asCursor = store.cursor.ashby >= asSlugs.length ? 0 : store.cursor.ashby;
+  const ghSlice = ghSlugs.slice(ghCursor, ghCursor + SLUGS_PER_RUN);
+  const asSlice = asSlugs.slice(asCursor, asCursor + SLUGS_PER_RUN);
 
   let ghJobs: ScanJob[] = [];
   let asJobs: ScanJob[] = [];
 
   await Promise.all([
     (async () => {
-      if (ghSlice.length === 0) return;
+      if (ghSlice.length === 0) {
+        onProgress?.({ step: 'scan-greenhouse', status: 'done', count: 0 });
+        return;
+      }
       onProgress?.({ step: 'scan-greenhouse', status: 'running' });
       try {
         ghJobs = await runBatchAts(ghSlice, (slug) => fetchGreenhouse(slug, slugToName(slug)));
@@ -514,7 +526,10 @@ export async function runScanJobs(
       }
     })(),
     (async () => {
-      if (asSlice.length === 0) return;
+      if (asSlice.length === 0) {
+        onProgress?.({ step: 'scan-ashby', status: 'done', count: 0 });
+        return;
+      }
       onProgress?.({ step: 'scan-ashby', status: 'running' });
       try {
         asJobs = await runBatchAts(asSlice, (slug) => fetchAshby(slug, slugToName(slug)));
@@ -579,8 +594,8 @@ export async function runScanJobs(
     batchOffset: 0,
     queue: newQueue,
     cursor: {
-      greenhouse: store.cursor.greenhouse + ghSlice.length,
-      ashby: store.cursor.ashby + asSlice.length,
+      greenhouse: ghCursor + ghSlice.length,
+      ashby: asCursor + asSlice.length,
     },
     lastSourcedAt: now,
     companyIndex: { ...(store.companyIndex ?? {}), ...indexUpdates },
