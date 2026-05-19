@@ -113,6 +113,7 @@ export interface DashboardScreenProps {
   onAnswerIndexChange: (index: number) => void;
   onOpenProfileActions: (view: ProfileActionView) => void;
   onOpenSavedAnswer: (answerId: string) => void;
+  candidateName?: string;
   onFilterChange: (filter: DashboardScreenProps['filter']) => void;
   onCycleFilter: (direction: -1 | 1) => void;
   onJobSelect: (jobId: string) => void;
@@ -139,6 +140,7 @@ export default function DashboardScreen({
   pendingDiscoveredCount,
   profileIndex,
   answerIndex,
+  candidateName,
   onProfileIndexChange,
   onAnswerIndexChange,
   onOpenProfileActions,
@@ -182,10 +184,10 @@ export default function DashboardScreen({
     : renderDashboardDetailContent({
         theme,
         activePanel,
-        filter,
         filters,
         jobs,
         selectedJob,
+        candidateName,
       });
 
   return (

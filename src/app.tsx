@@ -224,7 +224,8 @@ export default function App() {
   const jobs = useMemo(() => db.readJobs(), [refreshToken]);
   const answers = useMemo(() => answersDb.readAnswers(), [refreshToken]);
   const discoveredStore = useMemo(() => discoveredDb.readDiscovered(), [refreshToken]);
-  const hasSourcedCompanies = Boolean(discoveredStore.lastSourcedAt);
+  const hasSourcedCompanies = Boolean(discoveredStore.lastSourcedAt) ||
+    Boolean(discoveredStore.slugCache?.greenhouse?.length || discoveredStore.slugCache?.ashby?.length);
   const pendingDiscoveredCount = useMemo(() => getPendingCount().batch, [refreshToken]);
   const theme = useMemo(() => resolveUiTheme(themeMode), [themeMode]);
 
@@ -776,11 +777,16 @@ export default function App() {
       setDiscoveryScanProgress((prev) => [...(prev ?? []), p]);
     }).finally(() => {
       finishTask();
+      refreshJobs();
     });
   }
 
   function handleSourceCompanies() {
     startDiscoveryStep('Source Companies', 'source', (onProgress) => runSourceCompanies(onProgress));
+  }
+
+  function handleReSourceCompanies() {
+    startDiscoveryStep('Re-source Companies', 'source', (onProgress) => runSourceCompanies(onProgress, true));
   }
 
   function handleScanJobs() {
@@ -1291,6 +1297,22 @@ export default function App() {
                               setDiscoveryScanProgress(null);
                               setFocus('discovery');
                             }}
+                            onScanJobs={() => {
+                              setDiscoveryScanProgress(null);
+                              handleScanJobs();
+                            }}
+                            onReSource={() => {
+                              setDiscoveryScanProgress(null);
+                              handleReSourceCompanies();
+                            }}
+                            onEvaluatePending={() => {
+                              setDiscoveryScanProgress(null);
+                              handleOpenAddToQueue();
+                            }}
+                            onReScan={() => {
+                              setDiscoveryScanProgress(null);
+                              handleScanJobs();
+                            }}
                           />
                         ),
                       }
@@ -1326,6 +1348,7 @@ export default function App() {
                                 .catch(() => evaluateAndPersistJob(pending))
                                 .finally(() => { refreshJobs(); finishTask(); });
                             }}
+                            onOpen={(url) => openTarget(url, `Opened job link.`, 'No URL available.')}
                           />
                         ),
                       }
@@ -1424,6 +1447,7 @@ export default function App() {
             ]!,
           )
         }
+        candidateName={profile.candidate?.name}
         profileIndex={profileIndex}
         answerIndex={answerIndex}
         onProfileIndexChange={setProfileIndex}

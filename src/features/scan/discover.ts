@@ -429,9 +429,10 @@ Respond with ONLY a JSON object mapping slug to vertical. No explanation, no mar
 
 export async function runSourceCompanies(
   onProgress?: (p: DiscoveryProgress) => void,
+  force = false,
 ): Promise<void> {
   const store = discoveredDb.readDiscovered();
-  const cached = readSlugCache(store);
+  const cached = force ? null : readSlugCache(store);
 
   if (cached) {
     const { greenhouse, ashby } = cached.slugCache!;

@@ -71,10 +71,15 @@ export function parseEvaluationResult(text: string): EvaluationResult {
 async function runEvaluationQuery(prompt: string): Promise<string> {
   let responseText = '';
   for await (const message of query({ prompt, options: getClaudeQueryOptions({ maxTurns: 1 }) })) {
-    if (message.type === 'result' && message.subtype === 'success') {
-      responseText = message.result;
+    if (message.type === 'result') {
+      if (message.subtype === 'success') {
+        responseText = message.result;
+      } else {
+        throw new Error(`Evaluation query failed: ${message.subtype}`);
+      }
     }
   }
+  if (!responseText) throw new Error('Evaluation query returned empty response');
   return responseText;
 }
 

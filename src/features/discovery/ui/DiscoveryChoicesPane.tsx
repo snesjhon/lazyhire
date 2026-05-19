@@ -5,7 +5,7 @@ import { markActed, getBatchPending, loadNextBatch } from '../../scan/discover.j
 import { selectColors } from '../../../shared/ui/selectTheme.js';
 import type { UiTheme } from '../../../shared/ui/theme.js';
 import type { DiscoveredJob } from '../../../shared/models/types.js';
-import { scoreDisplay, clip } from '../../../shared/lib/utils.js';
+import { clip } from '../../../shared/lib/utils.js';
 
 const PAGE_SIZE = 10;
 
@@ -15,6 +15,7 @@ interface Props {
   height: number;
   onClose: () => void;
   onAddToQueue: (job: DiscoveredJob) => void;
+  onOpen: (url: string) => void;
 }
 
 export default function DiscoveryChoicesPane({
@@ -23,6 +24,7 @@ export default function DiscoveryChoicesPane({
   height,
   onClose,
   onAddToQueue,
+  onOpen,
 }: Props) {
   const [pending, setPending] = useState<DiscoveredJob[]>(getBatchPending);
   const [page, setPage] = useState(0);
@@ -92,10 +94,13 @@ export default function DiscoveryChoicesPane({
       markActed(selected.jobUrl, 'passed');
       removeItem(selected.jobUrl);
     }
+    if (key.name === 'o') {
+      onOpen(selected.jobUrl);
+    }
   });
 
-  const companyWidth = Math.max(10, Math.floor((width - 8) * 0.35));
-  const roleWidth = Math.max(12, width - companyWidth - 14);
+  const companyWidth = Math.max(10, Math.floor((width - 4) * 0.35));
+  const roleWidth = Math.max(12, width - companyWidth - 4);
 
   if (pending.length === 0) {
     return (
@@ -107,7 +112,7 @@ export default function DiscoveryChoicesPane({
   }
 
   const options = pageItems.map((job) => ({
-    name: `${clip(job.name, companyWidth).padEnd(companyWidth)} ${clip(job.jobTitle, roleWidth).padEnd(roleWidth)} ${scoreDisplay(job.score).padStart(4)}`,
+    name: `${clip(job.name, companyWidth).padEnd(companyWidth)} ${clip(job.jobTitle, roleWidth)}`,
     description: job.ats,
     value: job.jobUrl,
   }));
@@ -139,6 +144,8 @@ export default function DiscoveryChoicesPane({
         <text fg={theme.footer} content="a/<enter>=add" />
         <text fg={theme.muted} content="|" />
         <text fg={theme.footer} content="x=pass" />
+        <text fg={theme.muted} content="|" />
+        <text fg={theme.footer} content="o=open" />
         <text fg={theme.muted} content="|" />
         <text fg={theme.footer} content="p=prev · n=next" />
         <text fg={theme.muted} content="|" />
