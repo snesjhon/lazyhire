@@ -55,6 +55,9 @@ The answers workspace takes a question, classifies it, drafts a response in what
 
 <!-- ![Answers workspace](./docs/gifs/answers.gif) -->
 
+### Source Jobs
+Using Greenhouse/Ashby company slugs, find relevant jobs based on your resume criterias.
+
 ## Workflow
 
 ```text
