@@ -1,31 +1,39 @@
 {
   "name": "lazyhire",
-  "version": "1.5.0",
+  "version": "2.0.0",
   "packageManager": "pnpm@10.32.1",
   "type": "module",
+  "main": "out/main/index.js",
   "scripts": {
-    "start": "bun src/index.tsx",
-    "dev": "bun --hot src/index.tsx",
-    "dev-tool": "npx react-devtools@7",
-    "scan": "bun src/index.tsx --scan",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "build:mac": "electron-vite build && electron-builder --mac",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^1.0.0",
-    "@opentui/core": "^0.1.97",
-    "@opentui/react": "^0.1.97",
-    "opentui-spinner": "^0.0.6",
+    "electron-store": "^10.0.0",
     "puppeteer-core": "^22.0.0",
-    "react": "^19.2.0",
+    "react": "^19.2.6",
+    "react-dom": "19.2.6",
     "unpdf": "^1.6.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.2",
-    "react-devtools-core": "7",
-    "tsx": "^4.19.0",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^4.0.0",
+    "electron": "^35.0.0",
+    "electron-builder": "^25.0.0",
+    "electron-vite": "^3.0.0",
     "typescript": "^5.7.0",
-    "vitest": "^2.1.0"
+    "vite": "^6.0.0"
   }
 }

@@ -1,5 +1,6 @@
 node_modules/
 dist/
+out/
 docs/superpowers
 output/
 .lazyhire/
@@ -8,3 +9,4 @@ output/
 *.bun-build
 *.cer
 lazyhire-mac-arm64
+docs

@@ -1,0 +1,17 @@
+appId: com.lazyhire.app
+productName: lazyhire
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  category: public.app-category.productivity
+
+dmg:
+  title: lazyhire
+
+files:
+  - out/**/*
+  - "!**/*.map"
