@@ -25,8 +25,8 @@ export default function ScoreBadge({ score }: ScoreBadgeProps) {
     );
   }
 
-  const color = score > 7 ? 'var(--green)' : score >= 5 ? 'var(--yellow)' : 'var(--red)';
-  const bg = score > 7 ? 'var(--green-dim)' : score >= 5 ? 'var(--yellow-dim)' : 'var(--red-dim)';
+  const color = score >= 4.0 ? 'var(--green)' : score >= 2.5 ? 'var(--yellow)' : 'var(--red)';
+  const bg = score >= 4.0 ? 'var(--green-dim)' : score >= 2.5 ? 'var(--yellow-dim)' : 'var(--red-dim)';
 
   return (
     <span

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Job, JobStatus, EvaluationResult } from '@shared/types';
 import { JOB_STATUSES } from '@shared/types';
 import { IPC } from '@shared/ipc-channels';
@@ -11,8 +11,8 @@ type RecoFilter = 'all' | 'apply' | 'consider' | 'skip';
 
 function getReco(score: number | null): Reco {
   if (score === null) return 'pending';
-  if (score >= 80) return 'apply';
-  if (score >= 55) return 'consider';
+  if (score >= 4.0) return 'apply';
+  if (score >= 2.5) return 'consider';
   return 'skip';
 }
 
@@ -106,6 +106,9 @@ function JobDetail({
 }: DetailProps) {
   const reco = getReco(job.score);
   const anyRunning = evaluating || generatingResume || generatingCover;
+  const [jdOpen, setJdOpen] = useState(false);
+
+  useEffect(() => { setJdOpen(false); }, [job.id]);
 
   const recoIcon = reco === 'apply' ? 'check' : reco === 'skip' ? 'minus' : reco === 'consider' ? 'clock' : 'clock';
   const recoText = reco === 'pending'
@@ -209,7 +212,12 @@ function JobDetail({
       <div className="section" style={{ marginBottom: 22 }}>
         <div className="section-label">Application material</div>
         <div className="quick-grid">
-          <div className="quick-card" onClick={onGoDocuments}>
+          <div
+            className="quick-card"
+            onClick={() => job.pdfPath
+              ? window.api.invoke(IPC.SHELL_OPEN_PATH, job.pdfPath)
+              : onGoDocuments()}
+          >
             <div className="qc-top">
               <span className="qc-ico"><Icon name="docs" size={18} /></span>
               <span className="qc-label">Resume</span>
@@ -219,7 +227,12 @@ function JobDetail({
             </div>
             {job.pdfPath && <div className="qc-sub">PDF ready</div>}
           </div>
-          <div className="quick-card" onClick={onGoDocuments}>
+          <div
+            className="quick-card"
+            onClick={() => job.coverLetterPdfPath
+              ? window.api.invoke(IPC.SHELL_OPEN_PATH, job.coverLetterPdfPath)
+              : onGoDocuments()}
+          >
             <div className="qc-top">
               <span className="qc-ico"><Icon name="docs" size={18} /></span>
               <span className="qc-label">Cover letter</span>
@@ -239,11 +252,46 @@ function JobDetail({
         </div>
       </div>
 
-      {/* Job description */}
+      {/* Job summary (post-evaluation) */}
+      {job.jobSummary && (
+        <div className="section" style={{ marginBottom: 22 }}>
+          <div className="section-label">Evaluation summary</div>
+          <div className="jd-block" style={{ marginBottom: 10 }}>{job.jobSummary.company}</div>
+          {job.jobSummary.alignments.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div className="mc-label" style={{ marginBottom: 4 }}>Alignments</div>
+              <ul style={{ paddingLeft: 16, margin: 0 }}>
+                {job.jobSummary.alignments.map((a, i) => (
+                  <li key={i} className="jd-block" style={{ marginBottom: 2 }}>{a}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {job.jobSummary.gaps.length > 0 && (
+            <div>
+              <div className="mc-label" style={{ marginBottom: 4 }}>Gaps</div>
+              <ul style={{ paddingLeft: 16, margin: 0 }}>
+                {job.jobSummary.gaps.map((g, i) => (
+                  <li key={i} className="jd-block" style={{ marginBottom: 2 }}>{g}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Job description (toggleable) */}
       {job.jd && (
         <div className="section">
-          <div className="section-label">Job description</div>
-          <div className="jd-block">{job.jd}</div>
+          <div
+            className="section-label"
+            onClick={() => setJdOpen((o) => !o)}
+            style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <span style={{ fontSize: 10, display: 'inline-block', transform: jdOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>▶</span>
+            Job description
+          </div>
+          {jdOpen && <div className="jd-block" style={{ marginTop: 8 }}>{job.jd}</div>}
         </div>
       )}
 
@@ -346,6 +394,7 @@ export default function Jobs({ jobs, onJobsChange, onGoDocuments, onGoAnswers, c
         score: result.score,
         category: result.category,
         focus: result.focus,
+        jobSummary: result.jobSummary,
         status: 'Evaluated',
       }) as Job;
       updateJob(updated);

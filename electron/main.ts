@@ -1,6 +1,7 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
+import { IPC } from '@shared/ipc-channels';
 import { registerJobsHandlers } from './ipc/jobs.js';
 import { registerProfileHandlers } from './ipc/profile.js';
 import { registerSettingsHandlers } from './ipc/settings.js';
@@ -35,6 +36,8 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  ipcMain.handle(IPC.SHELL_OPEN_PATH, (_event, filePath: string) => shell.openPath(filePath));
+
   registerJobsHandlers();
   registerProfileHandlers();
   registerSettingsHandlers();

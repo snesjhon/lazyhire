@@ -8,7 +8,7 @@ interface DonutProps {
 export default function Donut({ score, reco, size = 120, stroke = 10 }: DonutProps) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
-  const pct = score !== null ? Math.max(0, Math.min(100, score)) / 100 : 0;
+  const pct = score !== null ? Math.max(0, Math.min(5, score)) / 5 : 0;
   const color = reco === 'pending' ? 'var(--text-3)' : `var(--state-${reco})`;
 
   return (

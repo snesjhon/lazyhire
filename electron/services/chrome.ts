@@ -28,11 +28,9 @@ function getPathCommandCandidates(): string[] {
 
 function getChromeCandidates(): string[] {
   const home = process.env.HOME ?? '';
-  const electronExecutable = process.execPath ?? '';
 
   const candidates = [
     process.env.CHROME_PATH ?? '',
-    electronExecutable,
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
     '/Applications/Chromium.app/Contents/MacOS/Chromium',

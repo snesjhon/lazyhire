@@ -28,6 +28,7 @@ export interface Job {
   score: number | null;
   category: string | null;
   focus: string | null;
+  jobSummary?: { company: string; alignments: string[]; gaps: string[] } | null;
   reportPath: string | null;
   pdfPath: string | null;
   coverLetterPdfPath: string | null;

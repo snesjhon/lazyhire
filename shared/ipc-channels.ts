@@ -33,6 +33,9 @@ export const IPC = {
   SCAN_DISCOVER: 'scan:discover',
   SCAN_ACCEPT_BATCH: 'scan:accept-batch',
 
+  // Shell
+  SHELL_OPEN_PATH: 'shell:open-path',
+
   // Progress events (main → renderer via on())
   AI_PROGRESS: 'ai:progress',
   SCAN_PROGRESS: 'scan:progress',
