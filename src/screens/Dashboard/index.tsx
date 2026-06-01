@@ -1,16 +1,24 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { Job, JobStatus, EvaluationResult } from '@shared/types';
 import { JOB_STATUSES } from '@shared/types';
-import Badge from '../../components/Badge';
-import ScoreBadge from '../../components/ScoreBadge';
-import Button from '../../components/Button';
-import Spinner from '../../components/Spinner';
+import { IPC } from '@shared/ipc-channels';
+import Donut from '../../components/Donut';
+import Icon from '../../components/Icon';
 import { useIpcEvent } from '../../hooks/useIpc';
 
-type FilterTab = 'All' | 'Pending' | 'Evaluated' | 'Applied' | 'Interview' | 'Offer';
-const FILTER_TABS: FilterTab[] = ['All', 'Pending', 'Evaluated', 'Applied', 'Interview', 'Offer'];
+type Reco = 'apply' | 'consider' | 'skip' | 'pending';
+type RecoFilter = 'all' | 'apply' | 'consider' | 'skip';
 
-const STATUS_OPTIONS = JOB_STATUSES.map((s) => ({ value: s, label: s }));
+function getReco(score: number | null): Reco {
+  if (score === null) return 'pending';
+  if (score >= 80) return 'apply';
+  if (score >= 55) return 'consider';
+  return 'skip';
+}
+
+function getLogoChar(company: string) {
+  return company.trim().charAt(0).toUpperCase();
+}
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -26,52 +34,293 @@ function sortByScore(jobs: Job[]): Job[] {
   });
 }
 
-export default function Dashboard() {
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<Job | null>(null);
-  const [filter, setFilter] = useState<FilterTab>('All');
+const RECO_LABEL: Record<Reco, string> = {
+  apply: 'Apply',
+  consider: 'Consider',
+  skip: 'Skip',
+  pending: 'Pending',
+};
 
-  const [localNotes, setLocalNotes] = useState('');
+const STATUS_OPTIONS = JOB_STATUSES.map((s) => ({ value: s, label: s }));
+
+// ── Job row ───────────────────────────────────────────────────
+function JobRow({ job, selected, onClick }: { job: Job; selected: boolean; onClick: () => void }) {
+  const reco = getReco(job.score);
+  return (
+    <div className={'job-row' + (selected ? ' sel' : '')} onClick={onClick}>
+      <div className="logo">{getLogoChar(job.company)}</div>
+      <div className="jr-main">
+        <div className="jr-role">{job.role}</div>
+        <div className="jr-meta">{job.company}</div>
+      </div>
+      <div className="jr-score">
+        {job.score !== null ? (
+          <>
+            <span className={'score-num s-' + reco}>{job.score}</span>
+            <span className={'state-dot bg-' + reco} />
+          </>
+        ) : (
+          <>
+            <span className="score-num s-pending">—</span>
+            <span className="state-dot bg-pending" />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Job detail ────────────────────────────────────────────────
+interface DetailProps {
+  job: Job;
+  onStatusChange: (s: JobStatus) => void;
+  onEvaluate: () => void;
+  onGenerateResume: () => void;
+  onGenerateCover: () => void;
+  onGoDocuments: () => void;
+  onGoAnswers: () => void;
+  evaluating: boolean;
+  generatingResume: boolean;
+  generatingCover: boolean;
+  localNotes: string;
+  onNotesChange: (v: string) => void;
+  onNotesBlur: () => void;
+  aiStatus: string | null;
+}
+
+function JobDetail({
+  job,
+  onStatusChange,
+  onEvaluate,
+  onGenerateResume,
+  onGenerateCover,
+  onGoDocuments,
+  onGoAnswers,
+  evaluating,
+  generatingResume,
+  generatingCover,
+  localNotes,
+  onNotesChange,
+  onNotesBlur,
+  aiStatus,
+}: DetailProps) {
+  const reco = getReco(job.score);
+  const anyRunning = evaluating || generatingResume || generatingCover;
+
+  const recoIcon = reco === 'apply' ? 'check' : reco === 'skip' ? 'minus' : reco === 'consider' ? 'clock' : 'clock';
+  const recoText = reco === 'pending'
+    ? 'Evaluate this role to get a fit score and recommendation.'
+    : reco === 'apply'
+    ? `Score ${job.score} — strong match. Category: ${job.category || '—'}.`
+    : reco === 'consider'
+    ? `Score ${job.score} — worth a look. Category: ${job.category || '—'}.`
+    : `Score ${job.score} — poor fit. Category: ${job.category || '—'}.`;
+
+  return (
+    <div className="detail">
+      {/* Header */}
+      <div className="detail-head">
+        <div className="logo" style={{ width: 46, height: 46, fontSize: 16 }}>
+          {getLogoChar(job.company)}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div className="dh-role">{job.role}</div>
+          <div className="dh-meta">
+            <span>{job.company}</span>
+            <span className="dot-sep" />
+            <span>{formatDate(job.added)}</span>
+            <span className="pill">{job.status}</span>
+          </div>
+          {job.url && (
+            <a href={job.url} target="_blank" rel="noreferrer" className="dh-link">
+              {job.url}
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* AI status */}
+      {aiStatus && (
+        <div className="ai-status-bar" style={{ marginBottom: 16, borderRadius: 'var(--r-md)' }}>
+          {anyRunning && (
+            <span className="spinner" style={{ width: 11, height: 11 }} />
+          )}
+          {aiStatus}
+        </div>
+      )}
+
+      {/* Score block */}
+      <div className="score-block">
+        <Donut score={job.score} reco={reco} />
+        <div className="reco">
+          <span className={'reco-tag ' + reco}>
+            <Icon name={recoIcon} size={13} />
+            {RECO_LABEL[reco]}
+          </span>
+          <div className="reco-text">{recoText}</div>
+        </div>
+      </div>
+
+      {/* Status + meta */}
+      <div className="meta-grid">
+        <div className="meta-cell">
+          <div className="mc-label">Status</div>
+          <select
+            className="mc-val"
+            value={job.status}
+            onChange={(e) => onStatusChange(e.target.value as JobStatus)}
+            style={{ background: 'none', border: 'none', outline: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text)', padding: 0 }}
+          >
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="meta-cell">
+          <div className="mc-label">Category</div>
+          <div className="mc-val">{job.category || '—'}</div>
+        </div>
+        <div className="meta-cell">
+          <div className="mc-label">Focus</div>
+          <div className="mc-val">{job.focus || '—'}</div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="action-strip">
+        <button className="btn btn-primary" onClick={onEvaluate} disabled={anyRunning}>
+          {evaluating
+            ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Evaluating…</>
+            : <><Icon name="sparkle" size={14} /> Evaluate</>}
+        </button>
+        <button className="btn btn-ghost" onClick={onGenerateResume} disabled={anyRunning}>
+          {generatingResume
+            ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Generating…</>
+            : <><Icon name="docs" size={14} /> Resume</>}
+        </button>
+        <button className="btn btn-ghost" onClick={onGenerateCover} disabled={anyRunning}>
+          {generatingCover
+            ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Generating…</>
+            : <><Icon name="docs" size={14} /> Cover Letter</>}
+        </button>
+      </div>
+
+      {/* Application material quick-cards */}
+      <div className="section" style={{ marginBottom: 22 }}>
+        <div className="section-label">Application material</div>
+        <div className="quick-grid">
+          <div className="quick-card" onClick={onGoDocuments}>
+            <div className="qc-top">
+              <span className="qc-ico"><Icon name="docs" size={18} /></span>
+              <span className="qc-label">Resume</span>
+            </div>
+            <div className={'qc-status ' + (job.pdfPath ? 'ready' : 'empty')}>
+              {job.pdfPath ? 'Generated' : 'Not yet'}
+            </div>
+            {job.pdfPath && <div className="qc-sub">PDF ready</div>}
+          </div>
+          <div className="quick-card" onClick={onGoDocuments}>
+            <div className="qc-top">
+              <span className="qc-ico"><Icon name="docs" size={18} /></span>
+              <span className="qc-label">Cover letter</span>
+            </div>
+            <div className={'qc-status ' + (job.coverLetterPdfPath ? 'ready' : 'empty')}>
+              {job.coverLetterPdfPath ? 'Generated' : 'Not yet'}
+            </div>
+            {job.coverLetterPdfPath && <div className="qc-sub">PDF ready</div>}
+          </div>
+          <div className="quick-card" onClick={onGoAnswers}>
+            <div className="qc-top">
+              <span className="qc-ico"><Icon name="answers" size={18} /></span>
+              <span className="qc-label">Answers</span>
+            </div>
+            <div className="qc-status empty">Interview prep</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Job description */}
+      {job.jd && (
+        <div className="section">
+          <div className="section-label">Job description</div>
+          <div className="jd-block">{job.jd}</div>
+        </div>
+      )}
+
+      {/* Notes */}
+      <div className="section" style={{ marginBottom: 0 }}>
+        <div className="section-label">Notes</div>
+        <textarea
+          className="notes-textarea"
+          value={localNotes}
+          onChange={(e) => onNotesChange(e.target.value)}
+          onBlur={onNotesBlur}
+          placeholder="Add notes…"
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Jobs view root ────────────────────────────────────────────
+interface JobsProps {
+  jobs: Job[];
+  onJobsChange: (jobs: Job[]) => void;
+  onGoDocuments: () => void;
+  onGoAnswers: () => void;
+  collapsed: boolean;
+}
+
+export default function Jobs({ jobs, onJobsChange, onGoDocuments, onGoAnswers, collapsed }: JobsProps) {
+  const [filter, setFilter] = useState<RecoFilter>('all');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [urlInput, setUrlInput] = useState('');
+  const [fetching, setFetching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [aiStatus, setAiStatus] = useState<string | null>(null);
   const [evaluating, setEvaluating] = useState(false);
   const [generatingResume, setGeneratingResume] = useState(false);
   const [generatingCover, setGeneratingCover] = useState(false);
-
-  const [urlInput, setUrlInput] = useState('');
-  const [fetching, setFetching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [localNotes, setLocalNotes] = useState('');
 
   const aiStatusRef = useRef(aiStatus);
   aiStatusRef.current = aiStatus;
 
-  useEffect(() => {
-    window.api.invoke('jobs:list').then((result) => {
-      setJobs(result as Job[]);
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  const sorted = sortByScore(jobs);
 
-  useEffect(() => {
-    setLocalNotes(selected?.notes ?? '');
-  }, [selected?.id]);
-
-  const handleAiProgress = useCallback((payload: unknown) => {
-    const p = payload as { channel: string; message: string };
-    setAiStatus(p.message);
-  }, []);
-
-  useIpcEvent<{ channel: string; message: string }>('ai:progress', handleAiProgress);
-
-  const updateJobInList = (updated: Job) => {
-    setJobs((prev) => prev.map((j) => (j.id === updated.id ? updated : j)));
-    setSelected((prev) => (prev?.id === updated.id ? updated : prev));
+  const counts = {
+    all: sorted.length,
+    apply: sorted.filter((j) => getReco(j.score) === 'apply').length,
+    consider: sorted.filter((j) => getReco(j.score) === 'consider').length,
+    skip: sorted.filter((j) => getReco(j.score) === 'skip').length,
   };
 
-  const handleStatusChange = async (jobId: string, status: JobStatus) => {
+  const shown = filter === 'all' ? sorted : sorted.filter((j) => getReco(j.score) === filter);
+  const selected = sorted.find((j) => j.id === selectedId) ?? shown[0] ?? null;
+
+  const handleAiProgress = useCallback((payload: unknown) => {
+    const p = payload as { message: string };
+    setAiStatus(p.message);
+  }, []);
+  useIpcEvent<{ channel: string; message: string }>('ai:progress', handleAiProgress);
+
+  const updateJob = (updated: Job) => {
+    onJobsChange(jobs.map((j) => (j.id === updated.id ? updated : j)));
+  };
+
+  const handleSelect = (job: Job) => {
+    setSelectedId(job.id);
+    setLocalNotes(job.notes ?? '');
     setError(null);
+    setAiStatus(null);
+  };
+
+  const handleStatusChange = async (status: JobStatus) => {
+    if (!selected) return;
     try {
-      const updated = await window.api.invoke('jobs:update', { id: jobId, status }) as Job;
-      updateJobInList(updated);
+      const updated = await window.api.invoke(IPC.JOBS_UPDATE, { id: selected.id, status }) as Job;
+      updateJob(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update status');
     }
@@ -79,34 +328,31 @@ export default function Dashboard() {
 
   const handleNotesBlur = async () => {
     if (!selected) return;
-    setError(null);
     try {
-      const updated = await window.api.invoke('jobs:update', { id: selected.id, notes: localNotes }) as Job;
-      updateJobInList(updated);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save notes');
-    }
+      const updated = await window.api.invoke(IPC.JOBS_UPDATE, { id: selected.id, notes: localNotes }) as Job;
+      updateJob(updated);
+    } catch {}
   };
 
   const handleEvaluate = async () => {
     if (!selected) return;
     setEvaluating(true);
-    setAiStatus('Starting evaluation…');
+    setAiStatus('Evaluating…');
     setError(null);
     try {
-      const result = await window.api.invoke('ai:evaluate', { jobId: selected.id }) as EvaluationResult;
-      const updated = await window.api.invoke('jobs:update', {
+      const result = await window.api.invoke(IPC.AI_EVALUATE, { jobId: selected.id }) as EvaluationResult;
+      const updated = await window.api.invoke(IPC.JOBS_UPDATE, {
         id: selected.id,
         score: result.score,
         category: result.category,
         focus: result.focus,
         status: 'Evaluated',
       }) as Job;
-      updateJobInList(updated);
+      updateJob(updated);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Evaluation failed';
-      setAiStatus(message);
-      setError(message);
+      const msg = err instanceof Error ? err.message : 'Evaluation failed';
+      setAiStatus(msg);
+      setError(msg);
     } finally {
       setEvaluating(false);
       setTimeout(() => setAiStatus(null), 3000);
@@ -119,36 +365,32 @@ export default function Dashboard() {
     setAiStatus('Generating resume…');
     setError(null);
     try {
-      await window.api.invoke('ai:generate-resume', { jobId: selected.id });
-      const refreshed = await window.api.invoke('jobs:list') as Job[];
-      setJobs(refreshed);
-      const updated = refreshed.find((j) => j.id === selected.id);
-      if (updated) setSelected(updated);
+      await window.api.invoke(IPC.AI_GENERATE_RESUME, { jobId: selected.id });
+      const list = await window.api.invoke(IPC.JOBS_LIST) as Job[];
+      onJobsChange(list);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Resume generation failed';
-      setAiStatus(message);
-      setError(message);
+      const msg = err instanceof Error ? err.message : 'Resume generation failed';
+      setAiStatus(msg);
+      setError(msg);
     } finally {
       setGeneratingResume(false);
       setTimeout(() => setAiStatus(null), 3000);
     }
   };
 
-  const handleGenerateCoverLetter = async () => {
+  const handleGenerateCover = async () => {
     if (!selected) return;
     setGeneratingCover(true);
     setAiStatus('Generating cover letter…');
     setError(null);
     try {
-      await window.api.invoke('ai:generate-cover-letter', { jobId: selected.id });
-      const refreshed = await window.api.invoke('jobs:list') as Job[];
-      setJobs(refreshed);
-      const updated = refreshed.find((j) => j.id === selected.id);
-      if (updated) setSelected(updated);
+      await window.api.invoke(IPC.AI_GENERATE_COVER_LETTER, { jobId: selected.id });
+      const list = await window.api.invoke(IPC.JOBS_LIST) as Job[];
+      onJobsChange(list);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Cover letter generation failed';
-      setAiStatus(message);
-      setError(message);
+      const msg = err instanceof Error ? err.message : 'Cover letter generation failed';
+      setAiStatus(msg);
+      setError(msg);
     } finally {
       setGeneratingCover(false);
       setTimeout(() => setAiStatus(null), 3000);
@@ -160,9 +402,11 @@ export default function Dashboard() {
     setFetching(true);
     setError(null);
     try {
-      const job = await window.api.invoke('jobs:hydrate', urlInput.trim()) as Job;
-      setJobs((prev) => sortByScore([...prev, job]));
-      setSelected(job);
+      const job = await window.api.invoke(IPC.JOBS_HYDRATE, urlInput.trim()) as Job;
+      const newList = sortByScore([...jobs, job]);
+      onJobsChange(newList);
+      setSelectedId(job.id);
+      setLocalNotes('');
       setUrlInput('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add job from URL');
@@ -171,437 +415,95 @@ export default function Dashboard() {
     }
   };
 
-  const anyAiRunning = evaluating || generatingResume || generatingCover;
-
-  const filteredJobs = sortByScore(
-    filter === 'All' ? jobs : jobs.filter((j) => j.status === filter)
-  );
-
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-      {/* Left: job list */}
-      <div
-        style={{
-          width: 340,
-          flexShrink: 0,
-          borderRight: '1px solid var(--border)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Filter tabs */}
-        <div
-          style={{
-            display: 'flex',
-            borderBottom: '1px solid var(--border)',
-            overflowX: 'auto',
-            flexShrink: 0,
-          }}
-        >
-          {FILTER_TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setFilter(tab)}
-              style={{
-                padding: '7px 10px',
-                fontSize: 11,
-                fontWeight: 500,
-                fontFamily: 'var(--font-mono)',
-                background: 'transparent',
-                border: 'none',
-                borderBottom: filter === tab ? '2px solid var(--accent)' : '2px solid transparent',
-                color: filter === tab ? 'var(--accent)' : 'var(--text-muted)',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'color var(--transition)',
-              }}
-            >
-              {tab}
-            </button>
-          ))}
+    <div className="main">
+      {/* View header */}
+      <div className={'view-head' + (collapsed ? ' collapsed' : '')}>
+        <div>
+          <div className="view-title">Jobs</div>
+          <div className="view-sub">Triage by fit before you spend time applying</div>
         </div>
-
-        {/* Count + URL add */}
-        <div
-          style={{
-            padding: '6px 10px',
-            borderBottom: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            flexShrink: 0,
-          }}
-        >
-          <input
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleFetchUrl()}
-            placeholder="Paste job URL…"
-            style={{
-              flex: 1,
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-primary)',
-              padding: '3px 7px',
-              fontSize: 11,
-              outline: 'none',
-              fontFamily: 'var(--font-mono)',
-            }}
-          />
-          <Button size="sm" variant="primary" onClick={handleFetchUrl} disabled={fetching || !urlInput.trim()}>
-            {fetching ? <Spinner size={10} color="#fff" /> : 'Fetch'}
-          </Button>
-        </div>
-        {error && (
-          <div
-            style={{
-              padding: '8px 10px',
-              borderBottom: '1px solid var(--border)',
-              color: 'var(--red)',
-              fontSize: 11,
-              lineHeight: 1.5,
-            }}
-          >
-            {error}
+        <div className="head-actions">
+          <div className="segment">
+            {(['all', 'apply', 'consider', 'skip'] as const).map((f) => (
+              <button key={f} className={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+                <span className="seg-count">{counts[f]}</span>
+              </button>
+            ))}
           </div>
-        )}
-
-        {/* Job list */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          {loading ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 80, gap: 8, color: 'var(--text-muted)', fontSize: 11 }}>
-              <Spinner size={12} /> loading…
-            </div>
-          ) : filteredJobs.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 80, color: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)' }}>
-              no jobs
-            </div>
-          ) : (
-            filteredJobs.map((job) => {
-              const isActive = selected?.id === job.id;
-              return (
-                <div
-                  key={job.id}
-                  onClick={() => setSelected(isActive ? null : job)}
-                  style={{
-                    padding: '9px 10px',
-                    borderBottom: '1px solid var(--border-subtle)',
-                    cursor: 'pointer',
-                    background: isActive ? 'var(--bg-overlay)' : 'transparent',
-                    transition: 'background var(--transition)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
-                >
-                  <ScoreBadge score={job.score} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                      <span
-                        style={{
-                          fontWeight: 500,
-                          color: 'var(--text-primary)',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          flex: 1,
-                          minWidth: 0,
-                          fontSize: 12,
-                        }}
-                      >
-                        {job.company}
-                      </span>
-                      <Badge status={job.status} />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          color: 'var(--text-secondary)',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          flex: 1,
-                          minWidth: 0,
-                        }}
-                      >
-                        {job.role}
-                      </span>
-                      <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
-                        {formatDate(job.added)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* Footer count */}
-        <div style={{ padding: '5px 10px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-            {filteredJobs.length} / {jobs.length} jobs
-          </span>
         </div>
       </div>
 
-      {/* Right: detail panel */}
-      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        {/* AI status bar */}
-        {aiStatus && (
-          <div
-            style={{
-              padding: '5px 16px',
-              borderBottom: '1px solid var(--border)',
-              background: 'var(--accent-dim)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              flexShrink: 0,
-            }}
-          >
-            {anyAiRunning && <Spinner size={11} color="var(--accent)" />}
-            <span style={{ fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>{aiStatus}</span>
-          </div>
-        )}
+      {/* URL add row */}
+      <div className="url-add-bar">
+        <input
+          className="url-input"
+          value={urlInput}
+          onChange={(e) => setUrlInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleFetchUrl()}
+          placeholder="Paste job URL to add…"
+        />
+        <button
+          className="btn btn-primary"
+          style={{ height: 32, fontSize: 12 }}
+          onClick={handleFetchUrl}
+          disabled={fetching || !urlInput.trim()}
+        >
+          {fetching
+            ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Fetching…</>
+            : <><Icon name="plus" size={14} /> Add</>}
+        </button>
+      </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+      {error && <div className="error-bar">{error}</div>}
+
+      {/* Master-detail */}
+      <div className="split">
+        <div className="list-pane">
+          {shown.length === 0 ? (
+            <div className="empty-state">
+              <Icon name="jobs" size={36} />
+              <div className="es-title">No jobs</div>
+              <div className="es-sub">Paste a job URL above to get started</div>
+            </div>
+          ) : (
+            shown.map((job) => (
+              <JobRow
+                key={job.id}
+                job={job}
+                selected={selected?.id === job.id}
+                onClick={() => handleSelect(job)}
+              />
+            ))
+          )}
+        </div>
+        <div className="detail-pane">
           {selected ? (
-            <DetailPanel
+            <JobDetail
               job={selected}
-              localNotes={localNotes}
-              onNotesChange={setLocalNotes}
-              onNotesBlur={handleNotesBlur}
-              onStatusChange={(status) => handleStatusChange(selected.id, status)}
+              onStatusChange={handleStatusChange}
               onEvaluate={handleEvaluate}
               onGenerateResume={handleGenerateResume}
-              onGenerateCoverLetter={handleGenerateCoverLetter}
+              onGenerateCover={handleGenerateCover}
+              onGoDocuments={onGoDocuments}
+              onGoAnswers={onGoAnswers}
               evaluating={evaluating}
               generatingResume={generatingResume}
               generatingCover={generatingCover}
+              localNotes={localNotes}
+              onNotesChange={setLocalNotes}
+              onNotesBlur={handleNotesBlur}
+              aiStatus={aiStatus}
             />
           ) : (
-            <div
-              style={{
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--text-muted)',
-                fontSize: 11,
-                fontFamily: 'var(--font-mono)',
-              }}
-            >
-              select a job
+            <div className="empty-state">
+              <Icon name="jobs" size={36} />
+              <div className="es-title">Select a job</div>
+              <div className="es-sub">Pick a role from the list to see details</div>
             </div>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-interface DetailPanelProps {
-  job: Job;
-  localNotes: string;
-  onNotesChange: (v: string) => void;
-  onNotesBlur: () => void;
-  onStatusChange: (s: JobStatus) => void;
-  onEvaluate: () => void;
-  onGenerateResume: () => void;
-  onGenerateCoverLetter: () => void;
-  evaluating: boolean;
-  generatingResume: boolean;
-  generatingCover: boolean;
-}
-
-function DetailPanel({
-  job,
-  localNotes,
-  onNotesChange,
-  onNotesBlur,
-  onStatusChange,
-  onEvaluate,
-  onGenerateResume,
-  onGenerateCoverLetter,
-  evaluating,
-  generatingResume,
-  generatingCover,
-}: DetailPanelProps) {
-  const anyRunning = evaluating || generatingResume || generatingCover;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 680 }}>
-      {/* Header */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <ScoreBadge score={job.score} />
-          <Badge status={job.status} />
-          {job.pdfPath && (
-            <Badge status="default" label="resume" />
-          )}
-          {job.coverLetterPdfPath && (
-            <Badge status="default" label="cover letter" />
-          )}
-        </div>
-        <h2
-          style={{
-            fontSize: 17,
-            fontWeight: 600,
-            color: 'var(--text-primary)',
-            marginBottom: 3,
-            letterSpacing: '-0.02em',
-          }}
-        >
-          {job.company}
-        </h2>
-        <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{job.role}</p>
-        {job.url && (
-          <a
-            href={job.url}
-            target="_blank"
-            rel="noreferrer"
-            style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 4, display: 'inline-block', textDecoration: 'none' }}
-          >
-            {job.url}
-          </a>
-        )}
-      </div>
-
-      {/* Status selector */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</span>
-        <select
-          value={job.status}
-          onChange={(e) => onStatusChange(e.target.value as JobStatus)}
-          style={{
-            background: 'var(--bg-elevated)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)',
-            color: 'var(--text-primary)',
-            padding: '3px 6px',
-            fontSize: 11,
-            outline: 'none',
-            cursor: 'pointer',
-            fontFamily: 'var(--font-mono)',
-          }}
-        >
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Meta grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 1,
-          background: 'var(--border)',
-          borderRadius: 'var(--radius)',
-          overflow: 'hidden',
-          border: '1px solid var(--border)',
-        }}
-      >
-        {([
-          ['Added', formatDate(job.added)],
-          ['Category', job.category ?? '—'],
-          ['Focus', job.focus ?? '—'],
-        ] as [string, string][]).map(([label, value]) => (
-          <div key={label} style={{ background: 'var(--bg-elevated)', padding: '7px 10px' }}>
-            <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'var(--font-mono)', marginBottom: 2 }}>
-              {label}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-              {value}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Action buttons */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={onEvaluate}
-          disabled={anyRunning}
-        >
-          {evaluating ? <><Spinner size={10} color="#fff" /> Evaluating…</> : 'Evaluate'}
-        </Button>
-        <Button
-          size="sm"
-          onClick={onGenerateResume}
-          disabled={anyRunning}
-        >
-          {generatingResume ? <><Spinner size={10} /> Generating Resume…</> : 'Generate Resume'}
-        </Button>
-        <Button
-          size="sm"
-          onClick={onGenerateCoverLetter}
-          disabled={anyRunning}
-        >
-          {generatingCover ? <><Spinner size={10} /> Generating Cover Letter…</> : 'Generate Cover Letter'}
-        </Button>
-      </div>
-
-      {/* Job description */}
-      {job.jd && (
-        <div>
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>
-            Job Description
-          </div>
-          <div
-            style={{
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius)',
-              padding: '10px 12px',
-              fontSize: 11,
-              color: 'var(--text-secondary)',
-              lineHeight: 1.7,
-              maxHeight: 260,
-              overflowY: 'auto',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              fontFamily: 'var(--font-mono)',
-            }}
-          >
-            {job.jd}
-          </div>
-        </div>
-      )}
-
-      {/* Notes */}
-      <div>
-        <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>
-          Notes
-        </div>
-        <textarea
-          value={localNotes}
-          onChange={(e) => onNotesChange(e.target.value)}
-          onBlur={onNotesBlur}
-          placeholder="Add notes…"
-          rows={4}
-          style={{
-            width: '100%',
-            background: 'var(--bg-elevated)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius)',
-            color: 'var(--text-primary)',
-            padding: '8px 10px',
-            fontSize: 11,
-            lineHeight: 1.6,
-            resize: 'vertical',
-            outline: 'none',
-            fontFamily: 'var(--font-sans)',
-          }}
-        />
-        <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>auto-saves on blur</span>
       </div>
     </div>
   );

@@ -1,107 +1,138 @@
-type Screen = 'dashboard' | 'scan' | 'profile' | 'answers' | 'settings';
+import Icon from './Icon';
 
-interface NavItem {
-  id: Screen;
-  label: string;
-  icon: string;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: '⬡' },
-  { id: 'scan',      label: 'Scan',      icon: '⊙' },
-  { id: 'profile',   label: 'Profile',   icon: '◯' },
-  { id: 'answers',   label: 'Answers',   icon: '▦' },
-  { id: 'settings',  label: 'Settings',  icon: '⚙' },
-];
+type Screen = 'jobs' | 'docs' | 'answers' | 'scan' | 'profile' | 'settings';
 
 interface SidebarProps {
   active: Screen;
   onNavigate: (screen: Screen) => void;
+  theme: 'light' | 'dark';
+  onThemeChange: (t: 'light' | 'dark') => void;
+  onCollapse: () => void;
+  jobsCount: number;
+  docsCount: number;
+  answersCount: number;
+  candidateName?: string;
+  candidateTitle?: string;
 }
 
-export default function Sidebar({ active, onNavigate }: SidebarProps) {
+const MAIN_NAV: { id: Screen; label: string; icon: 'jobs' | 'docs' | 'answers' }[] = [
+  { id: 'jobs',    label: 'Jobs',      icon: 'jobs' },
+  { id: 'docs',    label: 'Documents', icon: 'docs' },
+  { id: 'answers', label: 'Answers',   icon: 'answers' },
+];
+
+const SEC_NAV: { id: Screen; label: string; icon: 'scan' | 'profile' | 'settings' }[] = [
+  { id: 'scan',     label: 'Discover',  icon: 'scan' },
+  { id: 'profile',  label: 'Profile',   icon: 'profile' },
+  { id: 'settings', label: 'Settings',  icon: 'settings' },
+];
+
+function getInitials(name?: string) {
+  if (!name) return 'ME';
+  const parts = name.trim().split(/\s+/);
+  return parts.length >= 2
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : parts[0].slice(0, 2).toUpperCase();
+}
+
+export default function Sidebar({
+  active,
+  onNavigate,
+  theme,
+  onThemeChange,
+  onCollapse,
+  jobsCount,
+  docsCount,
+  answersCount,
+  candidateName,
+  candidateTitle,
+}: SidebarProps) {
+  const counts: Record<Screen, number | undefined> = {
+    jobs: jobsCount,
+    docs: docsCount,
+    answers: answersCount,
+    scan: undefined,
+    profile: undefined,
+    settings: undefined,
+  };
+
   return (
-    <aside
-      style={{
-        width: 220,
-        flexShrink: 0,
-        height: '100vh',
-        background: 'var(--bg-elevated)',
-        borderRight: '1px solid var(--border)',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
-          padding: '16px 16px 12px',
-          borderBottom: '1px solid var(--border-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontWeight: 700,
-            fontSize: 13,
-            color: 'var(--text-primary)',
-            letterSpacing: '-0.02em',
-          }}
-        >
-          lazyhire
-        </span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', marginLeft: 'auto' }}>
-          v2
-        </span>
+    <aside className="sidebar">
+      {/* Traffic lights + collapse */}
+      <div className="sidebar-top">
+        <div className="lights">
+          <span className="light r" />
+          <span className="light y" />
+          <span className="light g" />
+        </div>
+        <button className="collapse-btn" onClick={onCollapse} title="Hide sidebar">
+          <Icon name="sidebarToggle" size={17} />
+        </button>
       </div>
 
-      <nav style={{ flex: 1, padding: '8px 8px', display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {NAV_ITEMS.map((item) => {
-          const isActive = active === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => onNavigate(item.id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 9,
-                padding: '6px 10px',
-                borderRadius: 'var(--radius)',
-                border: 'none',
-                background: isActive ? 'var(--bg-overlay)' : 'transparent',
-                color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                fontWeight: isActive ? 500 : 400,
-                fontSize: 13,
-                textAlign: 'left',
-                width: '100%',
-                cursor: 'pointer',
-                transition: 'background var(--transition), color var(--transition)',
-              }}
-            >
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, opacity: 0.6, width: 14, textAlign: 'center', flexShrink: 0 }}>
-                {item.icon}
-              </span>
-              {item.label}
-              {isActive && (
-                <span
-                  style={{
-                    marginLeft: 'auto',
-                    width: 4,
-                    height: 4,
-                    borderRadius: '50%',
-                    background: 'var(--accent)',
-                    flexShrink: 0,
-                  }}
-                />
-              )}
-            </button>
-          );
-        })}
+      {/* Brand */}
+      <div className="brand">
+        <div className="brand-mark">⌁</div>
+        <div className="brand-name">
+          <span className="lazy">lazy</span>hire
+        </div>
+      </div>
+
+      {/* Main nav */}
+      <nav className="nav">
+        {MAIN_NAV.map(({ id, label, icon }) => (
+          <button
+            key={id}
+            className={'nav-item' + (active === id ? ' active' : '')}
+            onClick={() => onNavigate(id)}
+          >
+            <Icon name={icon} size={17} />
+            <span>{label}</span>
+            {counts[id] !== undefined && (
+              <span className="nav-count">{counts[id]}</span>
+            )}
+          </button>
+        ))}
       </nav>
+
+      <div className="nav-divider" style={{ margin: '8px 0' }} />
+
+      {/* Secondary nav */}
+      <nav className="nav">
+        {SEC_NAV.map(({ id, label, icon }) => (
+          <button
+            key={id}
+            className={'nav-item' + (active === id ? ' active' : '')}
+            onClick={() => onNavigate(id)}
+          >
+            <Icon name={icon} size={17} />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
+
+      <div className="sidebar-spacer" />
+
+      {/* Candidate card */}
+      <div className="candidate">
+        <div className="avatar">{getInitials(candidateName)}</div>
+        <div style={{ minWidth: 0 }}>
+          <div className="c-name">{candidateName || 'Your Profile'}</div>
+          <div className="c-role">{candidateTitle || 'Set up your profile'}</div>
+        </div>
+      </div>
+
+      {/* Theme toggle */}
+      <div className="theme-toggle">
+        <button className={theme === 'light' ? 'on' : ''} onClick={() => onThemeChange('light')}>
+          <Icon name="sun" size={14} /> Light
+        </button>
+        <button className={theme === 'dark' ? 'on' : ''} onClick={() => onThemeChange('dark')}>
+          <Icon name="moon" size={14} /> Dark
+        </button>
+      </div>
     </aside>
   );
 }
+
+export type { Screen };

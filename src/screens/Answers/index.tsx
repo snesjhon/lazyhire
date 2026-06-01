@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { IPC } from '@shared/ipc-channels';
 import type { AnswerCategory, AnswerEntry } from '@shared/types';
-import Button from '../../components/Button';
-import Spinner from '../../components/Spinner';
+import Icon from '../../components/Icon';
 
 const TONE_OPTIONS = ['Professional', 'Storytelling', 'Concise', 'Enthusiastic', 'Humble'] as const;
 type Tone = (typeof TONE_OPTIONS)[number];
@@ -18,50 +17,8 @@ const CATEGORY_LABELS: Record<AnswerCategory, string> = {
   other: 'Other',
 };
 
-// ── Textarea ──────────────────────────────────────────────────────
-
-function Textarea({
-  value,
-  onChange,
-  placeholder,
-  rows = 4,
-  readOnly,
-}: {
-  value: string;
-  onChange?: (v: string) => void;
-  placeholder?: string;
-  rows?: number;
-  readOnly?: boolean;
-}) {
-  return (
-    <textarea
-      value={value}
-      readOnly={readOnly}
-      rows={rows}
-      placeholder={placeholder}
-      onChange={(e) => onChange?.(e.target.value)}
-      style={{
-        width: '100%',
-        background: readOnly ? 'var(--bg-base)' : 'var(--bg-elevated)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius)',
-        color: 'var(--text-primary)',
-        padding: '7px 10px',
-        outline: 'none',
-        resize: 'vertical',
-        fontFamily: 'inherit',
-        fontSize: 13,
-        lineHeight: 1.6,
-      }}
-      onFocus={(e) => { if (!readOnly) e.currentTarget.style.borderColor = 'var(--accent)'; }}
-      onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}
-    />
-  );
-}
-
-// ── Answer workspace ──────────────────────────────────────────────
-
-function AnswerWorkspace({ onSaved }: { onSaved: (entry: AnswerEntry) => void }) {
+// ── New answer form ───────────────────────────────────────────
+function NewAnswerForm({ onSaved, onCancel }: { onSaved: (e: AnswerEntry) => void; onCancel: () => void }) {
   const [question, setQuestion] = useState('');
   const [category, setCategory] = useState<AnswerCategory | null>(null);
   const [tone, setTone] = useState<Tone>('Professional');
@@ -73,7 +30,6 @@ function AnswerWorkspace({ onSaved }: { onSaved: (entry: AnswerEntry) => void })
   const [generating, setGenerating] = useState(false);
   const [refining, setRefining] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
 
   async function handleDetect() {
@@ -103,8 +59,6 @@ function AnswerWorkspace({ onSaved }: { onSaved: (entry: AnswerEntry) => void })
         context: context.trim(),
       });
       setAnswer(result as string);
-      setShowRefine(false);
-      setRefineText('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed');
     } finally {
@@ -154,57 +108,54 @@ function AnswerWorkspace({ onSaved }: { onSaved: (entry: AnswerEntry) => void })
     }
   }
 
-  async function handleCopy() {
-    if (!answer) return;
-    await navigator.clipboard.writeText(answer);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  }
-
-  const canGenerate = question.trim() && category && !generating;
-
   return (
-    <div style={{ flex: 1, padding: '24px 28px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="ans-new-form">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+        <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em' }}>New Answer</span>
+        <button
+          className="mini-btn"
+          style={{ marginLeft: 'auto' }}
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+      </div>
+
       {/* Question */}
       <div>
-        <label style={labelStyle}>Question</label>
-        <Textarea
+        <label className="form-label">Question</label>
+        <textarea
+          className="form-textarea"
           value={question}
-          onChange={setQuestion}
+          onChange={(e) => setQuestion(e.target.value)}
           placeholder="What's a challenge you faced and how did you handle it?"
           rows={3}
         />
         <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Button size="sm" variant="secondary" onClick={handleDetect} disabled={!question.trim() || detecting}>
-            {detecting ? <><Spinner size={10} /> Detecting…</> : 'Detect Category'}
-          </Button>
+          <button
+            className="mini-btn"
+            onClick={handleDetect}
+            disabled={!question.trim() || detecting}
+          >
+            {detecting
+              ? <><span className="spinner" style={{ width: 10, height: 10 }} /> Detecting…</>
+              : <><Icon name="sparkle" size={12} /> Detect category</>}
+          </button>
           {category && (
-            <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--accent)', padding: '2px 8px', background: 'var(--accent-dim)', borderRadius: 'var(--radius-sm)' }}>
-              {CATEGORY_LABELS[category]}
-            </span>
+            <span className="tag cls">{CATEGORY_LABELS[category]}</span>
           )}
         </div>
       </div>
 
       {/* Tone */}
       <div>
-        <label style={labelStyle}>Tone</label>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <label className="form-label">Tone</label>
+        <div className="tone-options">
           {TONE_OPTIONS.map((t) => (
             <button
               key={t}
+              className={'tone-btn' + (tone === t ? ' on' : '')}
               onClick={() => setTone(t)}
-              style={{
-                padding: '4px 12px',
-                borderRadius: 'var(--radius)',
-                border: '1px solid',
-                borderColor: tone === t ? 'var(--accent)' : 'var(--border)',
-                background: tone === t ? 'var(--accent-dim)' : 'transparent',
-                color: tone === t ? 'var(--accent)' : 'var(--text-secondary)',
-                fontSize: 12,
-                cursor: 'pointer',
-                transition: 'all var(--transition)',
-              }}
             >
               {t}
             </button>
@@ -214,161 +165,242 @@ function AnswerWorkspace({ onSaved }: { onSaved: (entry: AnswerEntry) => void })
 
       {/* Context */}
       <div>
-        <label style={labelStyle}>Context <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span></label>
-        <Textarea
+        <label className="form-label">
+          Context <span style={{ color: 'var(--text-3)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span>
+        </label>
+        <textarea
+          className="form-textarea"
           value={context}
-          onChange={setContext}
-          placeholder="Any specific angle, story, or details to include…"
+          onChange={(e) => setContext(e.target.value)}
+          placeholder="Any specific story, angle, or details to include…"
           rows={2}
         />
       </div>
 
       {/* Generate */}
-      <div>
-        <Button variant="primary" onClick={handleGenerate} disabled={!canGenerate}>
-          {generating ? <><Spinner size={12} /> Generating…</> : 'Generate'}
-        </Button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          className="btn btn-primary"
+          onClick={handleGenerate}
+          disabled={!question.trim() || !category || generating}
+        >
+          {generating
+            ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Generating…</>
+            : <><Icon name="sparkle" size={14} /> Generate</>}
+        </button>
       </div>
 
       {/* Result */}
       {answer && (
         <div>
-          <label style={labelStyle}>Answer</label>
-          <Textarea value={answer} onChange={setAnswer} rows={6} />
+          <label className="form-label">Answer</label>
+          <textarea
+            className="form-textarea"
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            rows={8}
+          />
           <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Button size="sm" variant="secondary" onClick={() => setShowRefine(!showRefine)}>
-              Refine
-            </Button>
-            <Button size="sm" variant="secondary" onClick={handleCopy}>
-              {copied ? '✓ Copied' : 'Copy'}
-            </Button>
-            <Button size="sm" variant="primary" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving…' : 'Save'}
-            </Button>
+            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving…' : 'Save answer'}
+            </button>
+            <button className="btn btn-ghost" onClick={() => setShowRefine(!showRefine)}>
+              <Icon name="sparkle" size={14} /> Refine
+            </button>
+            <button
+              className="btn btn-ghost"
+              onClick={() => navigator.clipboard.writeText(answer)}
+            >
+              Copy
+            </button>
           </div>
         </div>
       )}
 
       {/* Refine */}
       {showRefine && answer && (
-        <div style={{ background: 'var(--bg-overlay)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 14 }}>
-          <label style={labelStyle}>Refinement request</label>
-          <Textarea
+        <div className="refine">
+          <Icon name="sparkle" size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+          <input
             value={refineText}
-            onChange={setRefineText}
-            placeholder="Make it more specific, add the example from my last job, trim it to 2 sentences…"
-            rows={2}
+            onChange={(e) => setRefineText(e.target.value)}
+            placeholder="Make it more concise, add a metric, change the tone…"
+            onKeyDown={(e) => e.key === 'Enter' && handleRefine()}
           />
-          <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-            <Button size="sm" variant="primary" onClick={handleRefine} disabled={!refineText.trim() || refining}>
-              {refining ? <><Spinner size={10} /> Refining…</> : 'Apply'}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => { setShowRefine(false); setRefineText(''); }}>
-              Cancel
-            </Button>
-          </div>
+          <button
+            className="mini-btn accent"
+            onClick={handleRefine}
+            disabled={!refineText.trim() || refining}
+          >
+            {refining
+              ? <span className="spinner" style={{ width: 10, height: 10 }} />
+              : <><Icon name="arrow" size={12} /> Apply</>}
+          </button>
         </div>
       )}
 
-      {error && <p style={{ fontSize: 12, color: 'var(--red)' }}>{error}</p>}
+      {error && (
+        <div style={{ fontSize: 12, color: 'var(--state-skip)', fontFamily: 'var(--font-mono)' }}>
+          {error}
+        </div>
+      )}
     </div>
   );
 }
 
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: 11,
-  fontWeight: 500,
-  letterSpacing: '0.03em',
-  textTransform: 'uppercase',
-  color: 'var(--text-secondary)',
-  marginBottom: 6,
-};
-
-// ── Saved answer list ─────────────────────────────────────────────
-
-function AnswerList({
-  answers,
-  selected,
-  onSelect,
+// ── Answer detail ─────────────────────────────────────────────
+function AnswerDetail({
+  answer,
+  onRefine,
 }: {
-  answers: AnswerEntry[];
-  selected: string | null;
-  onSelect: (id: string) => void;
+  answer: AnswerEntry;
+  onRefine: (text: string) => Promise<void>;
 }) {
+  const [refineText, setRefineText] = useState('');
+  const [refining, setRefining] = useState(false);
+
+  async function handleRefine() {
+    if (!refineText.trim()) return;
+    setRefining(true);
+    try {
+      await onRefine(refineText.trim());
+      setRefineText('');
+    } finally {
+      setRefining(false);
+    }
+  }
+
   return (
-    <div style={{
-      width: 260,
-      flexShrink: 0,
-      borderRight: '1px solid var(--border)',
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden',
-    }}>
-      <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid var(--border-subtle)' }}>
-        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-          Saved ({answers.length})
+    <div className="ans-detail">
+      <div className="ans-question">{answer.question}</div>
+      <div className="ans-tags">
+        <span className="tag cls">{CATEGORY_LABELS[answer.category]}</span>
+        <span className="tag">{answer.tone} tone</span>
+        <span style={{ flex: 1 }} />
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-3)' }}>
+          {answer.company ? answer.company + ' · ' : ''}
+          {new Date(answer.added).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
         </span>
       </div>
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {answers.length === 0 ? (
-          <p style={{ padding: '16px', fontSize: 12, color: 'var(--text-muted)' }}>No saved answers yet.</p>
-        ) : (
-          answers.map((a) => (
-            <button
-              key={a.id}
-              onClick={() => onSelect(a.id)}
-              style={{
-                display: 'block',
-                width: '100%',
-                textAlign: 'left',
-                padding: '10px 14px',
-                background: selected === a.id ? 'var(--bg-overlay)' : 'transparent',
-                border: 'none',
-                borderBottom: '1px solid var(--border-subtle)',
-                cursor: 'pointer',
-              }}
-            >
-              <div style={{ fontSize: 12, color: 'var(--text-primary)', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {a.question}
-              </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--accent)', padding: '1px 5px', background: 'var(--accent-dim)', borderRadius: 2 }}>
-                  {CATEGORY_LABELS[a.category]}
-                </span>
-                {a.company && (
-                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{a.company}</span>
-                )}
-              </div>
-            </button>
-          ))
-        )}
+      <div className="ans-body">
+        {answer.answer.split('\n\n').map((p, i) => <p key={i}>{p}</p>)}
+      </div>
+      <div className="refine">
+        <Icon name="sparkle" size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+        <input
+          value={refineText}
+          onChange={(e) => setRefineText(e.target.value)}
+          placeholder="Refine — e.g. make it more concise, add a metric…"
+          onKeyDown={(e) => e.key === 'Enter' && handleRefine()}
+        />
+        <button
+          className="mini-btn accent"
+          onClick={handleRefine}
+          disabled={!refineText.trim() || refining}
+        >
+          {refining
+            ? <span className="spinner" style={{ width: 10, height: 10 }} />
+            : <><Icon name="arrow" size={12} /> Refine</>}
+        </button>
       </div>
     </div>
   );
 }
 
-// ── Root ──────────────────────────────────────────────────────────
+// ── Answers root ──────────────────────────────────────────────
+interface AnswersProps {
+  answers: AnswerEntry[];
+  onAnswersChange: (answers: AnswerEntry[]) => void;
+  collapsed: boolean;
+}
 
-export default function Answers() {
-  const [answers, setAnswers] = useState<AnswerEntry[]>([]);
+export default function Answers({ answers, onAnswersChange, collapsed }: AnswersProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showNew, setShowNew] = useState(false);
 
-  useEffect(() => {
-    window.api.invoke(IPC.ANSWERS_LIST)
-      .then((list) => setAnswers(list as AnswerEntry[]))
-      .catch(() => {});
-  }, []);
+  const selected = answers.find((a) => a.id === selectedId) ?? null;
 
   const handleSaved = useCallback((entry: AnswerEntry) => {
-    setAnswers((prev) => [entry, ...prev]);
+    onAnswersChange([entry, ...answers]);
     setSelectedId(entry.id);
-  }, []);
+    setShowNew(false);
+  }, [answers, onAnswersChange]);
+
+  const handleRefine = async (entryId: string, refineText: string) => {
+    const entry = answers.find((a) => a.id === entryId);
+    if (!entry) return;
+    const result = await window.api.invoke(IPC.AI_REFINE_ANSWER, {
+      question: entry.question,
+      existingAnswer: entry.answer,
+      refineRequest: refineText,
+    });
+    const updated = { ...entry, answer: result as string, revised: new Date().toISOString() };
+    onAnswersChange(answers.map((a) => (a.id === entryId ? updated : a)));
+  };
 
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-      <AnswerList answers={answers} selected={selectedId} onSelect={setSelectedId} />
-      <AnswerWorkspace onSaved={handleSaved} />
+    <div className="main">
+      <div className={'view-head' + (collapsed ? ' collapsed' : '')}>
+        <div>
+          <div className="view-title">Answers</div>
+          <div className="view-sub">Draft, classify, and refine interview answers</div>
+        </div>
+        <div className="head-actions">
+          <button className="btn btn-primary" onClick={() => { setShowNew(true); setSelectedId(null); }}>
+            <Icon name="plus" size={14} /> New answer
+          </button>
+        </div>
+      </div>
+
+      <div className="split">
+        {/* Answer list */}
+        <div className="list-pane">
+          {answers.length === 0 && !showNew ? (
+            <div className="empty-state">
+              <Icon name="answers" size={36} />
+              <div className="es-title">No answers yet</div>
+              <div className="es-sub">Click "New answer" to start prepping for interviews</div>
+            </div>
+          ) : (
+            answers.map((a) => (
+              <div
+                key={a.id}
+                className={'ans-q-row' + (selected?.id === a.id && !showNew ? ' sel' : '')}
+                onClick={() => { setSelectedId(a.id); setShowNew(false); }}
+              >
+                <div className="aq-q">{a.question}</div>
+                <div className="aq-meta">
+                  <span className="tag cls">{CATEGORY_LABELS[a.category]}</span>
+                  <span className="tag">{a.tone}</span>
+                </div>
+                {a.company && (
+                  <div className="aq-job">
+                    <Icon name="jobs" size={12} /> {a.company}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Detail / new form */}
+        <div className="detail-pane">
+          {showNew ? (
+            <NewAnswerForm onSaved={handleSaved} onCancel={() => setShowNew(false)} />
+          ) : selected ? (
+            <AnswerDetail
+              answer={selected}
+              onRefine={(text) => handleRefine(selected.id, text)}
+            />
+          ) : (
+            <div className="empty-state">
+              <Icon name="answers" size={36} />
+              <div className="es-title">Select an answer</div>
+              <div className="es-sub">Pick a saved answer or create a new one</div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
