@@ -4,6 +4,9 @@
   "packageManager": "pnpm@10.32.1",
   "type": "module",
   "main": "out/main/index.js",
+  "engines": {
+    "node": "^24.0.0"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
@@ -19,14 +22,8 @@
     "react-dom": "19.2.6",
     "unpdf": "^1.6.0"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "electron",
-      "esbuild"
-    ]
-  },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^24.0.0",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react": "^4.0.0",

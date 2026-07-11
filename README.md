@@ -1,4 +1,4 @@
-<p align="center"><img src="./src/shared/ui/logo.svg" alt="lazyhire" width="520"/></p>
+<p align="center"><img src="./src/assets/logo.svg" alt="lazyhire" width="520"/></p>
 
 <p align="center">
 <strong>
@@ -20,7 +20,7 @@ Resume in, applications out. &nbsp;&nbsp;
 
 Job searching runs across too many tabs. You have the posting in one window, your resume in another, a blank cover letter doc open somewhere, and no consistent way to decide if a role is even worth applying to before you've already spent an hour on it.
 
-`lazyhire` is built around one loop: build your profile once, add a job, get a fit score before writing anything, then generate what you need if you decide to apply. Everything stays local. Nothing requires leaving the terminal.
+`lazyhire` is built around one loop: build your profile once, add a job, get a fit score before writing anything, then generate what you need if you decide to apply. Everything stays local on your machine.
 
 ## Features
 
@@ -66,26 +66,23 @@ Resume → Profile → Add Job → Evaluate Fit → Generate Resume / Cover Lett
 
 The tool works best when your profile is accurate and the job descriptions you paste are complete.
 
-## Install
+## Download
+
+`lazyhire` is a desktop app (Electron + React), currently packaged for macOS.
+
+> No packaged release has been published since the move to Electron yet — the [Releases page](https://github.com/snesjhon/lazyhire/releases) is still on the old CLI build. Until a new release goes out, build it yourself from source (see [Development](#development) below); it only takes a couple of commands.
+
+Once releases resume, installing will be:
+
+1. Download the latest `lazyhire-<version>.dmg` from [Releases](https://github.com/snesjhon/lazyhire/releases).
+2. Open the `.dmg` and drag `lazyhire` into `Applications`.
+3. Launch it from `Applications` (or Spotlight).
 
 ### Prerequisites
 
+- macOS (Windows/Linux packaging isn't set up yet — see `electron-builder.yml`).
 - Chrome (or a Chromium-based browser) — used for PDF generation. Set `CHROME_PATH` if yours isn't in a standard location.
 - [Claude Code](https://github.com/anthropics/claude-code) installed and authenticated — evaluation and document generation run through it.
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/snesjhon/lazyhire/main/install.sh | bash
-```
-
-## Keyboard Shortcuts
-
-| Key                 | Action                       |
-| ------------------- | ---------------------------- |
-| `a`                 | Add a job                    |
-| `Tab` / `Shift+Tab` | Move between panels          |
-| `[` / `]`           | Cycle filters or config tabs |
-| `1` `2` `3`         | Jump between major panels    |
-| `ctrl-q`            | Quit                         |
 
 ## Data
 
@@ -101,13 +98,37 @@ Generated PDFs attach back to the saved job records.
 
 ### Requirements
 
-- `bun` - `opentui` requires bun (for now) requires it
+- [`pnpm`](https://pnpm.io) (see `packageManager` in `package.json` for the pinned version)
+- Node.js 24 (LTS) — pinned in `.nvmrc`. Newer non-LTS Node versions (e.g. 26) are known to silently break Electron's own postinstall zip extraction, so stick to the pinned LTS.
 - a working Claude Code setup, since evaluation and generation use `@anthropic-ai/claude-code`
+
+### Setup
+
+```bash
+nvm use            # picks up the Node version pinned in .nvmrc
+pnpm install
+pnpm dev            # launches the Electron app in dev mode with hot reload
+```
+
+### Other scripts
+
+| Command         | What it does                                                 |
+| ---------------- | -------------------------------------------------------------- |
+| `pnpm build`     | Type-checks and builds the app (via `electron-vite`)          |
+| `pnpm build:mac` | Builds and packages a macOS `.dmg` (via `electron-builder`)   |
+| `pnpm preview`   | Previews the built app                                        |
+| `pnpm typecheck` | Runs `tsc --noEmit`                                            |
+
+### Project layout
+
+- `electron/` — main process: IPC handlers (`ipc/`), services (Claude integration, PDF generation, job-board sourcing), and prompt templates.
+- `shared/` — IPC channel names and types shared between the main and renderer processes.
+- `src/` — the React renderer (screens, components, hooks).
 
 ## Inspirations
 
 - [lazygit](https://github.com/jesseduffield/lazygit): I always loved this approach to git, simplicity over everything.
-- [career-ops](https://github.com/tylerbishopdev/career-ops): `lazyhire` started from looking at how career-ops covered the job search operations, but the scope was broader than what I needed. I wanted something more streamlined: one candidate, one terminal, a straight line from job description to application materials. That's what `lazyhire` is.
+- [career-ops](https://github.com/tylerbishopdev/career-ops): `lazyhire` started from looking at how career-ops covered the job search operations, but the scope was broader than what I needed. I wanted something more streamlined: one candidate, one app, a straight line from job description to application materials. That's what `lazyhire` is.
 
 ## License
 
