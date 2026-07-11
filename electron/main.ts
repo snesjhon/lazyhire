@@ -16,12 +16,21 @@ function createWindow(): void {
     height: 820,
     minWidth: 900,
     minHeight: 600,
+    show: false,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 14, y: 14 },
     webPreferences: {
       contextIsolation: true,
       preload: join(__dirname, '../preload/index.js'),
     },
+  });
+
+  win.once('ready-to-show', () => {
+    win.show();
+    win.focus();
+    if (process.platform === 'darwin') {
+      app.focus({ steal: true });
+    }
   });
 
   if (process.env['ELECTRON_RENDERER_URL']) {
@@ -36,6 +45,10 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === 'darwin') {
+    app.dock?.show();
+  }
+
   ipcMain.handle(IPC.SHELL_OPEN_PATH, (_event, filePath: string) => shell.openPath(filePath));
 
   registerJobsHandlers();

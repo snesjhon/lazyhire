@@ -7,7 +7,7 @@ import { IPC } from '@shared/ipc-channels';
 import { loadProfile } from '../services/profile.js';
 import { getClaudeQueryOptions } from '../services/claude.js';
 import { buildWritingGuidance, buildSharedWritingGuidance, buildArtifactWritingGuidance } from '../services/writing-guidance.js';
-import { extractTextFromPdf } from '../services/pdf.js';
+import { extractTextFromPdf, fetchPdfFromUrl } from '../services/pdf.js';
 import { findChrome } from '../services/chrome.js';
 import { db } from '../services/db.js';
 import { DATA_DIR } from '../services/paths.js';
@@ -529,6 +529,12 @@ export function registerAiHandlers(): void {
     const resumeText = typeof resumeInput === 'string'
       ? resumeInput
       : await extractTextFromPdf(Buffer.from(resumeInput));
+    return extractProfileFromText(resumeText);
+  });
+
+  ipcMain.handle(IPC.AI_EXTRACT_PROFILE_FROM_URL, async (_event, url: string) => {
+    const pdfBuffer = await fetchPdfFromUrl(url);
+    const resumeText = await extractTextFromPdf(pdfBuffer);
     return extractProfileFromText(resumeText);
   });
 

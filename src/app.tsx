@@ -8,8 +8,10 @@ import Answers from './screens/Answers';
 import Scan from './screens/Scan';
 import Profile from './screens/Profile';
 import Settings from './screens/Settings';
+import Welcome from './screens/Welcome';
+import Spinner from './components/Spinner';
 import { IPC } from '@shared/ipc-channels';
-import type { Job, AnswerEntry } from '@shared/types';
+import type { Job, AnswerEntry, Profile as ProfileType } from '@shared/types';
 
 function StatusBar({ jobsCount }: { jobsCount: number }) {
   return (
@@ -36,6 +38,7 @@ export default function App() {
   const [answers, setAnswers] = useState<AnswerEntry[]>([]);
   const [candidateName, setCandidateName] = useState<string | undefined>();
   const [candidateTitle, setCandidateTitle] = useState<string | undefined>();
+  const [hasProfile, setHasProfile] = useState<boolean | null>(null);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -53,20 +56,46 @@ export default function App() {
     window.api.invoke(IPC.ANSWERS_LIST)
       .then((list) => setAnswers(list as AnswerEntry[]))
       .catch(() => {});
-    window.api.invoke(IPC.PROFILE_READ)
-      .then((p: unknown) => {
-        const profile = p as { name?: string; title?: string } | null;
-        if (profile) {
-          setCandidateName(profile.name);
-          setCandidateTitle(profile.title);
-        }
+    window.api.invoke(IPC.PROFILE_HAS)
+      .then(async (has) => {
+        setHasProfile(Boolean(has));
+        if (!has) return;
+        const profile = await window.api.invoke(IPC.PROFILE_READ) as ProfileType;
+        setCandidateName(profile.candidate?.name);
+        setCandidateTitle(profile.headline);
       })
-      .catch(() => {});
+      .catch(() => setHasProfile(false));
   }, []);
 
   const docsCount = jobs.filter((j) => j.pdfPath || j.coverLetterPdfPath).length;
 
   const navigate = (s: Screen) => setScreen(s);
+
+  if (hasProfile === null) {
+    return (
+      <div className="app-shell">
+        <div className="drag-bar" />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Spinner size={16} />
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasProfile) {
+    return (
+      <div className="app-shell">
+        <div className="drag-bar" />
+        <Welcome
+          onComplete={(p) => {
+            setHasProfile(true);
+            setCandidateName(p.candidate.name);
+            setCandidateTitle(p.headline);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={'app-shell' + (collapsed ? ' sidebar-collapsed' : '')}>
