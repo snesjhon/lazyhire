@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { IPC } from '@shared/ipc-channels';
 import Select from '../../components/Select';
+import Button from '../../components/Button';
 
 const MODEL_OPTIONS = [
   { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (Recommended)' },
@@ -8,14 +9,20 @@ const MODEL_OPTIONS = [
   { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
 ];
 
+type SettingsState = { model: string; outputDir: string | null; defaultOutputDir: string };
+
 export default function Settings() {
   const [model, setModel] = useState('claude-sonnet-4-6');
+  const [outputDir, setOutputDir] = useState<string | null>(null);
+  const [defaultOutputDir, setDefaultOutputDir] = useState('');
   const [flash, setFlash] = useState(false);
 
   useEffect(() => {
     window.api.invoke(IPC.SETTINGS_READ).then((s) => {
-      const settings = s as { model: string };
+      const settings = s as SettingsState;
       if (settings?.model) setModel(settings.model);
+      setOutputDir(settings?.outputDir ?? null);
+      setDefaultOutputDir(settings?.defaultOutputDir ?? '');
     }).catch(() => {});
   }, []);
 
@@ -25,6 +32,26 @@ export default function Settings() {
       await window.api.invoke(IPC.SETTINGS_SAVE, { model: value });
       setFlash(true);
       setTimeout(() => setFlash(false), 1800);
+    } catch {}
+  }
+
+  async function handleChooseOutputDir() {
+    try {
+      const result = await window.api.invoke(IPC.SETTINGS_CHOOSE_OUTPUT_DIR) as SettingsState | null;
+      if (result) setOutputDir(result.outputDir);
+    } catch {}
+  }
+
+  async function handleResetOutputDir() {
+    try {
+      await window.api.invoke(IPC.SETTINGS_SAVE, { outputDir: null });
+      setOutputDir(null);
+    } catch {}
+  }
+
+  async function handleOpenOutputDir() {
+    try {
+      await window.api.invoke(IPC.SHELL_OPEN_PATH, outputDir || defaultOutputDir);
     } catch {}
   }
 
@@ -52,6 +79,46 @@ export default function Settings() {
           Uses your local Claude Code installation. Make sure you're logged in via the{' '}
           <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>claude</code>{' '}
           CLI.
+        </p>
+      </section>
+
+      <section style={{ borderTop: '1px solid var(--border)', paddingTop: 20, marginBottom: 32 }}>
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 500, marginBottom: 8 }}>
+          Output folder
+        </label>
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+            color: 'var(--text-secondary)',
+            background: 'var(--bg-secondary, rgba(128,128,128,0.08))',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            padding: '8px 10px',
+            marginBottom: 8,
+            wordBreak: 'break-all',
+          }}
+        >
+          {outputDir || defaultOutputDir}
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Button variant="secondary" size="sm" onClick={handleChooseOutputDir}>
+            Choose Folder…
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleOpenOutputDir}>
+            Open Folder
+          </Button>
+          {outputDir && (
+            <Button variant="ghost" size="sm" onClick={handleResetOutputDir}>
+              Use Default
+            </Button>
+          )}
+        </div>
+        <p style={{ marginTop: 10, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+          Resumes and cover letters are saved here. Defaults to{' '}
+          <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+            ~/.lazyhire/output
+          </code>.
         </p>
       </section>
 

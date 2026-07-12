@@ -47,6 +47,7 @@ app.whenReady().then(() => {
   }
 
   ipcMain.handle(IPC.SHELL_OPEN_PATH, (_event, filePath: string) => shell.openPath(filePath));
+  ipcMain.handle(IPC.SHELL_SHOW_ITEM_IN_FOLDER, (_event, filePath: string) => shell.showItemInFolder(filePath));
 
   registerJobsHandlers();
   registerProfileHandlers();

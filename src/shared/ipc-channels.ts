@@ -19,6 +19,7 @@ export const IPC = {
   // Settings
   SETTINGS_READ: 'settings:read',
   SETTINGS_SAVE: 'settings:save',
+  SETTINGS_CHOOSE_OUTPUT_DIR: 'settings:choose-output-dir',
 
   // AI (invoke → result)
   AI_EVALUATE: 'ai:evaluate',
@@ -38,6 +39,7 @@ export const IPC = {
 
   // Shell
   SHELL_OPEN_PATH: 'shell:open-path',
+  SHELL_SHOW_ITEM_IN_FOLDER: 'shell:show-item-in-folder',
 
   // Progress events (main → renderer via on())
   SCAN_PROGRESS: 'scan:progress',

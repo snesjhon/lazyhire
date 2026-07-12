@@ -33,6 +33,7 @@ function DocCard({
   hasDoc,
   filename,
   onOpen,
+  onShowInFolder,
   onGenerate,
   generating,
 }: {
@@ -40,6 +41,7 @@ function DocCard({
   hasDoc: boolean;
   filename?: string;
   onOpen?: () => void;
+  onShowInFolder?: () => void;
   onGenerate?: () => void;
   generating?: boolean;
 }) {
@@ -72,6 +74,9 @@ function DocCard({
           <button className="mini-btn" onClick={onOpen}>
             <Icon name="open" size={13} /> Open
           </button>
+          <button className="mini-btn" onClick={onShowInFolder} title="Show in Folder">
+            <Icon name="folder" size={13} /> Show in Folder
+          </button>
           <button className="mini-btn" onClick={onGenerate} disabled={!onGenerate || generating}>
             {generating
               ? <span className="spinner" style={{ width: 11, height: 11 }} />
@@ -101,6 +106,12 @@ export default function Documents({ jobs, onJobsChange, collapsed, onExpand }: D
   const handleOpen = async (path: string) => {
     try {
       await window.api.invoke(IPC.SHELL_OPEN_PATH, path);
+    } catch {}
+  };
+
+  const handleShowInFolder = async (path: string) => {
+    try {
+      await window.api.invoke(IPC.SHELL_SHOW_ITEM_IN_FOLDER, path);
     } catch {}
   };
 
@@ -183,6 +194,7 @@ export default function Documents({ jobs, onJobsChange, collapsed, onExpand }: D
                   hasDoc={!!job.pdfPath}
                   filename={job.pdfPath ?? undefined}
                   onOpen={() => job.pdfPath && handleOpen(job.pdfPath)}
+                  onShowInFolder={() => job.pdfPath && handleShowInFolder(job.pdfPath)}
                   onGenerate={() => setGenerateTarget({ job, type: 'resume' })}
                   generating={generatingKeys.has(`${job.id}:resume`)}
                 />
@@ -191,6 +203,7 @@ export default function Documents({ jobs, onJobsChange, collapsed, onExpand }: D
                   hasDoc={!!job.coverLetterPdfPath}
                   filename={job.coverLetterPdfPath ?? undefined}
                   onOpen={() => job.coverLetterPdfPath && handleOpen(job.coverLetterPdfPath)}
+                  onShowInFolder={() => job.coverLetterPdfPath && handleShowInFolder(job.coverLetterPdfPath)}
                   onGenerate={() => setGenerateTarget({ job, type: 'cover-letter' })}
                   generating={generatingKeys.has(`${job.id}:cover-letter`)}
                 />

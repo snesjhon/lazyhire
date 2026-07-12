@@ -25,6 +25,7 @@ const ICONS = {
   trash: "M4 7h16M9 7V4.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7m2 0v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7h12zM10 11v6M14 11v6",
   mail: "M4 6h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM3.5 7l8.5 6.5L20.5 7",
   pin: "M12 21s7-7.2 7-12.5A7 7 0 0 0 5 8.5C5 13.8 12 21 12 21zM12 11.2a2.7 2.7 0 1 0 0-5.4 2.7 2.7 0 0 0 0 5.4z",
+  folder: "M3.5 6.5a1 1 0 0 1 1-1H9l2 2.5h8.5a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1v-11.5z",
   sidebarToggle: null as unknown as string,
 } as const;
 

@@ -7,7 +7,7 @@ import { getClaudeQueryOptions } from '../services/claude.js';
 import { buildWritingGuidance } from '../services/writing-guidance.js';
 import { extractTextFromPdf, fetchPdfFromUrl } from '../services/pdf.js';
 import { db, answersDb } from '../services/db.js';
-import { DATA_DIR } from '../services/paths.js';
+import { getOutputDir } from './settings.js';
 import {
   renderPDF,
   renderCoverLetterPDF,
@@ -576,7 +576,7 @@ export function registerAiHandlers(): void {
     };
 
     const filename = buildResumeFilename(profile.candidate.name, job.company);
-    const pdfPath = join(DATA_DIR, 'output', filename);
+    const pdfPath = join(getOutputDir(), filename);
     await renderPDF(cv, pdfPath, textSizeScale);
 
     db.updateJob(job.id, { pdfPath, theme: 'resume' });
@@ -626,7 +626,7 @@ export function registerAiHandlers(): void {
     cl.role = job.role;
 
     const filename = buildCoverLetterFilename(profile.candidate.name, job.company);
-    const coverLetterPdfPath = join(DATA_DIR, 'output', filename);
+    const coverLetterPdfPath = join(getOutputDir(), filename);
     await renderCoverLetterPDF(cl, coverLetterPdfPath);
 
     db.updateJob(job.id, { coverLetterPdfPath, theme: 'cover-letter' });
