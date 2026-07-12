@@ -283,13 +283,13 @@ function JobDetail({
           {job.jobSummary && (
             <div className="section" style={{ marginBottom: 22 }}>
               <div className="section-label">Evaluation summary</div>
-              <div className="jd-block">{job.jobSummary.company}</div>
+              <div className="jd-block jd-block-sans">{job.jobSummary.company}</div>
               {job.jobSummary.alignments.length > 0 && (
                 <div style={{ marginTop: 24 }}>
                   <div className="section-label" style={{ marginBottom: 10 }}>Alignments</div>
                   <ul style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: 0, padding: 0, listStyle: 'none' }}>
                     {job.jobSummary.alignments.map((a, i) => (
-                      <li key={i} className="jd-block">{a}</li>
+                      <li key={i} className="jd-block jd-block-sans">{a}</li>
                     ))}
                   </ul>
                 </div>
@@ -299,7 +299,7 @@ function JobDetail({
                   <div className="section-label" style={{ marginBottom: 10 }}>Gaps</div>
                   <ul style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: 0, padding: 0, listStyle: 'none' }}>
                     {job.jobSummary.gaps.map((g, i) => (
-                      <li key={i} className="jd-block">{g}</li>
+                      <li key={i} className="jd-block jd-block-sans">{g}</li>
                     ))}
                   </ul>
                 </div>

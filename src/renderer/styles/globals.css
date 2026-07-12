@@ -382,7 +382,11 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 /* ============================================================
    DETAIL CONTENT
    ============================================================ */
-.detail { padding: 24px 28px 36px; max-width: 760px; }
+.detail { padding: 24px 28px 36px; }
+
+@media (min-width: 1920px) {
+  .detail { max-width: 760px; }
+}
 .detail-head { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 24px; }
 .detail-head .logo { width: 46px; height: 46px; font-size: 16px; }
 .dh-role { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
@@ -481,6 +485,8 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
   white-space: pre-wrap; word-break: break-word;
   font-family: var(--font-mono);
 }
+
+.jd-block-sans { font-family: var(--font-ui); font-size: 14px; line-height: 1.5; }
 
 /* notes */
 .notes-textarea {
