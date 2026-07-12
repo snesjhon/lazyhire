@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import './styles/globals.css';
 import Sidebar, { type Screen } from './components/Sidebar';
-import Icon from './components/Icon';
 import Jobs from './screens/Dashboard';
 import Documents from './screens/Documents';
 import Answers from './screens/Answers';
@@ -11,7 +10,8 @@ import Settings from './screens/Settings';
 import Welcome from './screens/Welcome';
 import Spinner from './components/Spinner';
 import { IPC } from '@shared/ipc-channels';
-import type { Job, AnswerEntry, Profile as ProfileType, ScanJob } from '@shared/types';
+import type { Job, AnswerEntry, Profile as ProfileType, ScanJob, SourceProgress } from '@shared/types';
+import { useIpcEvent } from './hooks/useIpc';
 
 function StatusBar({ jobsCount }: { jobsCount: number }) {
   return (
@@ -44,6 +44,18 @@ export default function App() {
   const [discoveredJobs, setDiscoveredJobs] = useState<ScanJob[]>([]);
   const [discoveredAddedUrls, setDiscoveredAddedUrls] = useState<Set<string>>(new Set());
   const [visibleDiscoverCount, setVisibleDiscoverCount] = useState(10);
+
+  // Lifted so navigating away from Scan mid-run doesn't lose progress state,
+  // and so the scan:progress listener stays subscribed while on another screen.
+  const [scanningCompanies, setScanningCompanies] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [sourceProgress, setSourceProgress] = useState<SourceProgress[]>([]);
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  const handleScanProgress = useCallback((payload: SourceProgress) => {
+    setSourceProgress((prev) => [...prev.filter((s) => s.source !== payload.source), payload]);
+  }, []);
+  useIpcEvent<SourceProgress>('scan:progress', handleScanProgress);
 
   // Lifted so a job's "Evaluating" state is visible everywhere it appears,
   // regardless of whether the evaluation was kicked off from Scan or Dashboard.
@@ -118,19 +130,6 @@ export default function App() {
 
   return (
     <div className={'app-shell' + (collapsed ? ' sidebar-collapsed' : '')}>
-      {/* Floating controls when collapsed */}
-      <div className="floating-controls">
-        <div className="lights">
-          <span className="light r" />
-          <span className="light y" />
-          <span className="light g" />
-        </div>
-        <div className="fc-div" />
-        <button className="exp-btn" onClick={() => setCollapsed(false)} title="Show sidebar">
-          <Icon name="sidebarToggle" size={17} />
-        </button>
-      </div>
-
       <div className="app-body">
         <Sidebar
           active={screen}
@@ -149,19 +148,27 @@ export default function App() {
           <Jobs
             jobs={jobs}
             onJobsChange={setJobs}
-            onGoDocuments={() => setScreen('docs')}
             onGoAnswers={() => setScreen('answers')}
             collapsed={collapsed}
+            onExpand={() => setCollapsed(false)}
             evaluatingJobIds={evaluatingJobIds}
             onEvaluatingChange={handleEvaluatingChange}
           />
         )}
-        {screen === 'docs' && <Documents jobs={jobs} onJobsChange={setJobs} collapsed={collapsed} />}
+        {screen === 'docs' && (
+          <Documents
+            jobs={jobs}
+            onJobsChange={setJobs}
+            collapsed={collapsed}
+            onExpand={() => setCollapsed(false)}
+          />
+        )}
         {screen === 'answers' && (
           <Answers
             answers={answers}
             onAnswersChange={setAnswers}
             collapsed={collapsed}
+            onExpand={() => setCollapsed(false)}
           />
         )}
         {screen === 'scan' && (
@@ -172,6 +179,14 @@ export default function App() {
             onAddedUrlsChange={setDiscoveredAddedUrls}
             visibleDiscoverCount={visibleDiscoverCount}
             onVisibleDiscoverCountChange={setVisibleDiscoverCount}
+            scanningCompanies={scanningCompanies}
+            onScanningCompaniesChange={setScanningCompanies}
+            discovering={discovering}
+            onDiscoveringChange={setDiscovering}
+            sourceProgress={sourceProgress}
+            onSourceProgressChange={setSourceProgress}
+            error={scanError}
+            onErrorChange={setScanError}
             onJobAdded={(job) => setJobs((prev) => [...prev, job])}
             onJobUpdated={(job) => setJobs((prev) => prev.map((j) => (j.id === job.id ? job : j)))}
             onEvaluatingChange={handleEvaluatingChange}

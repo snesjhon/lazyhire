@@ -1,16 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { EvaluationResult, Job, ScanJob } from '@shared/types';
+import type { EvaluationResult, Job, ScanJob, SourceProgress } from '@shared/types';
 import { IPC } from '@shared/ipc-channels';
 import Button from '../../components/Button';
 import ScoreBadge from '../../components/ScoreBadge';
 import Spinner from '../../components/Spinner';
-import { useIpcEvent } from '../../hooks/useIpc';
-
-interface SourceProgress {
-  source: string;
-  count: number;
-}
 
 interface CompaniesStatus {
   greenhouse: number;
@@ -46,6 +40,14 @@ interface ScanProps {
   onAddedUrlsChange: Dispatch<SetStateAction<Set<string>>>;
   visibleDiscoverCount: number;
   onVisibleDiscoverCountChange: Dispatch<SetStateAction<number>>;
+  scanningCompanies: boolean;
+  onScanningCompaniesChange: Dispatch<SetStateAction<boolean>>;
+  discovering: boolean;
+  onDiscoveringChange: Dispatch<SetStateAction<boolean>>;
+  sourceProgress: SourceProgress[];
+  onSourceProgressChange: Dispatch<SetStateAction<SourceProgress[]>>;
+  error: string | null;
+  onErrorChange: Dispatch<SetStateAction<string | null>>;
   onJobAdded: (job: Job) => void;
   onJobUpdated: (job: Job) => void;
   onEvaluatingChange: (jobId: string, isEvaluating: boolean) => void;
@@ -58,17 +60,21 @@ export default function Scan({
   onAddedUrlsChange,
   visibleDiscoverCount,
   onVisibleDiscoverCountChange,
+  scanningCompanies,
+  onScanningCompaniesChange,
+  discovering,
+  onDiscoveringChange,
+  sourceProgress,
+  onSourceProgressChange,
+  error,
+  onErrorChange,
   onJobAdded,
   onJobUpdated,
   onEvaluatingChange,
 }: ScanProps) {
-  const [scanningCompanies, setScanningCompanies] = useState(false);
-  const [discovering, setDiscovering] = useState(false);
-  const [sourceProgress, setSourceProgress] = useState<SourceProgress[]>([]);
   const [companiesStatus, setCompaniesStatus] = useState<CompaniesStatus | null>(null);
   const [addingUrls, setAddingUrls] = useState<Set<string>>(new Set());
   const [evaluatingUrls, setEvaluatingUrls] = useState<Set<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     window.api.invoke('scan:companies-status')
@@ -76,37 +82,24 @@ export default function Scan({
       .catch(() => {});
   }, []);
 
-  const handleScanProgress = useCallback((payload: unknown) => {
-    const p = payload as { source: string; count: number };
-    setSourceProgress((prev) => {
-      const existing = prev.find((s) => s.source === p.source);
-      if (existing) {
-        return prev.map((s) => (s.source === p.source ? { ...s, count: p.count } : s));
-      }
-      return [...prev, { source: p.source, count: p.count }];
-    });
-  }, []);
-
-  useIpcEvent<{ source: string; count: number }>('scan:progress', handleScanProgress);
-
   const handleScanCompanies = async () => {
-    setScanningCompanies(true);
-    setSourceProgress([]);
-    setError(null);
+    onScanningCompaniesChange(true);
+    onSourceProgressChange([]);
+    onErrorChange(null);
     try {
       const status = await window.api.invoke('scan:companies') as CompaniesStatus;
       setCompaniesStatus(status);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Scan Companies failed');
+      onErrorChange(err instanceof Error ? err.message : 'Scan Companies failed');
     } finally {
-      setScanningCompanies(false);
+      onScanningCompaniesChange(false);
     }
   };
 
   const handleDiscover = async () => {
-    setDiscovering(true);
-    setSourceProgress([]);
-    setError(null);
+    onDiscoveringChange(true);
+    onSourceProgressChange([]);
+    onErrorChange(null);
     try {
       const results = await window.api.invoke('scan:discover') as ScanJob[];
       const merged = mergeScanJobs(discoveredJobs, results ?? []);
@@ -114,22 +107,22 @@ export default function Scan({
       onDiscoveredJobsChange(merged);
       onVisibleDiscoverCountChange(wasShowingAll ? merged.length : visibleDiscoverCount);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Discover failed');
+      onErrorChange(err instanceof Error ? err.message : 'Discover failed');
     } finally {
-      setDiscovering(false);
+      onDiscoveringChange(false);
     }
   };
 
   const handleAddJob = async (job: ScanJob) => {
     setAddingUrls((prev) => new Set([...prev, job.url]));
-    setError(null);
+    onErrorChange(null);
     let addedJob: Job | null = null;
     try {
       addedJob = await window.api.invoke(IPC.JOBS_ADD_FROM_SCAN, job) as Job;
       onAddedUrlsChange((prev) => new Set([...prev, job.url]));
       onJobAdded(addedJob);
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to add ${job.company}`);
+      onErrorChange(err instanceof Error ? err.message : `Failed to add ${job.company}`);
     } finally {
       setAddingUrls((prev) => {
         const next = new Set(prev);
@@ -155,7 +148,7 @@ export default function Scan({
       const evaluated = list.find((j) => j.id === addedJob!.id);
       if (evaluated) onJobUpdated(evaluated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to evaluate ${job.company}`);
+      onErrorChange(err instanceof Error ? err.message : `Failed to evaluate ${job.company}`);
     } finally {
       onEvaluatingChange(addedJob.id, false);
       setEvaluatingUrls((prev) => {
@@ -214,9 +207,16 @@ export default function Scan({
               Sources
             </span>
             {sourceProgress.map((s) => (
-              <div key={s.source} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{s.source}</span>
-                <span style={{ fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{s.count}</span>
+              <div key={s.source} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{s.source}</span>
+                  <span style={{ fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{s.count}</span>
+                </div>
+                {(s.cachedCompanies !== undefined || s.fetchedCompanies !== undefined) && (
+                  <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                    {s.cachedCompanies ?? 0} cached · {s.fetchedCompanies ?? 0} fetched
+                  </span>
+                )}
               </div>
             ))}
           </div>

@@ -191,3 +191,20 @@ export interface ScanJob {
   score: number;
   snippet?: string;
 }
+
+export interface JobCacheEntry {
+  jobs: ScanJob[];
+  fetchedAt: string;
+}
+
+export interface JobCacheStore {
+  greenhouse: Record<string, JobCacheEntry>;
+  ashby: Record<string, JobCacheEntry>;
+}
+
+export interface SourceProgress {
+  source: string;
+  count: number;
+  cachedCompanies?: number;
+  fetchedCompanies?: number;
+}

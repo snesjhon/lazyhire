@@ -79,7 +79,6 @@ interface DetailProps {
   onStatusChange: (s: JobStatus) => void;
   onEvaluate: () => void;
   onOpenGenerate: (type: 'resume' | 'cover-letter') => void;
-  onGoDocuments: () => void;
   onGoAnswers: () => void;
   onDelete: () => void;
   evaluating: boolean;
@@ -96,7 +95,6 @@ function JobDetail({
   onStatusChange,
   onEvaluate,
   onOpenGenerate,
-  onGoDocuments,
   onGoAnswers,
   onDelete,
   evaluating,
@@ -147,17 +145,23 @@ function JobDetail({
             </a>
           )}
         </div>
-        <button
-          className="btn btn-danger"
-          style={{ height: 32, fontSize: 12 }}
-          onClick={onDelete}
-          disabled={anyRunning}
-          title="Delete job"
-        >
-          {deleting
-            ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Deleting…</>
-            : <><Icon name="trash" size={14} /> Delete</>}
-        </button>
+        <div className="detail-head-actions">
+          <button className="btn btn-accent-outline" onClick={onEvaluate} disabled={anyRunning}>
+            {evaluating
+              ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Evaluating…</>
+              : <><Icon name="sparkle" size={14} /> {job.score !== null ? 'Re-evaluate' : 'Evaluate'}</>}
+          </button>
+          <button
+            className="btn btn-danger"
+            onClick={onDelete}
+            disabled={anyRunning}
+            title="Delete job"
+          >
+            {deleting
+              ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Deleting…</>
+              : <><Icon name="trash" size={14} /> Delete</>}
+          </button>
+        </div>
       </div>
 
       {isFirstEvaluation ? (
@@ -213,69 +217,64 @@ function JobDetail({
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="action-strip">
-            <button className="btn btn-primary" onClick={onEvaluate} disabled={anyRunning}>
-              {evaluating
-                ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Evaluating…</>
-                : <><Icon name="sparkle" size={14} /> {job.score !== null ? 'Re-evaluate' : 'Evaluate'}</>}
-            </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Generate:</span>
-              <button className="btn btn-ghost" onClick={() => onOpenGenerate('resume')} disabled={anyRunning}>
-                {generatingResume
-                  ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Generating…</>
-                  : 'Resume'}
-              </button>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>|</span>
-              <button className="btn btn-ghost" onClick={() => onOpenGenerate('cover-letter')} disabled={anyRunning}>
-                {generatingCover
-                  ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Generating…</>
-                  : 'Cover Letter'}
-              </button>
-            </div>
-          </div>
-
-          {/* Application material quick-cards */}
+          {/* Application material */}
           <div className="section" style={{ marginBottom: 22 }}>
             <div className="section-label">Application material</div>
-            <div className="quick-grid">
-              <div
-                className="quick-card"
-                onClick={() => job.pdfPath
-                  ? window.api.invoke(IPC.SHELL_OPEN_PATH, job.pdfPath)
-                  : onGoDocuments()}
-              >
-                <div className="qc-top">
-                  <span className="qc-ico"><Icon name="docs" size={18} /></span>
-                  <span className="qc-label">Resume</span>
+            <div className="material-grid">
+              <div className="material-card">
+                <div className="material-card-top">
+                  <div className="material-thumb"><Icon name="docs" size={20} /></div>
+                  <div className="material-title">Resume</div>
                 </div>
-                <div className={'qc-status ' + (job.pdfPath ? 'ready' : 'empty')}>
-                  {job.pdfPath ? 'Generated' : 'Not yet'}
+                <div className="material-actions">
+                  {job.pdfPath && (
+                    <button
+                      className="pill-btn pill-btn-ghost"
+                      onClick={() => window.api.invoke(IPC.SHELL_OPEN_PATH, job.pdfPath)}
+                      disabled={generatingResume || deleting || evaluating}
+                    >
+                      Open
+                    </button>
+                  )}
+                  <button className="pill-btn pill-btn-accent" onClick={() => onOpenGenerate('resume')} disabled={generatingResume || deleting || evaluating}>
+                    {generatingResume
+                      ? <span className="spinner" style={{ width: 11, height: 11 }} />
+                      : <><Icon name="sparkle" size={13} /> {job.pdfPath ? 'Re-Generate' : 'Generate'}</>}
+                  </button>
                 </div>
-                {job.pdfPath && <div className="qc-sub">PDF ready</div>}
               </div>
-              <div
-                className="quick-card"
-                onClick={() => job.coverLetterPdfPath
-                  ? window.api.invoke(IPC.SHELL_OPEN_PATH, job.coverLetterPdfPath)
-                  : onGoDocuments()}
-              >
-                <div className="qc-top">
-                  <span className="qc-ico"><Icon name="docs" size={18} /></span>
-                  <span className="qc-label">Cover letter</span>
+
+              <div className="material-card">
+                <div className="material-card-top">
+                  <div className="material-thumb"><Icon name="docs" size={20} /></div>
+                  <div className="material-title">Cover letter</div>
                 </div>
-                <div className={'qc-status ' + (job.coverLetterPdfPath ? 'ready' : 'empty')}>
-                  {job.coverLetterPdfPath ? 'Generated' : 'Not yet'}
+                <div className="material-actions">
+                  {job.coverLetterPdfPath && (
+                    <button
+                      className="pill-btn pill-btn-ghost"
+                      onClick={() => window.api.invoke(IPC.SHELL_OPEN_PATH, job.coverLetterPdfPath)}
+                      disabled={generatingCover || deleting || evaluating}
+                    >
+                      Open
+                    </button>
+                  )}
+                  <button className="pill-btn pill-btn-accent" onClick={() => onOpenGenerate('cover-letter')} disabled={generatingCover || deleting || evaluating}>
+                    {generatingCover
+                      ? <span className="spinner" style={{ width: 11, height: 11 }} />
+                      : <><Icon name="sparkle" size={13} /> {job.coverLetterPdfPath ? 'Re-Generate' : 'Generate'}</>}
+                  </button>
                 </div>
-                {job.coverLetterPdfPath && <div className="qc-sub">PDF ready</div>}
               </div>
-              <div className="quick-card" onClick={onGoAnswers}>
-                <div className="qc-top">
-                  <span className="qc-ico"><Icon name="answers" size={18} /></span>
-                  <span className="qc-label">Answers</span>
+
+              <div className="material-card">
+                <div className="material-card-top">
+                  <div className="material-thumb"><Icon name="answers" size={20} /></div>
+                  <div className="material-title">Answers</div>
                 </div>
-                <div className="qc-status empty">Interview prep</div>
+                <div className="material-actions">
+                  <button className="pill-btn pill-btn-ghost" onClick={onGoAnswers}>Open</button>
+                </div>
               </div>
             </div>
           </div>
@@ -284,23 +283,23 @@ function JobDetail({
           {job.jobSummary && (
             <div className="section" style={{ marginBottom: 22 }}>
               <div className="section-label">Evaluation summary</div>
-              <div className="jd-block" style={{ marginBottom: 10 }}>{job.jobSummary.company}</div>
+              <div className="jd-block">{job.jobSummary.company}</div>
               {job.jobSummary.alignments.length > 0 && (
-                <div style={{ marginBottom: 8 }}>
-                  <div className="mc-label" style={{ marginBottom: 4 }}>Alignments</div>
-                  <ul style={{ paddingLeft: 16, margin: 0 }}>
+                <div style={{ marginTop: 24 }}>
+                  <div className="section-label" style={{ marginBottom: 10 }}>Alignments</div>
+                  <ul style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: 0, padding: 0, listStyle: 'none' }}>
                     {job.jobSummary.alignments.map((a, i) => (
-                      <li key={i} className="jd-block" style={{ marginBottom: 2 }}>{a}</li>
+                      <li key={i} className="jd-block">{a}</li>
                     ))}
                   </ul>
                 </div>
               )}
               {job.jobSummary.gaps.length > 0 && (
-                <div>
-                  <div className="mc-label" style={{ marginBottom: 4 }}>Gaps</div>
-                  <ul style={{ paddingLeft: 16, margin: 0 }}>
+                <div style={{ marginTop: 24 }}>
+                  <div className="section-label" style={{ marginBottom: 10 }}>Gaps</div>
+                  <ul style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: 0, padding: 0, listStyle: 'none' }}>
                     {job.jobSummary.gaps.map((g, i) => (
-                      <li key={i} className="jd-block" style={{ marginBottom: 2 }}>{g}</li>
+                      <li key={i} className="jd-block">{g}</li>
                     ))}
                   </ul>
                 </div>
@@ -344,22 +343,22 @@ function JobDetail({
 // ── Jobs view root ────────────────────────────────────────────
 interface JobsProps {
   jobs: Job[];
-  onJobsChange: (jobs: Job[]) => void;
-  onGoDocuments: () => void;
+  onJobsChange: (jobs: Job[] | ((prev: Job[]) => Job[])) => void;
   onGoAnswers: () => void;
   collapsed: boolean;
+  onExpand: () => void;
   evaluatingJobIds: Set<string>;
   onEvaluatingChange: (jobId: string, isEvaluating: boolean) => void;
 }
 
-export default function Jobs({ jobs, onJobsChange, onGoDocuments, onGoAnswers, collapsed, evaluatingJobIds, onEvaluatingChange }: JobsProps) {
+export default function Jobs({ jobs, onJobsChange, onGoAnswers, collapsed, onExpand, evaluatingJobIds, onEvaluatingChange }: JobsProps) {
   const [filter, setFilter] = useState<RecoFilter>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [urlInput, setUrlInput] = useState('');
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generateModalType, setGenerateModalType] = useState<'resume' | 'cover-letter' | null>(null);
-  const [generating, setGenerating] = useState<{ jobId: string; type: 'resume' | 'cover-letter' } | null>(null);
+  const [generatingKeys, setGeneratingKeys] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [localNotes, setLocalNotes] = useState('');
 
@@ -376,7 +375,7 @@ export default function Jobs({ jobs, onJobsChange, onGoDocuments, onGoAnswers, c
   const selected = sorted.find((j) => j.id === selectedId) ?? shown[0] ?? null;
 
   const updateJob = (updated: Job) => {
-    onJobsChange(jobs.map((j) => (j.id === updated.id ? updated : j)));
+    onJobsChange((prev) => prev.map((j) => (j.id === updated.id ? updated : j)));
   };
 
   const handleSelect = (job: Job) => {
@@ -431,7 +430,8 @@ export default function Jobs({ jobs, onJobsChange, onGoDocuments, onGoAnswers, c
   };
 
   const handleGenerateSubmit = async (submission: GenerateSubmission) => {
-    setGenerating({ jobId: submission.job.id, type: submission.type });
+    const key = `${submission.job.id}:${submission.type}`;
+    setGeneratingKeys((prev) => new Set(prev).add(key));
     setError(null);
     try {
       if (submission.type === 'resume') {
@@ -455,7 +455,11 @@ export default function Jobs({ jobs, onJobsChange, onGoDocuments, onGoAnswers, c
         ? err.message
         : `Failed to generate ${submission.type === 'resume' ? 'resume' : 'cover letter'}`);
     } finally {
-      setGenerating(null);
+      setGeneratingKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
@@ -500,7 +504,14 @@ export default function Jobs({ jobs, onJobsChange, onGoDocuments, onGoAnswers, c
       {/* View header */}
       <div className={'view-head' + (collapsed ? ' collapsed' : '')}>
         <div>
-          <div className="view-title">Jobs</div>
+          <div className="view-title-row">
+            {collapsed && (
+              <button className="expand-btn" onClick={onExpand} title="Show sidebar">
+                <Icon name="sidebarToggle" size={17} />
+              </button>
+            )}
+            <div className="view-title">Jobs</div>
+          </div>
           <div className="view-sub">Triage by fit before you spend time applying</div>
         </div>
         <div className="head-actions">
@@ -566,12 +577,11 @@ export default function Jobs({ jobs, onJobsChange, onGoDocuments, onGoAnswers, c
               onStatusChange={handleStatusChange}
               onEvaluate={handleEvaluate}
               onOpenGenerate={setGenerateModalType}
-              onGoDocuments={onGoDocuments}
               onGoAnswers={onGoAnswers}
               onDelete={handleDelete}
               evaluating={evaluatingJobIds.has(selected.id)}
-              generatingResume={generating?.jobId === selected.id && generating.type === 'resume'}
-              generatingCover={generating?.jobId === selected.id && generating.type === 'cover-letter'}
+              generatingResume={generatingKeys.has(`${selected.id}:resume`)}
+              generatingCover={generatingKeys.has(`${selected.id}:cover-letter`)}
               deleting={deleting}
               localNotes={localNotes}
               onNotesChange={setLocalNotes}

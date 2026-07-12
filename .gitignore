@@ -3,7 +3,6 @@ dist/
 out/
 docs/superpowers
 output/
-.lazyhire/
 *.env
 .DS_Store
 *.cer

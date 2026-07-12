@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
 import { query } from '@anthropic-ai/claude-code';
 import { IPC } from '@shared/ipc-channels';
-import { db, discoveredDb, dismissedDb } from '../services/db.js';
+import { db, discoveredDb, dismissedDb, jobCacheDb } from '../services/db.js';
 import { loadProfile } from '../services/profile.js';
 import { getClaudeQueryOptions } from '../services/claude.js';
 import { fetchGreenhouse } from '../services/sources/greenhouse.js';
@@ -10,7 +10,7 @@ import { fetchAshby } from '../services/sources/ashby.js';
 import { fetchCCCrawlId, fetchGreenhouseSlugs, fetchAshbySlugs } from '../services/sources/commoncrawl.js';
 import { isMockDiscoverEnabled } from '../services/mock-flag.js';
 import * as mockDiscover from '../services/sources/mock-discover.js';
-import type { CompanyEntry, DiscoveredStore, Profile, ScanJob } from '@shared/types';
+import type { CompanyEntry, DiscoveredStore, JobCacheEntry, JobCacheStore, Profile, ScanJob } from '@shared/types';
 
 // ── Relevance-scoring constants ────────────────────────────────────
 
@@ -204,14 +204,22 @@ export function shortlistJobs(jobs: ScanJob[], profile: Profile, maxSize = MAX_S
   return fallback.slice(0, maxSize);
 }
 
-async function runBatched<T>(items: T[], fn: (item: T) => Promise<ScanJob[]>, batchSize = 15): Promise<ScanJob[]> {
-  const results: ScanJob[] = [];
-  for (let i = 0; i < items.length; i += batchSize) {
-    const batch = items.slice(i, i + batchSize);
+const DISCOVER_BATCH_SIZE = 30;
+
+// Maps each slug to its fetch result, or null if the fetch failed (distinct
+// from an empty array, which means "fetched successfully, zero jobs").
+async function runBatched(
+  slugs: string[],
+  fn: (slug: string) => Promise<ScanJob[]>,
+  batchSize = DISCOVER_BATCH_SIZE,
+): Promise<Map<string, ScanJob[] | null>> {
+  const results = new Map<string, ScanJob[] | null>();
+  for (let i = 0; i < slugs.length; i += batchSize) {
+    const batch = slugs.slice(i, i + batchSize);
     const settled = await Promise.allSettled(batch.map(fn));
-    for (const r of settled) {
-      if (r.status === 'fulfilled') results.push(...r.value);
-    }
+    settled.forEach((r, idx) => {
+      results.set(batch[idx], r.status === 'fulfilled' ? r.value : null);
+    });
   }
   return results;
 }
@@ -247,6 +255,61 @@ function readSlugCache(store: DiscoveredStore): DiscoveredStore | null {
   if (age >= SLUG_CACHE_TTL_MS) return null;
   if (cache.greenhouse.length === 0 && cache.ashby.length === 0) return null;
   return store;
+}
+
+// Per-company job-posting cache, so repeated Discover runs only refetch
+// companies whose cached jobs have gone stale.
+const JOB_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+function isFresh(entry: JobCacheEntry | undefined): entry is JobCacheEntry {
+  if (!entry) return false;
+  return Date.now() - new Date(entry.fetchedAt).getTime() < JOB_CACHE_TTL_MS;
+}
+
+function partitionSlugs(
+  slugs: string[],
+  cache: Record<string, JobCacheEntry>,
+): { cachedSlugs: string[]; staleSlugs: string[] } {
+  const cachedSlugs = slugs.filter((s) => isFresh(cache[s]));
+  const staleSlugs = slugs.filter((s) => !isFresh(cache[s]));
+  return { cachedSlugs, staleSlugs };
+}
+
+// Combines cache hits with freshly-fetched results into the full job list for
+// a source, plus the next cache map to persist. A failed fetch falls back to
+// the old cached entry (if any) without bumping its fetchedAt, so it gets
+// retried on the next Discover run instead of being masked for a full TTL.
+function resolveSourceJobs(
+  cachedSlugs: string[],
+  staleSlugs: string[],
+  fetchResults: Map<string, ScanJob[] | null>,
+  oldCache: Record<string, JobCacheEntry>,
+  fetchedAt: string,
+): { jobs: ScanJob[]; nextCache: Record<string, JobCacheEntry>; fetchedCount: number } {
+  const jobs: ScanJob[] = [];
+  const nextCache: Record<string, JobCacheEntry> = {};
+  let fetchedCount = 0;
+
+  for (const slug of cachedSlugs) {
+    const entry = oldCache[slug];
+    jobs.push(...entry.jobs);
+    nextCache[slug] = entry;
+  }
+  for (const slug of staleSlugs) {
+    const result = fetchResults.get(slug);
+    if (result == null) {
+      const old = oldCache[slug];
+      if (old) {
+        jobs.push(...old.jobs);
+        nextCache[slug] = old;
+      }
+      continue;
+    }
+    jobs.push(...result);
+    nextCache[slug] = { jobs: result, fetchedAt };
+    fetchedCount++;
+  }
+  return { jobs, nextCache, fetchedCount };
 }
 
 const VERTICALS = [
@@ -358,6 +421,8 @@ export interface DiscoveryProgress {
   step: DiscoveryStepName;
   status: 'running' | 'done';
   count?: number;
+  cachedCompanies?: number;
+  fetchedCompanies?: number;
 }
 
 async function discoverJobs(
@@ -377,13 +442,48 @@ async function discoverJobs(
   const fetchGH = mock ? mockDiscover.fetchGreenhouse : fetchGreenhouse;
   const fetchAS = mock ? mockDiscover.fetchAshby : fetchAshby;
 
-  onProgress?.({ step: 'scan-ashby', status: 'running' });
-  const asJobs = await runBatched(asSlugs, (slug) => fetchAS(slug, slugToName(slug)));
-  onProgress?.({ step: 'scan-ashby', status: 'done', count: asJobs.length });
+  // Mock mode never persists a job cache (mirrors mockSlugCache's "never
+  // written to disk" convention) — every slug is treated as stale so mock
+  // fetchers run every time, same as before caching existed.
+  const jobCache: JobCacheStore = mock ? { greenhouse: {}, ashby: {} } : jobCacheDb.readJobCache();
+  const ghPartition = partitionSlugs(ghSlugs, jobCache.greenhouse);
+  const asPartition = partitionSlugs(asSlugs, jobCache.ashby);
 
+  const fetchedAt = new Date().toISOString();
+
+  onProgress?.({ step: 'scan-ashby', status: 'running' });
   onProgress?.({ step: 'scan-greenhouse', status: 'running' });
-  const ghJobs = await runBatched(ghSlugs, (slug) => fetchGH(slug, slugToName(slug)));
-  onProgress?.({ step: 'scan-greenhouse', status: 'done', count: ghJobs.length });
+
+  // Independent APIs — run both concurrently instead of sequentially.
+  const [ghFetchResults, asFetchResults] = await Promise.all([
+    runBatched(ghPartition.staleSlugs, (slug) => fetchGH(slug, slugToName(slug))),
+    runBatched(asPartition.staleSlugs, (slug) => fetchAS(slug, slugToName(slug))),
+  ]);
+
+  const gh = resolveSourceJobs(ghPartition.cachedSlugs, ghPartition.staleSlugs, ghFetchResults, jobCache.greenhouse, fetchedAt);
+  onProgress?.({
+    step: 'scan-greenhouse',
+    status: 'done',
+    count: gh.jobs.length,
+    cachedCompanies: ghPartition.cachedSlugs.length,
+    fetchedCompanies: gh.fetchedCount,
+  });
+
+  const as = resolveSourceJobs(asPartition.cachedSlugs, asPartition.staleSlugs, asFetchResults, jobCache.ashby, fetchedAt);
+  onProgress?.({
+    step: 'scan-ashby',
+    status: 'done',
+    count: as.jobs.length,
+    cachedCompanies: asPartition.cachedSlugs.length,
+    fetchedCompanies: as.fetchedCount,
+  });
+
+  if (!mock) {
+    jobCacheDb.writeJobCache({ greenhouse: gh.nextCache, ashby: as.nextCache });
+  }
+
+  const ghJobs = gh.jobs;
+  const asJobs = as.jobs;
 
   const allJobs = [...ghJobs, ...asJobs];
   const existingUrls = new Set(db.readJobs().map((j) => canonicalizeJobUrl(j.url)));
@@ -416,7 +516,7 @@ async function discoverJobs(
   const verticals = await classifyCompanies(toClassify);
   onProgress?.({ step: 'classify', status: 'done', count: Object.keys(verticals).length });
 
-  const now = new Date().toISOString();
+  const now = fetchedAt;
   const indexUpdates: Record<string, CompanyEntry> = {};
   for (const { slug, name, ats } of toClassify) {
     indexUpdates[slug] = { slug, name, ats, vertical: verticals[slug] ?? null, classifiedAt: now };
@@ -459,7 +559,12 @@ export function registerScanHandlers(): void {
     const profile = loadProfile();
 
     return discoverJobs(profile, (progress) => {
-      event.sender.send(IPC.SCAN_PROGRESS, { source: progress.step, count: progress.count ?? 0 });
+      event.sender.send(IPC.SCAN_PROGRESS, {
+        source: progress.step,
+        count: progress.count ?? 0,
+        cachedCompanies: progress.cachedCompanies,
+        fetchedCompanies: progress.fetchedCompanies,
+      });
     });
   });
 

@@ -82,9 +82,10 @@ interface DocumentsProps {
   jobs: Job[];
   onJobsChange: (jobs: Job[]) => void;
   collapsed: boolean;
+  onExpand: () => void;
 }
 
-export default function Documents({ jobs, collapsed }: DocumentsProps) {
+export default function Documents({ jobs, collapsed, onExpand }: DocumentsProps) {
   const relevant = jobs.filter(
     (j) => j.pdfPath || j.coverLetterPdfPath || j.score !== null
   );
@@ -99,7 +100,14 @@ export default function Documents({ jobs, collapsed }: DocumentsProps) {
     <div className="main">
       <div className={'view-head' + (collapsed ? ' collapsed' : '')}>
         <div>
-          <div className="view-title">Documents</div>
+          <div className="view-title-row">
+            {collapsed && (
+              <button className="expand-btn" onClick={onExpand} title="Show sidebar">
+                <Icon name="sidebarToggle" size={17} />
+              </button>
+            )}
+            <div className="view-title">Documents</div>
+          </div>
           <div className="view-sub">Tailored resumes and cover letters, attached to each role</div>
         </div>
       </div>

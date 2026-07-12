@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
-import type { AnswerEntry, DiscoveredStore, Job } from '@shared/types';
+import type { AnswerEntry, DiscoveredStore, Job, JobCacheStore } from '@shared/types';
 import { normalizeJobClassification } from './taxonomy.js';
 import { DATA_DIR } from './paths.js';
 
@@ -141,6 +141,32 @@ function writeDiscovered(store: DiscoveredStore): void {
 }
 
 export const discoveredDb = { readDiscovered, writeDiscovered };
+
+// ── Job Cache DB ───────────────────────────────────────────────────
+// Per-company job-posting cache used to avoid refetching every ATS board on
+// every Discover run. Kept separate from discovered.json since this can grow
+// to tens of MB (one entry per company across all scanned slugs) and
+// shouldn't risk the curated batch/companyIndex on a corrupt write.
+
+const JOB_CACHE_PATH = join(DATA_DIR, 'job-cache.json');
+
+const EMPTY_JOB_CACHE_STORE: JobCacheStore = { greenhouse: {}, ashby: {} };
+
+function readJobCache(): JobCacheStore {
+  if (!existsSync(JOB_CACHE_PATH)) return { ...EMPTY_JOB_CACHE_STORE };
+  try {
+    return JSON.parse(readFileSync(JOB_CACHE_PATH, 'utf8')) as JobCacheStore;
+  } catch {
+    return { ...EMPTY_JOB_CACHE_STORE };
+  }
+}
+
+function writeJobCache(store: JobCacheStore): void {
+  mkdirSync(dirname(JOB_CACHE_PATH), { recursive: true });
+  writeFileSync(JOB_CACHE_PATH, JSON.stringify(store), 'utf8');
+}
+
+export const jobCacheDb = { readJobCache, writeJobCache };
 
 // ── Dismissed DB ───────────────────────────────────────────────────
 

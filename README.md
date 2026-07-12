@@ -88,7 +88,7 @@ From then on, `lazyhire` checks for and installs new versions automatically on l
 
 ## Data
 
-Everything is stored locally under `./.lazyhire`:
+Everything is stored locally under `~/.lazyhire` (or `~/.lazyhire-dev` when running from source via `pnpm dev`, kept separate so local development never touches your real data):
 
 - `.lazyhire/candidate.json`
 - `.lazyhire/jobs.json`

@@ -58,24 +58,17 @@ export default function Sidebar({
 
   return (
     <aside className="sidebar">
-      {/* Traffic lights + collapse */}
-      <div className="sidebar-top">
-        <div className="lights">
-          <span className="light r" />
-          <span className="light y" />
-          <span className="light g" />
+      {/* Brand + collapse */}
+      <div className="brand">
+        <div className="brand-left">
+          <div className="brand-mark">⌁</div>
+          <div className="brand-name">
+            <span className="lazy">lazy</span>hire
+          </div>
         </div>
         <button className="collapse-btn" onClick={onCollapse} title="Hide sidebar">
           <Icon name="sidebarToggle" size={17} />
         </button>
-      </div>
-
-      {/* Brand */}
-      <div className="brand">
-        <div className="brand-mark">⌁</div>
-        <div className="brand-name">
-          <span className="lazy">lazy</span>hire
-        </div>
       </div>
 
       {/* Main nav */}

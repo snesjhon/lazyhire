@@ -312,9 +312,10 @@ interface AnswersProps {
   answers: AnswerEntry[];
   onAnswersChange: (answers: AnswerEntry[]) => void;
   collapsed: boolean;
+  onExpand: () => void;
 }
 
-export default function Answers({ answers, onAnswersChange, collapsed }: AnswersProps) {
+export default function Answers({ answers, onAnswersChange, collapsed, onExpand }: AnswersProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
 
@@ -342,7 +343,14 @@ export default function Answers({ answers, onAnswersChange, collapsed }: Answers
     <div className="main">
       <div className={'view-head' + (collapsed ? ' collapsed' : '')}>
         <div>
-          <div className="view-title">Answers</div>
+          <div className="view-title-row">
+            {collapsed && (
+              <button className="expand-btn" onClick={onExpand} title="Show sidebar">
+                <Icon name="sidebarToggle" size={17} />
+              </button>
+            )}
+            <div className="view-title">Answers</div>
+          </div>
           <div className="view-sub">Draft, classify, and refine interview answers</div>
         </div>
         <div className="head-actions">
