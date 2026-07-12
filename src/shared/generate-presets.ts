@@ -12,11 +12,20 @@ export interface CvTextSizeScale {
 
 export type GeneratePresetId = 'tight' | 'compact' | 'balanced' | 'detailed' | 'extended';
 
+export interface CvRoleBulletCounts {
+  mostRecent: number;
+  otherRoles: number;
+}
+
+export type CvPageConstraint = 'strict-one-page' | 'flexible-second-page';
+
 export interface CvBulletLengthPreset {
   id: GeneratePresetId;
   name: string;
   description: string;
   range: CvBulletWordRange;
+  bulletCounts: CvRoleBulletCounts;
+  pageConstraint: CvPageConstraint;
 }
 
 export interface CvTextSizePreset {
@@ -32,32 +41,42 @@ export const CV_BULLET_LENGTH_PRESETS: CvBulletLengthPreset[] = [
   {
     id: 'tight',
     name: 'Tight',
-    description: 'Lean bullets, 16-24 words',
+    description: 'Lean bullets (16-24 words), fewer per role — always fits one page',
     range: { min: 16, max: 24 },
+    bulletCounts: { mostRecent: 2, otherRoles: 1 },
+    pageConstraint: 'strict-one-page',
   },
   {
     id: 'compact',
     name: 'Compact',
-    description: 'Short but specific bullets, 20-32 words',
+    description: 'Short but specific bullets (20-32 words) — always fits one page',
     range: { min: 20, max: 32 },
+    bulletCounts: { mostRecent: 3, otherRoles: 2 },
+    pageConstraint: 'strict-one-page',
   },
   {
     id: 'balanced',
     name: 'Balanced',
-    description: 'Default medium-length bullets, 25-44 words',
+    description: 'Default medium-length bullets (25-44 words) — always fits one page',
     range: DEFAULT_CV_BULLET_WORD_RANGE,
+    bulletCounts: { mostRecent: 3, otherRoles: 2 },
+    pageConstraint: 'strict-one-page',
   },
   {
     id: 'detailed',
     name: 'Detailed',
-    description: 'Richer implementation detail, 32-52 words',
+    description: 'Richer implementation detail (32-52 words), more bullets per role — may extend to a second page',
     range: { min: 32, max: 52 },
+    bulletCounts: { mostRecent: 4, otherRoles: 3 },
+    pageConstraint: 'flexible-second-page',
   },
   {
     id: 'extended',
     name: 'Extended',
-    description: 'Most expansive bullets, 40-60 words',
+    description: 'Most expansive bullets (40-60 words), most bullets per role — may extend to a second page',
     range: { min: 40, max: 60 },
+    bulletCounts: { mostRecent: 5, otherRoles: 4 },
+    pageConstraint: 'flexible-second-page',
   },
 ];
 

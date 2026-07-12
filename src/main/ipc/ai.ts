@@ -15,6 +15,7 @@ import {
   buildCoverLetterFilename,
 } from '../services/jobs.js';
 import {
+  CV_BULLET_LENGTH_PRESETS,
   CV_TEXT_SIZE_PRESETS,
   DEFAULT_CV_BULLET_WORD_RANGE,
   DEFAULT_CV_TEXT_SIZE_SCALE,
@@ -22,6 +23,7 @@ import {
   type CvBulletWordRange,
   type CvTextSizeScale,
   type CoverLetterTotalWordCount,
+  type CvPageConstraint,
 } from '@shared/generate-presets';
 import type {
   AnswerCategory,
@@ -112,6 +114,9 @@ function buildProfileSummary(profile: Profile): string {
     `Name: ${profile.candidate.name}`,
     `Headline: ${profile.headline}`,
     `Summary: ${profile.summary}`,
+    `Location: ${profile.candidate.location}`,
+    `Email: ${profile.candidate.email}`,
+    `Site: ${profile.candidate.site}`,
     `Skills: ${profile.skills.join(', ')}`,
     recentRoles ? `Recent experience: ${recentRoles}` : '',
   ].filter(Boolean).join('\n');
@@ -296,7 +301,17 @@ async function evaluateJob(job: Job, profile: Profile): Promise<EvaluationResult
 const BULLET_WORD_RANGE_TOKEN = '{{BULLET_WORD_RANGE}}';
 const TEXT_SIZE_NAME_TOKEN = '{{TEXT_SIZE_NAME}}';
 const TEXT_SIZE_BODY_PT_TOKEN = '{{TEXT_SIZE_BODY_PT}}';
+const MOST_RECENT_BULLET_COUNT_TOKEN = '{{MOST_RECENT_BULLET_COUNT}}';
+const OTHER_ROLE_BULLET_COUNT_TOKEN = '{{OTHER_ROLE_BULLET_COUNT}}';
+const PAGE_FIT_INSTRUCTION_TOKEN = '{{PAGE_FIT_INSTRUCTION}}';
 const TOTAL_WORD_COUNT_TOKEN = '{{TOTAL_WORD_COUNT}}';
+
+const PAGE_FIT_INSTRUCTIONS: Record<CvPageConstraint, string> = {
+  'strict-one-page':
+    'Fit the entire resume comfortably on one page. Trim bullet detail and de-prioritize lower-signal roles if needed to preserve this.',
+  'flexible-second-page':
+    "Prioritize rich, relevant detail over page count — it's fine to use a second page if the candidate's experience genuinely supports this level of detail. Do not pad or invent content just to fill space, and do not compress meaningfully useful detail just to force a single page.",
+};
 
 function buildExperienceContext(experiences: Profile['experiences']): string {
   return experiences
@@ -321,10 +336,17 @@ function buildGenerateCvPrompt(
   const textSizePreset =
     CV_TEXT_SIZE_PRESETS.find((preset) => preset.scale.bodyPt === textSizeScale.bodyPt) ??
     CV_TEXT_SIZE_PRESETS.find((preset) => preset.id === 'balanced')!;
+  const bulletLengthPreset =
+    CV_BULLET_LENGTH_PRESETS.find(
+      (preset) => preset.range.min === bulletWordRange.min && preset.range.max === bulletWordRange.max,
+    ) ?? CV_BULLET_LENGTH_PRESETS.find((preset) => preset.id === 'balanced')!;
 
   const promptTemplate = GENERATE_CV_PROMPT.replace(BULLET_WORD_RANGE_TOKEN, `${bulletWordRange.min}-${bulletWordRange.max}`)
     .replace(TEXT_SIZE_NAME_TOKEN, textSizePreset.name.toLowerCase())
-    .replace(TEXT_SIZE_BODY_PT_TOKEN, String(textSizeScale.bodyPt));
+    .replace(TEXT_SIZE_BODY_PT_TOKEN, String(textSizeScale.bodyPt))
+    .replace(MOST_RECENT_BULLET_COUNT_TOKEN, String(bulletLengthPreset.bulletCounts.mostRecent))
+    .replace(OTHER_ROLE_BULLET_COUNT_TOKEN, String(bulletLengthPreset.bulletCounts.otherRoles))
+    .replace(PAGE_FIT_INSTRUCTION_TOKEN, PAGE_FIT_INSTRUCTIONS[bulletLengthPreset.pageConstraint]);
 
   return `${promptTemplate}
 
@@ -544,6 +566,15 @@ export function registerAiHandlers(): void {
     }
     if (!cv) throw new Error(`Failed to generate resume: ${lastError?.message}`);
 
+    // Contact info comes from the profile record, not the model, so it can't drift
+    // from the real data even if the model mishandles it.
+    cv.name = profile.candidate.name;
+    cv.contact = {
+      email: profile.candidate.email,
+      location: profile.candidate.location,
+      site: profile.candidate.site,
+    };
+
     const filename = buildResumeFilename(profile.candidate.name, job.company);
     const pdfPath = join(DATA_DIR, 'output', filename);
     await renderPDF(cv, pdfPath, textSizeScale);
@@ -582,6 +613,17 @@ export function registerAiHandlers(): void {
       }
     }
     if (!cl) throw new Error(`Failed to generate cover letter: ${lastError?.message}`);
+
+    // Contact/name/company/role come from the profile and job records, not the model,
+    // so they can't drift from the real data even if the model mishandles them.
+    cl.name = profile.candidate.name;
+    cl.contact = {
+      email: profile.candidate.email,
+      location: profile.candidate.location,
+      site: profile.candidate.site,
+    };
+    cl.company = job.company;
+    cl.role = job.role;
 
     const filename = buildCoverLetterFilename(profile.candidate.name, job.company);
     const coverLetterPdfPath = join(DATA_DIR, 'output', filename);
