@@ -162,18 +162,7 @@ export interface AnswerEntry {
   revised: string;
 }
 
-export type ScanSource = 'greenhouse' | 'lever' | 'ashby' | 'remoteok' | 'remotive' | 'hn-hiring' | 'websearch';
-
-export interface DiscoveredJob {
-  slug: string;
-  name: string;
-  ats: 'greenhouse' | 'ashby';
-  jobTitle: string;
-  jobUrl: string;
-  score: number;
-  snippet: string | null;
-  status: 'pending' | 'added' | 'passed';
-}
+export type ScanSource = 'greenhouse' | 'ashby';
 
 export interface CompanyEntry {
   slug: string;
@@ -184,13 +173,7 @@ export interface CompanyEntry {
 }
 
 export interface DiscoveredStore {
-  batch: DiscoveredJob[];
-  batchOffset: number;
-  queue: DiscoveredJob[];
-  cursor: {
-    greenhouse: number;
-    ashby: number;
-  };
+  batch: ScanJob[];
   lastSourcedAt: string;
   slugCache?: {
     greenhouse: string[];

@@ -60,18 +60,15 @@ export function getModel(): string {
 
 export function getClaudeQueryOptions(
   base: { maxTurns: number; allowedTools?: string[] },
-  extra?: { stderr?: (data: string) => void },
 ): {
   maxTurns: number;
   allowedTools?: string[];
   pathToClaudeCodeExecutable?: string;
   model?: string;
-  stderr?: (data: string) => void;
 } {
   return {
     ...base,
     model: getModel(),
     pathToClaudeCodeExecutable: findClaudeBinary(),
-    ...(extra?.stderr ? { stderr: extra.stderr } : {}),
   };
 }

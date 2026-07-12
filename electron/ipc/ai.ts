@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain } from 'electron';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
 import { query } from '@anthropic-ai/claude-code';
@@ -15,18 +15,14 @@ import type { AnswerCategory, EvaluationResult, GeneratedCV, GeneratedCoverLette
 
 // ── Shared helpers ─────────────────────────────────────────────────
 
-async function runQuery(prompt: string, progressChannel?: string): Promise<string> {
+// The Claude Code SDK's own debug/spawn diagnostics (child process args,
+// raw stderr) are not meant for end users — we intentionally don't wire
+// them up to any UI-facing progress channel.
+async function runQuery(prompt: string): Promise<string> {
   let result = '';
   for await (const message of query({
     prompt,
-    options: getClaudeQueryOptions({ maxTurns: 1 }, progressChannel
-      ? { stderr: (data) => {
-          BrowserWindow.getAllWindows()[0]?.webContents.send(IPC.AI_PROGRESS, {
-            channel: progressChannel,
-            message: data.trim(),
-          });
-        } }
-      : {}),
+    options: getClaudeQueryOptions({ maxTurns: 1 }),
   })) {
     if (message.type === 'result' && message.subtype === 'success') {
       result = message.result;
@@ -169,7 +165,7 @@ async function extractProfileFromText(resumeText: string): Promise<Profile> {
   const prompt = `${EXTRACTION_PROMPT}\n\n---\n\nResume:\n\n${resumeText}`;
   let lastError: Error | null = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const raw = await runQuery(prompt, IPC.AI_EXTRACT_PROFILE);
+    const raw = await runQuery(prompt);
     try {
       const extracted = parseExtractionResult(raw);
       return {
@@ -258,7 +254,7 @@ async function evaluateJob(job: Job, profile: Profile): Promise<EvaluationResult
   const prompt = EVALUATE_PROMPT_TEMPLATE(profile, job);
   let lastError: Error | null = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const raw = await runQuery(prompt, IPC.AI_EVALUATE);
+    const raw = await runQuery(prompt);
     try {
       const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const result = JSON.parse(cleaned) as EvaluationResult;
@@ -472,7 +468,7 @@ export function registerAiHandlers(): void {
     let lastError: Error | null = null;
     let cv: GeneratedCV | null = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
-      const raw = await runQuery(prompt, IPC.AI_GENERATE_RESUME);
+      const raw = await runQuery(prompt);
       try {
         const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         cv = JSON.parse(cleaned) as GeneratedCV;
@@ -503,7 +499,7 @@ export function registerAiHandlers(): void {
     let lastError: Error | null = null;
     let cl: GeneratedCoverLetter | null = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
-      const raw = await runQuery(prompt, IPC.AI_GENERATE_COVER_LETTER);
+      const raw = await runQuery(prompt);
       try {
         const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         cl = JSON.parse(cleaned) as GeneratedCoverLetter;
@@ -584,7 +580,7 @@ ${context.trim() ? `## Additional Context from Candidate\n${context.trim()}\n\n`
 
 Write the answer now. Output ONLY the answer text.`;
 
-    return runQuery(prompt, IPC.AI_GENERATE_ANSWER);
+    return runQuery(prompt);
   });
 
   ipcMain.handle(IPC.AI_REFINE_ANSWER, async (
@@ -626,6 +622,6 @@ ${sharedGuidance}
 
 Write the revised answer now.`;
 
-    return runQuery(prompt, IPC.AI_REFINE_ANSWER);
+    return runQuery(prompt);
   });
 }

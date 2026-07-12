@@ -122,9 +122,6 @@ const DISCOVERED_PATH = join(DATA_DIR, 'discovered.json');
 
 const EMPTY_DISCOVERED_STORE: DiscoveredStore = {
   batch: [],
-  batchOffset: 0,
-  queue: [],
-  cursor: { greenhouse: 0, ashby: 0 },
   lastSourcedAt: '',
   companyIndex: {},
 };

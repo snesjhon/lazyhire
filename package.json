@@ -12,7 +12,7 @@
     "build": "electron-vite build",
     "build:mac": "electron-vite build && electron-builder --mac",
     "preview": "electron-vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^1.0.0",

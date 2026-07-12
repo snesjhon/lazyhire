@@ -11,7 +11,7 @@ import Settings from './screens/Settings';
 import Welcome from './screens/Welcome';
 import Spinner from './components/Spinner';
 import { IPC } from '@shared/ipc-channels';
-import type { Job, AnswerEntry, Profile as ProfileType } from '@shared/types';
+import type { Job, AnswerEntry, Profile as ProfileType, ScanJob } from '@shared/types';
 
 function StatusBar({ jobsCount }: { jobsCount: number }) {
   return (
@@ -40,6 +40,22 @@ export default function App() {
   const [candidateTitle, setCandidateTitle] = useState<string | undefined>();
   const [hasProfile, setHasProfile] = useState<boolean | null>(null);
 
+  // Lifted so navigating away from and back to Discover doesn't lose results.
+  const [discoveredJobs, setDiscoveredJobs] = useState<ScanJob[]>([]);
+  const [discoveredAddedUrls, setDiscoveredAddedUrls] = useState<Set<string>>(new Set());
+  const [visibleDiscoverCount, setVisibleDiscoverCount] = useState(10);
+
+  // Lifted so a job's "Evaluating" state is visible everywhere it appears,
+  // regardless of whether the evaluation was kicked off from Scan or Dashboard.
+  const [evaluatingJobIds, setEvaluatingJobIds] = useState<Set<string>>(new Set());
+  const handleEvaluatingChange = (jobId: string, isEvaluating: boolean) => {
+    setEvaluatingJobIds((prev) => {
+      const next = new Set(prev);
+      if (isEvaluating) next.add(jobId); else next.delete(jobId);
+      return next;
+    });
+  };
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('lh-theme', theme);
@@ -55,6 +71,9 @@ export default function App() {
       .catch(() => {});
     window.api.invoke(IPC.ANSWERS_LIST)
       .then((list) => setAnswers(list as AnswerEntry[]))
+      .catch(() => {});
+    window.api.invoke(IPC.SCAN_READ_DISCOVERED)
+      .then((list) => setDiscoveredJobs(list as ScanJob[]))
       .catch(() => {});
     window.api.invoke(IPC.PROFILE_HAS)
       .then(async (has) => {
@@ -133,6 +152,8 @@ export default function App() {
             onGoDocuments={() => setScreen('docs')}
             onGoAnswers={() => setScreen('answers')}
             collapsed={collapsed}
+            evaluatingJobIds={evaluatingJobIds}
+            onEvaluatingChange={handleEvaluatingChange}
           />
         )}
         {screen === 'docs' && <Documents jobs={jobs} onJobsChange={setJobs} collapsed={collapsed} />}
@@ -143,7 +164,19 @@ export default function App() {
             collapsed={collapsed}
           />
         )}
-        {screen === 'scan' && <Scan />}
+        {screen === 'scan' && (
+          <Scan
+            discoveredJobs={discoveredJobs}
+            onDiscoveredJobsChange={setDiscoveredJobs}
+            addedUrls={discoveredAddedUrls}
+            onAddedUrlsChange={setDiscoveredAddedUrls}
+            visibleDiscoverCount={visibleDiscoverCount}
+            onVisibleDiscoverCountChange={setVisibleDiscoverCount}
+            onJobAdded={(job) => setJobs((prev) => [...prev, job])}
+            onJobUpdated={(job) => setJobs((prev) => prev.map((j) => (j.id === job.id ? job : j)))}
+            onEvaluatingChange={handleEvaluatingChange}
+          />
+        )}
         {screen === 'profile' && <Profile />}
         {screen === 'settings' && <Settings />}
       </div>

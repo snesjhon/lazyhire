@@ -38,10 +38,6 @@ function createWindow(): void {
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'));
   }
-
-  if (process.env['NODE_ENV'] === 'development') {
-    win.webContents.openDevTools();
-  }
 }
 
 app.whenReady().then(() => {

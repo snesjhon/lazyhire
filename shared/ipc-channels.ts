@@ -2,6 +2,7 @@ export const IPC = {
   // Jobs
   JOBS_LIST: 'jobs:list',
   JOBS_ADD: 'jobs:add',
+  JOBS_ADD_FROM_SCAN: 'jobs:add-from-scan',
   JOBS_UPDATE: 'jobs:update',
   JOBS_REMOVE: 'jobs:remove',
   JOBS_HYDRATE: 'jobs:hydrate',
@@ -30,15 +31,15 @@ export const IPC = {
   AI_REFINE_ANSWER: 'ai:refine-answer',
 
   // Scan
-  SCAN_RUN: 'scan:run',
+  SCAN_COMPANIES: 'scan:companies',
+  SCAN_COMPANIES_STATUS: 'scan:companies-status',
   SCAN_DISCOVER: 'scan:discover',
-  SCAN_ACCEPT_BATCH: 'scan:accept-batch',
+  SCAN_READ_DISCOVERED: 'scan:read-discovered',
 
   // Shell
   SHELL_OPEN_PATH: 'shell:open-path',
 
   // Progress events (main → renderer via on())
-  AI_PROGRESS: 'ai:progress',
   SCAN_PROGRESS: 'scan:progress',
 } as const;
 

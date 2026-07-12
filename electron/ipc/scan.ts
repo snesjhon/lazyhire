@@ -4,29 +4,19 @@ import { query } from '@anthropic-ai/claude-code';
 import { IPC } from '@shared/ipc-channels';
 import { db, discoveredDb, dismissedDb } from '../services/db.js';
 import { loadProfile } from '../services/profile.js';
-import { findChrome } from '../services/chrome.js';
 import { getClaudeQueryOptions } from '../services/claude.js';
 import { fetchGreenhouse } from '../services/sources/greenhouse.js';
-import { fetchLever } from '../services/sources/lever.js';
 import { fetchAshby } from '../services/sources/ashby.js';
-import { fetchRemoteOK } from '../services/sources/remoteok.js';
-import { fetchRemotive } from '../services/sources/remotive.js';
-import { fetchHNHiring } from '../services/sources/hnhiring.js';
-import { fetchWebSearch } from '../services/sources/websearch.js';
 import { fetchCCCrawlId, fetchGreenhouseSlugs, fetchAshbySlugs } from '../services/sources/commoncrawl.js';
-import { PORTALS } from '../services/portals.js';
-import puppeteer from 'puppeteer-core';
-import type { CompanyEntry, DiscoveredJob, DiscoveredStore, Profile, ScanJob } from '@shared/types';
+import { isMockDiscoverEnabled } from '../services/mock-flag.js';
+import * as mockDiscover from '../services/sources/mock-discover.js';
+import type { CompanyEntry, DiscoveredStore, Profile, ScanJob } from '@shared/types';
 
-// ── Scan constants ─────────────────────────────────────────────────
+// ── Relevance-scoring constants ────────────────────────────────────
 
 const MAX_SHORTLIST_SIZE = 50;
-const MAX_VALIDATION_CANDIDATES = 100;
-const VALIDATION_BATCH_SIZE = 8;
 const STRICT_RELEVANCE_SCORE = 4;
 const FALLBACK_RELEVANCE_SCORE = 2;
-const JOB_PAGE_TIMEOUT_MS = 12000;
-const JOB_PAGE_SETTLE_MS = 1500;
 
 const NEGATIVE_KEYWORDS = [
   'junior', 'intern', 'entry level', 'entry-level',
@@ -38,19 +28,9 @@ const NEGATIVE_KEYWORDS = [
 
 const SENIORITY_WORDS = ['senior', 'sr.', 'sr ', 'staff', 'principal', 'lead'];
 const USER_FACING_REMOTE_WORDS = ['remote', 'distributed', 'work from home'];
-const HYBRID_WORDS = ['hybrid', 'in office', 'in-office', 'onsite', 'on-site', 'office based'];
 const GENERIC_ROLE_WORDS = new Set([
   'engineer', 'engineering', 'developer', 'software', 'senior', 'staff', 'principal', 'lead',
 ]);
-const CLOSURE_WORDS = [
-  'job no longer available', 'job is no longer available', 'position has been filled',
-  'position is closed', 'job has expired', 'job posting has expired', 'posting has expired',
-  'this job is unavailable', 'this position is no longer available',
-  'this posting is no longer available', 'sorry we couldn t find it',
-  'sorry we could not find it', 'sorry, we couldn t find it', 'sorry, we could not find it',
-  'couldn t find that job', 'could not find that job', 'job not found',
-  'posting not found', 'page not found', '404', 'not found',
-];
 
 const OFF_TARGET_ROLE_PATTERNS = [
   /\bsolutions?\s+engineer\b/, /\bforward\s+deployed\b/, /\bfield\s+engineer\b/,
@@ -88,9 +68,7 @@ const FOCUS_KEYWORDS: Record<string, string[]> = {
   solutions_architecture: ['solutions architect', 'solution architect', 'systems design'],
 };
 
-const SOURCE_PRIORITY: Record<ScanJob['source'], number> = {
-  greenhouse: 5, lever: 5, ashby: 5, websearch: 4, remotive: 3, remoteok: 2, 'hn-hiring': 1,
-};
+const SOURCE_PRIORITY: Record<ScanJob['source'], number> = { greenhouse: 5, ashby: 5 };
 
 const URL_TRACKING_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'source', 'src', 'ref', 'refid', 'referrer'];
 
@@ -100,10 +78,6 @@ const COMPANY_SUFFIXES = ['inc', 'incorporated', 'llc', 'l l c', 'ltd', 'limited
 
 function tokenize(value: string): string[] {
   return value.toLowerCase().split(/[^a-z0-9+#]+/i).map((part) => part.trim()).filter((part) => part.length > 1);
-}
-
-function normalizeWhitespace(value: string): string {
-  return value.replace(/\s+/g, ' ').trim();
 }
 
 export function canonicalizeJobUrl(value: string): string {
@@ -230,285 +204,10 @@ export function shortlistJobs(jobs: ScanJob[], profile: Profile, maxSize = MAX_S
   return fallback.slice(0, maxSize);
 }
 
-function pageIncludesRemote(pageText: string): boolean {
-  return USER_FACING_REMOTE_WORDS.some((word) => pageText.includes(word));
-}
-
-function pageIncludesHybrid(pageText: string): boolean {
-  return HYBRID_WORDS.some((word) => pageText.includes(word));
-}
-
-function roleAppearsOnPage(job: ScanJob, pageText: string, profile: Profile): boolean {
-  const titleTokens = tokenize(job.title).filter((token) => !GENERIC_ROLE_WORDS.has(token));
-  if (titleTokens.length > 0 && titleTokens.some((token) => pageText.includes(token))) return true;
-  return profile.targets.roles.some((role) => {
-    const roleTokens = tokenize(role).filter((token) => !GENERIC_ROLE_WORDS.has(token));
-    return roleTokens.length > 0 && roleTokens.some((token) => pageText.includes(token));
-  });
-}
-
-function pageMatchesProfile(job: ScanJob, profile: Profile, page: { title: string; text: string }): boolean {
-  const pageText = normalizeWhitespace(`${page.title} ${page.text}`.toLowerCase());
-  if (!pageText) return false;
-  if (CLOSURE_WORDS.some((word) => pageText.includes(word))) return false;
-  if (!roleAppearsOnPage(job, pageText, profile)) return false;
-
-  if (profile.targets.remote === 'full') {
-    if (!pageIncludesRemote(pageText)) return false;
-    if (pageIncludesHybrid(pageText)) return false;
-  }
-
-  if (profile.targets.remote === 'hybrid') {
-    if (!pageIncludesRemote(pageText) && !pageIncludesHybrid(pageText)) return false;
-  }
-
-  const normalizedDealBreakers = profile.targets.dealBreakers.map((item) => item.trim().toLowerCase()).filter(Boolean);
-  if (normalizedDealBreakers.some((item) => pageText.includes(item))) return false;
-
-  return true;
-}
-
-type JobPage = { finalUrl: string; title: string; text: string; applyActions: number; jobLinks: number };
-
-function isLikelyAtsBoardRoot(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    const segments = parsed.pathname.split('/').filter(Boolean);
-    if (parsed.hostname === 'jobs.lever.co') return segments.length < 2;
-    if (parsed.hostname.includes('greenhouse.io')) return segments.length < 3 || (segments.length === 2 && segments[1] === 'jobs');
-    if (parsed.hostname === 'jobs.ashbyhq.com') return segments.length < 2 || !segments.some((s) => s.toLowerCase() === 'job');
-    return false;
-  } catch {
-    return false;
-  }
-}
-
-async function fetchJobPage(url: string, browser: Awaited<ReturnType<typeof puppeteer.launch>>): Promise<JobPage | null> {
-  const page = await browser.newPage();
-  try {
-    await page.setUserAgent('open-positions/1.0');
-    await page.setViewport({ width: 1440, height: 1024, deviceScaleFactor: 1 });
-
-    const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: JOB_PAGE_TIMEOUT_MS });
-    if (!response || !response.ok()) return null;
-
-    await page.waitForSelector('body', { timeout: JOB_PAGE_TIMEOUT_MS }).catch(() => null);
-    await page.waitForNetworkIdle({ idleTime: 500, timeout: JOB_PAGE_SETTLE_MS }).catch(() => null);
-
-    const title = normalizeWhitespace(await page.title());
-    const details = await page.evaluate(`(function() {
-      var d = globalThis.document;
-      var w = globalThis.window;
-      var text = (d.body && d.body.innerText) ? d.body.innerText : '';
-      var applyActions = Array.from(d.querySelectorAll('a, button'))
-        .filter(function(node) { return /\\bapply\\b/i.test(node.textContent || ''); }).length;
-      var currentHref = w.location.href;
-      var currentOrigin = w.location.origin;
-      var jobLinks = new Set(
-        Array.from(d.querySelectorAll('a[href]'))
-          .map(function(node) { return node.href; })
-          .filter(function(href) { return href.startsWith(currentOrigin) && href !== currentHref && /(job|jobs|position|posting|career)/i.test(href); })
-      ).size;
-      return { text: text, applyActions: applyActions, jobLinks: jobLinks };
-    })()`) as { text: string; applyActions: number; jobLinks: number };
-
-    const text = normalizeWhitespace(details.text);
-    if (!text) return null;
-
-    const normalizedText = normalizeWhitespace(text.toLowerCase().replace(/[^a-z0-9]+/g, ' '));
-    if (CLOSURE_WORDS.some((word) => normalizedText.includes(normalizeWhitespace(word.replace(/[^a-z0-9]+/g, ' '))))) return null;
-
-    return { finalUrl: page.url() || url, title, text, applyActions: details.applyActions, jobLinks: details.jobLinks };
-  } catch {
-    return null;
-  } finally {
-    await page.close().catch(() => null);
-  }
-}
-
-async function validateJob(job: ScanJob, profile: Profile, browser: Awaited<ReturnType<typeof puppeteer.launch>>): Promise<ScanJob | null> {
-  const page = await fetchJobPage(job.url, browser);
-  if (!page) return null;
-  if (isLikelyAtsBoardRoot(page.finalUrl) || page.jobLinks >= 5 || page.applyActions >= 4) return null;
-  if (!pageMatchesProfile(job, profile, page)) return null;
-  const pageText = normalizeWhitespace(`${page.title} ${page.text}`);
-  return { ...job, url: page.finalUrl, snippet: pageIncludesRemote(pageText.toLowerCase()) ? 'Remote' : job.snippet };
-}
-
-async function validateJobs(
-  jobs: ScanJob[],
-  profile: Profile,
-  onProgress?: (update: { name: string; state: 'running' | 'done'; count?: number }) => void,
-): Promise<ScanJob[]> {
-  const validated: ScanJob[] = [];
-  onProgress?.({ name: 'Validation', state: 'running' });
-  const browser = await puppeteer.launch({ headless: true, executablePath: findChrome() });
-
-  try {
-    for (let i = 0; i < jobs.length; i += VALIDATION_BATCH_SIZE) {
-      const batch = jobs.slice(i, i + VALIDATION_BATCH_SIZE);
-      const settled = await Promise.allSettled(batch.map((job) => validateJob(job, profile, browser)));
-      for (const result of settled) {
-        if (result.status === 'fulfilled' && result.value) validated.push(result.value);
-      }
-    }
-  } finally {
-    await browser.close().catch(() => null);
-  }
-
-  onProgress?.({ name: 'Validation', state: 'done', count: validated.length });
-  return validated;
-}
-
-function findOfficialMatch(job: ScanJob, officialJobs: ScanJob[]): ScanJob | null {
-  const canonicalUrl = canonicalizeJobUrl(job.url);
-  const exact = officialJobs.find((c) => canonicalizeJobUrl(c.url) === canonicalUrl);
-  if (exact) return exact;
-
-  const titleKey = tokenize(job.title).join(' ');
-  const titleMatch = officialJobs.find((c) => tokenize(c.title).join(' ') === titleKey);
-  if (titleMatch) return titleMatch;
-
-  let best: { job: ScanJob; score: number } | null = null;
-  for (const candidate of officialJobs) {
-    const aTokens = new Set(tokenize(job.title));
-    const bTokens = new Set(tokenize(candidate.title));
-    let intersection = 0;
-    for (const t of aTokens) if (bTokens.has(t)) intersection++;
-    const score = intersection / Math.max(aTokens.size, bTokens.size);
-    if (!best || score > best.score) best = { job: candidate, score };
-  }
-  return best && best.score >= 0.6 ? best.job : null;
-}
-
-function reconcileWithOfficialPosting(job: ScanJob, officialByCompany: Map<string, ScanJob[]>): ScanJob | null {
-  const companyKey = normalizeCompanyKey(job.company);
-  const officialJobs = officialByCompany.get(companyKey);
-  if (!officialJobs || officialJobs.length === 0) return job;
-  const match = findOfficialMatch(job, officialJobs);
-  if (!match) return null;
-  return { ...match, score: job.score, snippet: match.snippet ?? job.snippet };
-}
-
-async function runBatch<T>(items: T[], fn: (item: T) => Promise<ScanJob[]>, batchSize = 15): Promise<ScanJob[]> {
+async function runBatched<T>(items: T[], fn: (item: T) => Promise<ScanJob[]>, batchSize = 15): Promise<ScanJob[]> {
   const results: ScanJob[] = [];
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
-    const settled = await Promise.allSettled(batch.map(fn));
-    for (const r of settled) {
-      if (r.status === 'fulfilled') results.push(...r.value);
-    }
-  }
-  return results;
-}
-
-// ── runScan ───────────────────────────────────────────────────────
-
-async function runScan(
-  profile: Profile,
-  existingUrls: Set<string>,
-  existingCompanies = new Set<string>(),
-  onProgress?: (update: { name: string; state: 'running' | 'done' | 'error'; count?: number }) => void,
-): Promise<ScanJob[]> {
-  const roleKeywords = profile.targets.roles;
-  const allJobs: ScanJob[] = [];
-
-  const progress = (name: string, state: 'running' | 'done' | 'error', count = 0) =>
-    onProgress?.({ name, state, count });
-
-  const ghPortals = PORTALS.filter((p) => p.ats === 'greenhouse');
-  const lvPortals = PORTALS.filter((p) => p.ats === 'lever');
-  const asPortals = PORTALS.filter((p) => p.ats === 'ashby');
-
-  progress('Greenhouse', 'running');
-  const ghJobs = await runBatch(ghPortals, (p) => fetchGreenhouse(p.slug, p.name));
-  allJobs.push(...ghJobs);
-  progress('Greenhouse', 'done', ghJobs.length);
-
-  progress('Lever', 'running');
-  const lvJobs = await runBatch(lvPortals, (p) => fetchLever(p.slug, p.name));
-  allJobs.push(...lvJobs);
-  progress('Lever', 'done', lvJobs.length);
-
-  progress('Ashby', 'running');
-  const asJobs = await runBatch(asPortals, (p) => fetchAshby(p.slug, p.name));
-  allJobs.push(...asJobs);
-  progress('Ashby', 'done', asJobs.length);
-
-  const officialByCompany = new Map<string, ScanJob[]>();
-  for (const job of [...ghJobs, ...lvJobs, ...asJobs]) {
-    const companyKey = normalizeCompanyKey(job.company);
-    const current = officialByCompany.get(companyKey) ?? [];
-    current.push(job);
-    officialByCompany.set(companyKey, current);
-  }
-
-  progress('RemoteOK', 'running');
-  const roJobs = await fetchRemoteOK(roleKeywords).catch(() => [] as ScanJob[]);
-  allJobs.push(...roJobs);
-  progress('RemoteOK', 'done', roJobs.length);
-
-  progress('Remotive', 'running');
-  const rmJobs = await fetchRemotive(roleKeywords).catch(() => [] as ScanJob[]);
-  allJobs.push(...rmJobs);
-  progress('Remotive', 'done', rmJobs.length);
-
-  progress('HN Hiring', 'running');
-  const hnJobs = await fetchHNHiring(roleKeywords).catch(() => [] as ScanJob[]);
-  allJobs.push(...hnJobs);
-  progress('HN Hiring', 'done', hnJobs.length);
-
-  progress('WebSearch', 'running');
-  const wsJobs = await fetchWebSearch(profile).catch(() => [] as ScanJob[]);
-  allJobs.push(...wsJobs);
-  progress('WebSearch', 'done', wsJobs.length);
-
-  const seen = new Set<string>([...existingUrls].map(canonicalizeJobUrl));
-  const deduped = allJobs.filter((job) => {
-    const canonicalUrl = canonicalizeJobUrl(job.url);
-    if (!job.url || seen.has(canonicalUrl)) return false;
-    seen.add(canonicalUrl);
-    return true;
-  });
-
-  const reconciled = deduped
-    .map((job) => reconcileWithOfficialPosting(job, officialByCompany))
-    .filter((job): job is ScanJob => Boolean(job));
-
-  const candidateSeen = new Set<string>();
-  const canonicalReconciled = reconciled.filter((job) => {
-    const canonicalUrl = canonicalizeJobUrl(job.url);
-    if (candidateSeen.has(canonicalUrl)) return false;
-    candidateSeen.add(canonicalUrl);
-    return true;
-  });
-
-  const candidates = shortlistJobs(canonicalReconciled, profile, MAX_VALIDATION_CANDIDATES);
-  const validated = await validateJobs(candidates, profile, onProgress);
-  const companyDeduped = keepBestJobPerCompany(validated, existingCompanies);
-  return shortlistJobs(companyDeduped, profile, MAX_SHORTLIST_SIZE);
-}
-
-// ── Discovery constants ────────────────────────────────────────────
-
-const SLUGS_PER_RUN = 120;
-const BATCH_SIZE = 40;
-const SLICE_SIZE = 10;
-const FETCH_CONCURRENCY = 10;
-const FILTER_MAX = 400;
-const SLUG_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-const VERTICALS = [
-  'fintech', 'healthtech', 'dev-tools', 'enterprise-saas', 'ai-ml',
-  'e-commerce', 'edtech', 'consumer', 'govtech', 'media', 'other',
-] as const;
-
-// ── Discovery utilities ────────────────────────────────────────────
-
-async function runBatchAts<T>(items: T[], fn: (item: T) => Promise<ScanJob[]>): Promise<ScanJob[]> {
-  const results: ScanJob[] = [];
-  for (let i = 0; i < items.length; i += FETCH_CONCURRENCY) {
-    const batch = items.slice(i, i + FETCH_CONCURRENCY);
     const settled = await Promise.allSettled(batch.map(fn));
     for (const r of settled) {
       if (r.status === 'fulfilled') results.push(...r.value);
@@ -530,18 +229,16 @@ function extractSlugFromUrl(url: string): string {
   }
 }
 
-function toDiscoveredJob(job: ScanJob): DiscoveredJob {
-  return {
-    slug: extractSlugFromUrl(job.url),
-    name: job.company,
-    ats: job.source as 'greenhouse' | 'ashby',
-    jobTitle: job.title,
-    jobUrl: canonicalizeJobUrl(job.url),
-    score: job.score,
-    snippet: job.snippet ?? null,
-    status: 'pending',
-  };
+function mergeDiscoveredBatch(existing: ScanJob[], incoming: ScanJob[]): ScanJob[] {
+  const byUrl = new Map(existing.map((job) => [canonicalizeJobUrl(job.url), job]));
+  for (const job of incoming) {
+    const key = canonicalizeJobUrl(job.url);
+    if (!byUrl.has(key)) byUrl.set(key, job);
+  }
+  return [...byUrl.values()];
 }
+
+const SLUG_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function readSlugCache(store: DiscoveredStore): DiscoveredStore | null {
   const cache = store.slugCache;
@@ -552,6 +249,10 @@ function readSlugCache(store: DiscoveredStore): DiscoveredStore | null {
   return store;
 }
 
+const VERTICALS = [
+  'fintech', 'healthtech', 'dev-tools', 'enterprise-saas', 'ai-ml',
+  'e-commerce', 'edtech', 'consumer', 'govtech', 'media', 'other',
+] as const;
 
 async function classifyCompanies(
   companies: Array<{ slug: string; name: string; ats: 'greenhouse' | 'ashby'; titles: string[] }>,
@@ -581,62 +282,107 @@ Respond with ONLY a JSON object mapping slug to vertical. No explanation, no mar
   }
 }
 
-export type DiscoveryStepName = 'cc-greenhouse' | 'cc-ashby' | 'scan-ashby' | 'scan-greenhouse' | 'classify' | 'done';
+// ── Stage 1: Scan Companies ─────────────────────────────────────────
+// Mines which companies exist on Greenhouse/Ashby. Never fetches job
+// postings. Cached for SLUG_CACHE_TTL_MS since this almost never changes.
+//
+// Mock mode uses an in-memory cache (never written to disk) so flipping
+// MOCK_DISCOVER off later can't leave fake companies behind in the real
+// cache, while still requiring Scan Companies to run before Discover.
+
+let mockSlugCache: { greenhouse: string[]; ashby: string[]; fetchedAt: string } | null = null;
+
+export interface ScanCompaniesSummary {
+  greenhouse: number;
+  ashby: number;
+  cached: boolean;
+  fetchedAt: string;
+}
+
+export type CompanyScanStepName = 'cc-greenhouse' | 'cc-ashby' | 'done';
+
+export interface CompanyScanProgress {
+  step: CompanyScanStepName;
+  status: 'running' | 'done' | 'cached';
+  count?: number;
+}
+
+async function scanCompanies(onProgress?: (progress: CompanyScanProgress) => void): Promise<ScanCompaniesSummary> {
+  const store = discoveredDb.readDiscovered();
+  const mock = isMockDiscoverEnabled();
+  const cached = mock ? mockSlugCache : readSlugCache(store)?.slugCache ?? null;
+
+  if (cached) {
+    onProgress?.({ step: 'cc-greenhouse', status: 'cached', count: cached.greenhouse.length });
+    onProgress?.({ step: 'cc-ashby', status: 'cached', count: cached.ashby.length });
+    onProgress?.({ step: 'done', status: 'done' });
+    return { greenhouse: cached.greenhouse.length, ashby: cached.ashby.length, cached: true, fetchedAt: cached.fetchedAt };
+  }
+
+  const crawlId = mock ? await mockDiscover.fetchCCCrawlId() : await fetchCCCrawlId();
+
+  onProgress?.({ step: 'cc-greenhouse', status: 'running' });
+  const ghSlugs = mock ? await mockDiscover.fetchGreenhouseSlugs() : await fetchGreenhouseSlugs(crawlId);
+  onProgress?.({ step: 'cc-greenhouse', status: 'done', count: ghSlugs.length });
+
+  onProgress?.({ step: 'cc-ashby', status: 'running' });
+  const asSlugs = mock ? await mockDiscover.fetchAshbySlugs() : await fetchAshbySlugs(crawlId);
+  onProgress?.({ step: 'cc-ashby', status: 'done', count: asSlugs.length });
+
+  if (ghSlugs.length === 0 && asSlugs.length === 0) {
+    throw new Error('Common Crawl returned no slugs — fetch may have timed out or the index is unavailable.');
+  }
+
+  const fetchedAt = new Date().toISOString();
+
+  if (mock) {
+    mockSlugCache = { greenhouse: ghSlugs, ashby: asSlugs, fetchedAt };
+  } else {
+    discoveredDb.writeDiscovered({
+      ...store,
+      slugCache: { greenhouse: ghSlugs, ashby: asSlugs, fetchedAt },
+    });
+  }
+
+  onProgress?.({ step: 'done', status: 'done' });
+  return { greenhouse: ghSlugs.length, ashby: asSlugs.length, cached: false, fetchedAt };
+}
+
+// ── Stage 2: Discover ────────────────────────────────────────────────
+// Uses the already-mined company list (never re-mines) to fetch job
+// postings, classify/score them against the profile, and surface matches.
+
+export type DiscoveryStepName = 'scan-ashby' | 'scan-greenhouse' | 'classify' | 'done';
 
 export interface DiscoveryProgress {
   step: DiscoveryStepName;
-  status: 'running' | 'done' | 'cached' | 'failed';
+  status: 'running' | 'done';
   count?: number;
-  error?: string;
 }
 
-async function runDiscovery(
+async function discoverJobs(
   profile: Profile,
   onProgress?: (progress: DiscoveryProgress) => void,
-): Promise<void> {
-  let store = discoveredDb.readDiscovered();
-  const cached = readSlugCache(store);
+): Promise<ScanJob[]> {
+  const store = discoveredDb.readDiscovered();
+  const mock = isMockDiscoverEnabled();
 
-  let ghSlugs: string[];
-  let asSlugs: string[];
+  const ghSlugs = mock ? mockSlugCache?.greenhouse : store.slugCache?.greenhouse;
+  const asSlugs = mock ? mockSlugCache?.ashby : store.slugCache?.ashby;
 
-  if (cached) {
-    store = cached;
-    ghSlugs = store.slugCache!.greenhouse;
-    asSlugs = store.slugCache!.ashby;
-    onProgress?.({ step: 'cc-greenhouse', status: 'cached', count: ghSlugs.length });
-    onProgress?.({ step: 'cc-ashby', status: 'cached', count: asSlugs.length });
-  } else {
-    const crawlId = await fetchCCCrawlId();
-
-    onProgress?.({ step: 'cc-greenhouse', status: 'running' });
-    ghSlugs = await fetchGreenhouseSlugs(crawlId);
-    onProgress?.({ step: 'cc-greenhouse', status: 'done', count: ghSlugs.length });
-
-    onProgress?.({ step: 'cc-ashby', status: 'running' });
-    asSlugs = await fetchAshbySlugs(crawlId);
-    onProgress?.({ step: 'cc-ashby', status: 'done', count: asSlugs.length });
-
-    if (ghSlugs.length === 0 && asSlugs.length === 0) {
-      throw new Error('Common Crawl returned no slugs — fetch may have timed out or the index is unavailable.');
-    }
-
-    store = {
-      ...store,
-      cursor: { greenhouse: 0, ashby: 0 },
-      slugCache: { greenhouse: ghSlugs, ashby: asSlugs, fetchedAt: new Date().toISOString() },
-    };
+  if (!ghSlugs || !asSlugs || (ghSlugs.length === 0 && asSlugs.length === 0)) {
+    throw new Error('No companies found — run Scan Companies first.');
   }
 
-  const ghSlice = ghSlugs.slice(store.cursor.greenhouse, store.cursor.greenhouse + SLUGS_PER_RUN);
-  const asSlice = asSlugs.slice(store.cursor.ashby, store.cursor.ashby + SLUGS_PER_RUN);
+  const fetchGH = mock ? mockDiscover.fetchGreenhouse : fetchGreenhouse;
+  const fetchAS = mock ? mockDiscover.fetchAshby : fetchAshby;
 
   onProgress?.({ step: 'scan-ashby', status: 'running' });
-  const asJobs = await runBatchAts(asSlice, (slug) => fetchAshby(slug, slugToName(slug)));
+  const asJobs = await runBatched(asSlugs, (slug) => fetchAS(slug, slugToName(slug)));
   onProgress?.({ step: 'scan-ashby', status: 'done', count: asJobs.length });
 
   onProgress?.({ step: 'scan-greenhouse', status: 'running' });
-  const ghJobs = await runBatchAts(ghSlice, (slug) => fetchGreenhouse(slug, slugToName(slug)));
+  const ghJobs = await runBatched(ghSlugs, (slug) => fetchGH(slug, slugToName(slug)));
   onProgress?.({ step: 'scan-greenhouse', status: 'done', count: ghJobs.length });
 
   const allJobs = [...ghJobs, ...asJobs];
@@ -651,11 +397,11 @@ async function runDiscovery(
     return true;
   });
 
-  const filtered = shortlistJobs(deduped, profile, FILTER_MAX);
+  const filtered = shortlistJobs(deduped, profile, deduped.length);
   const companyDeduped = keepBestJobPerCompany(filtered);
-  const sorted = companyDeduped.sort((a, b) => b.score - a.score);
+  const sorted = shortlistJobs(companyDeduped, profile, MAX_SHORTLIST_SIZE);
 
-  // Classify companies by vertical
+  // Classify companies by vertical (auxiliary metadata, not shown in the job list)
   onProgress?.({ step: 'classify', status: 'running' });
   const bySlug = new Map<string, { name: string; ats: 'greenhouse' | 'ashby'; titles: string[] }>();
   for (const job of [...ghJobs, ...asJobs]) {
@@ -676,62 +422,48 @@ async function runDiscovery(
     indexUpdates[slug] = { slug, name, ats, vertical: verticals[slug] ?? null, classifiedAt: now };
   }
 
-  const newBatch = sorted.slice(0, BATCH_SIZE).map(toDiscoveredJob);
-  const newQueue = sorted.slice(BATCH_SIZE).map(toDiscoveredJob);
+  // Merge into the existing persisted batch rather than replacing it, so a
+  // prior run's results aren't silently wiped from disk.
+  const mergedBatch = mergeDiscoveredBatch(store.batch, sorted);
 
   discoveredDb.writeDiscovered({
     ...store,
-    batch: newBatch,
-    batchOffset: 0,
-    queue: newQueue,
-    cursor: {
-      greenhouse: store.cursor.greenhouse + ghSlice.length,
-      ashby: store.cursor.ashby + asSlice.length,
-    },
+    batch: mergedBatch,
     lastSourcedAt: now,
     companyIndex: { ...(store.companyIndex ?? {}), ...indexUpdates },
   });
 
-  onProgress?.({ step: 'done', status: 'done', count: newBatch.length });
+  onProgress?.({ step: 'done', status: 'done', count: mergedBatch.length });
+  return mergedBatch;
 }
 
 // ── IPC handler registration ──────────────────────────────────────
 
 export function registerScanHandlers(): void {
-  ipcMain.handle(IPC.SCAN_RUN, async (event: IpcMainInvokeEvent) => {
-    const profile = loadProfile();
-    const existingUrls = new Set(db.readJobs().map((j) => canonicalizeJobUrl(j.url)));
-    const existingCompanies = new Set(
-      db.readJobs().map((j) => normalizeCompanyKey(j.company)),
-    );
-
-    return runScan(profile, existingUrls, existingCompanies, (update) => {
-      event.sender.send(IPC.SCAN_PROGRESS, { source: update.name, count: update.count ?? 0 });
+  ipcMain.handle(IPC.SCAN_COMPANIES, async (event: IpcMainInvokeEvent) => {
+    return scanCompanies((progress) => {
+      event.sender.send(IPC.SCAN_PROGRESS, { source: progress.step, count: progress.count ?? 0 });
     });
+  });
+
+  ipcMain.handle(IPC.SCAN_COMPANIES_STATUS, () => {
+    const cache = isMockDiscoverEnabled() ? mockSlugCache : discoveredDb.readDiscovered().slugCache;
+    return {
+      greenhouse: cache?.greenhouse.length ?? 0,
+      ashby: cache?.ashby.length ?? 0,
+      fetchedAt: cache?.fetchedAt ?? null,
+    };
   });
 
   ipcMain.handle(IPC.SCAN_DISCOVER, async (event: IpcMainInvokeEvent) => {
     const profile = loadProfile();
 
-    await runDiscovery(profile, (progress) => {
+    return discoverJobs(profile, (progress) => {
       event.sender.send(IPC.SCAN_PROGRESS, { source: progress.step, count: progress.count ?? 0 });
     });
-
-    const store = discoveredDb.readDiscovered();
-    return store.batch.slice(store.batchOffset, store.batchOffset + SLICE_SIZE);
   });
 
-  ipcMain.handle(IPC.SCAN_ACCEPT_BATCH, (_event, jobUrls: string[]) => {
-    const store = discoveredDb.readDiscovered();
-    for (const url of jobUrls) {
-      const canonical = canonicalizeJobUrl(url);
-      for (const job of store.batch) {
-        if (canonicalizeJobUrl(job.jobUrl) === canonical) {
-          job.status = 'added';
-          break;
-        }
-      }
-    }
-    discoveredDb.writeDiscovered(store);
+  ipcMain.handle(IPC.SCAN_READ_DISCOVERED, () => {
+    return discoveredDb.readDiscovered().batch;
   });
 }

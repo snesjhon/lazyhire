@@ -344,6 +344,11 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 }
 .btn-ghost:hover { background: var(--surface-2); color: var(--text); }
 .btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-danger {
+  background: var(--surface); color: var(--red); border-color: var(--border);
+}
+.btn-danger:hover { background: var(--red-dim); border-color: var(--red); }
+.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn .kbd { font-family: var(--font-mono); font-size: 11px; opacity: 0.7; }
 
 /* mini buttons */
@@ -543,16 +548,6 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .qc-sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); margin-top: 3px; }
 .qc-status.ready { color: var(--state-apply); }
 .qc-status.empty { color: var(--text-3); }
-
-/* AI status bar */
-.ai-status-bar {
-  padding: 6px 26px;
-  border-bottom: 1px solid var(--border-soft);
-  background: var(--accent-soft);
-  display: flex; align-items: center; gap: 8px;
-  flex-shrink: 0;
-  font-family: var(--font-mono); font-size: 11px; color: var(--accent);
-}
 
 /* error bar */
 .error-bar {
