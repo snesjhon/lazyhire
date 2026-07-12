@@ -217,6 +217,11 @@ export default function Scan({
                     {s.cachedCompanies ?? 0} cached · {s.fetchedCompanies ?? 0} fetched
                   </span>
                 )}
+                {(s.remainingStale ?? 0) > 0 && (
+                  <span style={{ fontSize: 9, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
+                    {s.remainingStale} left in backlog — run Discover again
+                  </span>
+                )}
               </div>
             ))}
           </div>

@@ -204,6 +204,19 @@ export function shortlistJobs(jobs: ScanJob[], profile: Profile, maxSize = MAX_S
   return fallback.slice(0, maxSize);
 }
 
+// Common Crawl mines every company that has ever posted on these boards —
+// tens of thousands of slugs. Cap to the N most frequently-crawled per source
+// (fetchSlugsSorted already sorts by crawl frequency, a proxy for how active
+// the board is) so Discover works off a bounded, finite backlog instead of
+// growing without limit.
+const MAX_SLUGS_PER_SOURCE = 2000;
+
+// Discover fetches one HTTP request per company. Attempting the entire
+// backlog in a single run is what made it "never finish" — cap how many
+// stale companies get fetched per click; the rest stay stale and are picked
+// up on the next Discover run.
+const DISCOVER_RUN_LIMIT = 300;
+
 const DISCOVER_BATCH_SIZE = 30;
 
 // Maps each slug to its fetch result, or null if the fetch failed (distinct
@@ -385,11 +398,13 @@ async function scanCompanies(onProgress?: (progress: CompanyScanProgress) => voi
   const crawlId = mock ? await mockDiscover.fetchCCCrawlId() : await fetchCCCrawlId();
 
   onProgress?.({ step: 'cc-greenhouse', status: 'running' });
-  const ghSlugs = mock ? await mockDiscover.fetchGreenhouseSlugs() : await fetchGreenhouseSlugs(crawlId);
+  const ghRaw = mock ? await mockDiscover.fetchGreenhouseSlugs() : await fetchGreenhouseSlugs(crawlId);
+  const ghSlugs = ghRaw.slice(0, MAX_SLUGS_PER_SOURCE);
   onProgress?.({ step: 'cc-greenhouse', status: 'done', count: ghSlugs.length });
 
   onProgress?.({ step: 'cc-ashby', status: 'running' });
-  const asSlugs = mock ? await mockDiscover.fetchAshbySlugs() : await fetchAshbySlugs(crawlId);
+  const asRaw = mock ? await mockDiscover.fetchAshbySlugs() : await fetchAshbySlugs(crawlId);
+  const asSlugs = asRaw.slice(0, MAX_SLUGS_PER_SOURCE);
   onProgress?.({ step: 'cc-ashby', status: 'done', count: asSlugs.length });
 
   if (ghSlugs.length === 0 && asSlugs.length === 0) {
@@ -423,6 +438,7 @@ export interface DiscoveryProgress {
   count?: number;
   cachedCompanies?: number;
   fetchedCompanies?: number;
+  remainingStale?: number;
 }
 
 async function discoverJobs(
@@ -449,6 +465,14 @@ async function discoverJobs(
   const ghPartition = partitionSlugs(ghSlugs, jobCache.greenhouse);
   const asPartition = partitionSlugs(asSlugs, jobCache.ashby);
 
+  // Only attempt a bounded slice of the stale backlog this run — the
+  // remainder stays stale (and un-cached) so the next Discover click resumes
+  // where this one left off instead of re-attempting everything.
+  const ghToFetch = ghPartition.staleSlugs.slice(0, DISCOVER_RUN_LIMIT);
+  const asToFetch = asPartition.staleSlugs.slice(0, DISCOVER_RUN_LIMIT);
+  const ghRemaining = ghPartition.staleSlugs.length - ghToFetch.length;
+  const asRemaining = asPartition.staleSlugs.length - asToFetch.length;
+
   const fetchedAt = new Date().toISOString();
 
   onProgress?.({ step: 'scan-ashby', status: 'running' });
@@ -456,8 +480,8 @@ async function discoverJobs(
 
   // Independent APIs — run both concurrently instead of sequentially.
   const [ghFetchResults, asFetchResults] = await Promise.all([
-    runBatched(ghPartition.staleSlugs, (slug) => fetchGH(slug, slugToName(slug))),
-    runBatched(asPartition.staleSlugs, (slug) => fetchAS(slug, slugToName(slug))),
+    runBatched(ghToFetch, (slug) => fetchGH(slug, slugToName(slug))),
+    runBatched(asToFetch, (slug) => fetchAS(slug, slugToName(slug))),
   ]);
 
   const gh = resolveSourceJobs(ghPartition.cachedSlugs, ghPartition.staleSlugs, ghFetchResults, jobCache.greenhouse, fetchedAt);
@@ -467,6 +491,7 @@ async function discoverJobs(
     count: gh.jobs.length,
     cachedCompanies: ghPartition.cachedSlugs.length,
     fetchedCompanies: gh.fetchedCount,
+    remainingStale: ghRemaining,
   });
 
   const as = resolveSourceJobs(asPartition.cachedSlugs, asPartition.staleSlugs, asFetchResults, jobCache.ashby, fetchedAt);
@@ -476,6 +501,7 @@ async function discoverJobs(
     count: as.jobs.length,
     cachedCompanies: asPartition.cachedSlugs.length,
     fetchedCompanies: as.fetchedCount,
+    remainingStale: asRemaining,
   });
 
   if (!mock) {
@@ -564,6 +590,7 @@ export function registerScanHandlers(): void {
         count: progress.count ?? 0,
         cachedCompanies: progress.cachedCompanies,
         fetchedCompanies: progress.fetchedCompanies,
+        remainingStale: progress.remainingStale,
       });
     });
   });

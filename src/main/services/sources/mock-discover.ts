@@ -11,7 +11,7 @@ interface MockCompany {
   ats: 'greenhouse' | 'ashby';
 }
 
-const MOCK_COMPANIES: MockCompany[] = [
+const FLAGSHIP_COMPANIES: MockCompany[] = [
   { slug: 'acme-labs', name: 'Acme Labs', ats: 'greenhouse' },
   { slug: 'northwind-systems', name: 'Northwind Systems', ats: 'greenhouse' },
   { slug: 'brightpath-health', name: 'Brightpath Health', ats: 'greenhouse' },
@@ -36,6 +36,34 @@ const MOCK_COMPANIES: MockCompany[] = [
   { slug: 'gladewood-health', name: 'Gladewood Health', ats: 'ashby' },
   { slug: 'thornbury-commerce', name: 'Thornbury Commerce', ats: 'ashby' },
   { slug: 'vellum-editorial', name: 'Vellum Editorial', ats: 'ashby' },
+];
+
+// Padding, generated (not fetched) so this never touches the network. Sized
+// to comfortably exceed scan.ts's MAX_SLUGS_PER_SOURCE (2000) and
+// DISCOVER_RUN_LIMIT (300) per source, so running Scan Companies + Discover
+// locally actually exercises the slug cap and the multi-click backlog
+// draining instead of resolving in a single trivial run — all without ever
+// hitting the real Common Crawl API, which rate-limits aggressively.
+const MOCK_SLUGS_PER_SOURCE = 2200;
+
+function generateMockCompanies(count: number, ats: 'greenhouse' | 'ashby'): MockCompany[] {
+  const prefix = ats === 'greenhouse' ? 'mock-gh' : 'mock-as';
+  return Array.from({ length: count }, (_, i) => {
+    const slug = `${prefix}-${String(i + 1).padStart(4, '0')}`;
+    return { slug, name: slugToName(slug), ats };
+  });
+}
+
+const MOCK_COMPANIES: MockCompany[] = [
+  ...FLAGSHIP_COMPANIES,
+  ...generateMockCompanies(
+    MOCK_SLUGS_PER_SOURCE - FLAGSHIP_COMPANIES.filter((c) => c.ats === 'greenhouse').length,
+    'greenhouse',
+  ),
+  ...generateMockCompanies(
+    MOCK_SLUGS_PER_SOURCE - FLAGSHIP_COMPANIES.filter((c) => c.ats === 'ashby').length,
+    'ashby',
+  ),
 ];
 
 const MOCK_TITLES = [
