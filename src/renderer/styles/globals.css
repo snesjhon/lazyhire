@@ -170,7 +170,6 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .brand {
   display: flex; align-items: center; justify-content: space-between;
   padding: 40px 6px 16px;
-  -webkit-app-region: no-drag;
 }
 .brand-left { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .brand-mark {
