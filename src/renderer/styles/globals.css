@@ -613,6 +613,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .aq-job { font-size: 11px; color: var(--text-3); margin-top: 6px; display: flex; align-items: center; gap: 6px; }
 
 .ans-detail { padding: 26px 30px 40px; max-width: 720px; }
+.ans-detail.embedded { padding: 0; max-width: none; }
 .ans-question { font-size: 19px; font-weight: 700; line-height: 1.35; letter-spacing: -0.01em; }
 .ans-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 24px; align-items: center; }
 .ans-body { font-size: 14.5px; line-height: 1.7; color: var(--text); white-space: pre-wrap; }
@@ -632,6 +633,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
   padding: 26px 30px 40px; max-width: 720px;
   display: flex; flex-direction: column; gap: 20px; overflow-y: auto;
 }
+.ans-new-form.embedded { padding: 0; max-width: none; gap: 16px; overflow-y: visible; }
 .form-label {
   display: block; font-family: var(--font-mono); font-size: 11px; font-weight: 600;
   letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 8px;
@@ -708,6 +710,82 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 }
 
 /* ============================================================
-   OTHER SCREENS (Profile, Scan, Settings)
+   OTHER SCREENS (Scan, Settings)
    ============================================================ */
 .screen-pad { padding: 24px 28px; overflow-y: auto; flex: 1; }
+
+/* ============================================================
+   PROFILE VIEW — resume-style two-pane layout: a contact/skills
+   rail (mirrors what a generated resume's header looks like)
+   next to the fuller prose content.
+   ============================================================ */
+.profile-body { display: flex; flex: 1; min-height: 0; border-top: 1px solid var(--border-soft); }
+
+.profile-side {
+  width: 300px; flex-shrink: 0; overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding: 30px 26px 40px;
+}
+.profile-main { flex: 1; overflow-y: auto; padding: 30px 36px 48px; }
+.profile-main-inner { max-width: 720px; }
+
+.pc-avatar {
+  width: 56px; height: 56px; border-radius: var(--r-md);
+  background: var(--accent-soft); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-weight: 700; font-size: 19px;
+  margin-bottom: 16px;
+}
+.pc-name { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.3; }
+.pc-headline { font-size: 13px; color: var(--text-2); margin-top: 4px; line-height: 1.45; }
+
+.profile-section { margin-bottom: 28px; }
+.profile-side .profile-section:last-child,
+.profile-main-inner .profile-section:last-child { margin-bottom: 0; }
+
+.ps-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.ps-label {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3);
+}
+.ps-body {
+  padding-bottom: 24px; border-bottom: 1px solid var(--border-soft);
+  font-size: 13.5px; color: var(--text); line-height: 1.7;
+}
+.profile-side .profile-section:last-child .ps-body,
+.profile-main-inner .profile-section:last-child .ps-body { border-bottom: none; padding-bottom: 0; }
+
+.id-rail { display: flex; flex-direction: column; gap: 13px; }
+.id-row { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--text-3); }
+.id-row svg { flex-shrink: 0; }
+.id-row span { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.skill-cloud { display: flex; flex-wrap: wrap; gap: 8px; }
+.skill-tag {
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 500;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border-soft); color: var(--text-2);
+}
+
+.profile-fields { display: grid; grid-template-columns: 130px 1fr; row-gap: 11px; column-gap: 14px; }
+.profile-fields .pf-label { font-size: 12px; color: var(--text-3); }
+.profile-fields .pf-val { font-size: 13.5px; color: var(--text); line-height: 1.55; }
+
+.edu-row { margin-bottom: 16px; }
+.edu-row:last-child { margin-bottom: 0; }
+.edu-inst { font-size: 14px; font-weight: 600; color: var(--text); }
+.edu-degree { font-size: 12.5px; color: var(--text-3); margin-top: 3px; }
+
+.exp-row { margin-bottom: 24px; }
+.exp-row:last-child { margin-bottom: 0; }
+.exp-role { font-size: 14.5px; font-weight: 700; color: var(--text); }
+.exp-role .exp-company { font-weight: 400; color: var(--text-2); }
+.exp-period { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3); margin: 5px 0 9px; }
+.exp-bullets { padding-left: 18px; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.exp-bullets li { font-size: 13px; color: var(--text-2); line-height: 1.6; }
+
+@media (max-width: 900px) {
+  .profile-body { flex-direction: column; overflow-y: auto; }
+  .profile-side, .profile-main { overflow-y: visible; }
+  .profile-side { width: 100%; border-right: none; border-bottom: 1px solid var(--border-soft); }
+}

@@ -101,6 +101,10 @@ export const CV_TEXT_SIZE_PRESETS: CvTextSizePreset[] = [
   },
 ];
 
+export const TONE_OPTIONS = ['Professional', 'Storytelling', 'Concise', 'Enthusiastic', 'Humble'] as const;
+export type Tone = (typeof TONE_OPTIONS)[number];
+export const DEFAULT_TONE: Tone = 'Professional';
+
 export interface CoverLetterTotalWordCount {
   target: number;
 }

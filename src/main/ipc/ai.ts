@@ -436,9 +436,11 @@ function buildGenerateCoverLetterPrompt(
   profile: Profile,
   tailoringNotes: string,
   totalWordCount: CoverLetterTotalWordCount,
+  tone: string,
 ): string {
   const relevantAnswers = selectRelevantAnswers(answersDb.readAnswers(), job);
   const promptTemplate = GENERATE_COVER_LETTER_PROMPT.replace(TOTAL_WORD_COUNT_TOKEN, String(totalWordCount.target));
+  const toneDesc = TONE_DESCRIPTIONS[tone] ?? tone;
 
   return `${promptTemplate}
 
@@ -460,9 +462,15 @@ ${buildJobContext(job)}
 
 ---
 
+## Desired Tone
+
+${tone}: ${toneDesc}
+
+---
+
 ## Saved Answers Voice Reference
 
-Use these to mirror tone, sentence discipline, and boundaries. Reuse the style, not the wording.
+Use these to mirror sentence discipline and boundaries. Reuse the style, not the wording — the desired tone above takes priority.
 
 ${buildAnswerVoiceContext(relevantAnswers)}
 
@@ -550,6 +558,7 @@ export function registerAiHandlers(): void {
       jobId: string;
       tailoringNotes?: string;
       totalWordCount?: CoverLetterTotalWordCount;
+      tone?: string;
     },
   ) => {
     const job = db.readJobs().find((j) => j.id === args.jobId);
@@ -558,8 +567,9 @@ export function registerAiHandlers(): void {
 
     const tailoringNotes = args.tailoringNotes ?? '';
     const totalWordCount = args.totalWordCount ?? DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT;
+    const tone = args.tone ?? 'Professional';
 
-    const prompt = buildGenerateCoverLetterPrompt(job, profile, tailoringNotes, totalWordCount);
+    const prompt = buildGenerateCoverLetterPrompt(job, profile, tailoringNotes, totalWordCount, tone);
     let lastError: Error | null = null;
     let cl: GeneratedCoverLetter | null = null;
     for (let attempt = 1; attempt <= 3; attempt++) {

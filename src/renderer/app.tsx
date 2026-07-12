@@ -148,7 +148,8 @@ export default function App() {
           <Jobs
             jobs={jobs}
             onJobsChange={setJobs}
-            onGoAnswers={() => setScreen('answers')}
+            answers={answers}
+            onAnswersChange={setAnswers}
             collapsed={collapsed}
             onExpand={() => setCollapsed(false)}
             evaluatingJobIds={evaluatingJobIds}

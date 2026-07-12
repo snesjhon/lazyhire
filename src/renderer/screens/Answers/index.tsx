@@ -1,10 +1,8 @@
 import { useState, useCallback } from 'react';
 import { IPC } from '@shared/ipc-channels';
-import type { AnswerCategory, AnswerEntry } from '@shared/types';
+import type { AnswerCategory, AnswerEntry, Job } from '@shared/types';
+import { TONE_OPTIONS, DEFAULT_TONE, type Tone } from '@shared/generate-presets';
 import Icon from '../../components/Icon';
-
-const TONE_OPTIONS = ['Professional', 'Storytelling', 'Concise', 'Enthusiastic', 'Humble'] as const;
-type Tone = (typeof TONE_OPTIONS)[number];
 
 const CATEGORY_LABELS: Record<AnswerCategory, string> = {
   identity: 'Identity',
@@ -17,46 +15,52 @@ const CATEGORY_LABELS: Record<AnswerCategory, string> = {
   other: 'Other',
 };
 
+function pickJobContext(job?: Job | null) {
+  if (!job) return null;
+  return { company: job.company, role: job.role, jdSummary: job.jdSummary, jd: job.jd, url: job.url };
+}
+
 // ── New answer form ───────────────────────────────────────────
-function NewAnswerForm({ onSaved, onCancel }: { onSaved: (e: AnswerEntry) => void; onCancel: () => void }) {
+function NewAnswerForm({
+  job,
+  embedded,
+  onSaved,
+  onCancel,
+}: {
+  job?: Job | null;
+  embedded?: boolean;
+  onSaved: (e: AnswerEntry) => void;
+  onCancel?: () => void;
+}) {
   const [question, setQuestion] = useState('');
   const [category, setCategory] = useState<AnswerCategory | null>(null);
-  const [tone, setTone] = useState<Tone>('Professional');
+  const [tone, setTone] = useState<Tone>(DEFAULT_TONE);
   const [context, setContext] = useState('');
   const [answer, setAnswer] = useState('');
   const [refineText, setRefineText] = useState('');
   const [showRefine, setShowRefine] = useState(false);
-  const [detecting, setDetecting] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [refining, setRefining] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  async function handleDetect() {
-    if (!question.trim()) return;
-    setDetecting(true);
-    setError('');
-    try {
-      const cat = await window.api.invoke(IPC.AI_DETECT_ANSWER_CATEGORY, question.trim());
-      setCategory(cat as AnswerCategory);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Detection failed');
-    } finally {
-      setDetecting(false);
-    }
-  }
-
   async function handleGenerate() {
-    if (!question.trim() || !category) return;
+    if (!question.trim()) return;
     setGenerating(true);
     setAnswer('');
     setError('');
     try {
+      let cat = category;
+      if (!cat) {
+        cat = await window.api.invoke(IPC.AI_DETECT_ANSWER_CATEGORY, question.trim()) as AnswerCategory;
+        setCategory(cat);
+      }
       const result = await window.api.invoke(IPC.AI_GENERATE_ANSWER, {
         question: question.trim(),
-        category,
+        category: cat,
         tone,
         context: context.trim(),
+        job: pickJobContext(job),
       });
       setAnswer(result as string);
     } catch (err) {
@@ -75,6 +79,7 @@ function NewAnswerForm({ onSaved, onCancel }: { onSaved: (e: AnswerEntry) => voi
         question: question.trim(),
         existingAnswer: answer,
         refineRequest: refineText.trim(),
+        job: pickJobContext(job),
       });
       setAnswer(result as string);
       setShowRefine(false);
@@ -96,9 +101,9 @@ function NewAnswerForm({ onSaved, onCancel }: { onSaved: (e: AnswerEntry) => voi
         answer,
         tone,
         context: context.trim(),
-        originJobId: null,
-        company: null,
-        role: null,
+        originJobId: job?.id ?? null,
+        company: job?.company ?? null,
+        role: job?.role ?? null,
       });
       onSaved(entry as AnswerEntry);
     } catch (err) {
@@ -109,17 +114,19 @@ function NewAnswerForm({ onSaved, onCancel }: { onSaved: (e: AnswerEntry) => voi
   }
 
   return (
-    <div className="ans-new-form">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-        <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em' }}>New Answer</span>
-        <button
-          className="mini-btn"
-          style={{ marginLeft: 'auto' }}
-          onClick={onCancel}
-        >
-          Cancel
-        </button>
-      </div>
+    <div className={'ans-new-form' + (embedded ? ' embedded' : '')}>
+      {!embedded && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em' }}>New Answer</span>
+          <button
+            className="mini-btn"
+            style={{ marginLeft: 'auto' }}
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* Question */}
       <div>
@@ -131,20 +138,6 @@ function NewAnswerForm({ onSaved, onCancel }: { onSaved: (e: AnswerEntry) => voi
           placeholder="What's a challenge you faced and how did you handle it?"
           rows={3}
         />
-        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            className="mini-btn"
-            onClick={handleDetect}
-            disabled={!question.trim() || detecting}
-          >
-            {detecting
-              ? <><span className="spinner" style={{ width: 10, height: 10 }} /> Detecting…</>
-              : <><Icon name="sparkle" size={12} /> Detect category</>}
-          </button>
-          {category && (
-            <span className="tag cls">{CATEGORY_LABELS[category]}</span>
-          )}
-        </div>
       </div>
 
       {/* Tone */}
@@ -182,7 +175,7 @@ function NewAnswerForm({ onSaved, onCancel }: { onSaved: (e: AnswerEntry) => voi
         <button
           className="btn btn-primary"
           onClick={handleGenerate}
-          disabled={!question.trim() || !category || generating}
+          disabled={!question.trim() || generating}
         >
           {generating
             ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Generating…</>
@@ -251,9 +244,11 @@ function NewAnswerForm({ onSaved, onCancel }: { onSaved: (e: AnswerEntry) => voi
 // ── Answer detail ─────────────────────────────────────────────
 function AnswerDetail({
   answer,
+  embedded,
   onRefine,
 }: {
   answer: AnswerEntry;
+  embedded?: boolean;
   onRefine: (text: string) => Promise<void>;
 }) {
   const [refineText, setRefineText] = useState('');
@@ -271,7 +266,7 @@ function AnswerDetail({
   }
 
   return (
-    <div className="ans-detail">
+    <div className={'ans-detail' + (embedded ? ' embedded' : '')}>
       <div className="ans-question">{answer.question}</div>
       <div className="ans-tags">
         <span className="tag cls">{CATEGORY_LABELS[answer.category]}</span>
@@ -311,15 +306,18 @@ function AnswerDetail({
 interface AnswersProps {
   answers: AnswerEntry[];
   onAnswersChange: (answers: AnswerEntry[]) => void;
-  collapsed: boolean;
-  onExpand: () => void;
+  collapsed?: boolean;
+  onExpand?: () => void;
+  job?: Job | null;
+  embedded?: boolean;
 }
 
-export default function Answers({ answers, onAnswersChange, collapsed, onExpand }: AnswersProps) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showNew, setShowNew] = useState(false);
+export default function Answers({ answers, onAnswersChange, collapsed, onExpand, job, embedded }: AnswersProps) {
+  const scopedAnswers = job ? answers.filter((a) => a.originJobId === job.id) : answers;
+  const [selectedId, setSelectedId] = useState<string | null>(() => (job ? scopedAnswers[0]?.id ?? null : null));
+  const [showNew, setShowNew] = useState(() => Boolean(job) && scopedAnswers.length === 0);
 
-  const selected = answers.find((a) => a.id === selectedId) ?? null;
+  const selected = scopedAnswers.find((a) => a.id === selectedId) ?? null;
 
   const handleSaved = useCallback((entry: AnswerEntry) => {
     onAnswersChange([entry, ...answers]);
@@ -334,10 +332,34 @@ export default function Answers({ answers, onAnswersChange, collapsed, onExpand 
       question: entry.question,
       existingAnswer: entry.answer,
       refineRequest: refineText,
+      job: pickJobContext(job),
     });
     const updated = { ...entry, answer: result as string, revised: new Date().toISOString() };
     onAnswersChange(answers.map((a) => (a.id === entryId ? updated : a)));
   };
+
+  if (embedded) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {showNew ? (
+          <NewAnswerForm job={job} embedded onSaved={handleSaved} />
+        ) : selected ? (
+          <>
+            <AnswerDetail embedded answer={selected} onRefine={(text) => handleRefine(selected.id, text)} />
+            <button
+              className="mini-btn"
+              style={{ alignSelf: 'flex-start' }}
+              onClick={() => { setShowNew(true); setSelectedId(null); }}
+            >
+              <Icon name="plus" size={12} /> Add another answer
+            </button>
+          </>
+        ) : (
+          <NewAnswerForm job={job} embedded onSaved={handleSaved} />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="main">
@@ -394,7 +416,7 @@ export default function Answers({ answers, onAnswersChange, collapsed, onExpand 
         {/* Detail / new form */}
         <div className="detail-pane">
           {showNew ? (
-            <NewAnswerForm onSaved={handleSaved} onCancel={() => setShowNew(false)} />
+            <NewAnswerForm job={job} onSaved={handleSaved} onCancel={() => setShowNew(false)} />
           ) : selected ? (
             <AnswerDetail
               answer={selected}

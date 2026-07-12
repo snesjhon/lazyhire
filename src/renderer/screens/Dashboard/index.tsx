@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import type { Job, JobStatus, EvaluationResult } from '@shared/types';
+import type { Job, JobStatus, EvaluationResult, AnswerEntry } from '@shared/types';
 import { JOB_STATUSES } from '@shared/types';
 import { IPC } from '@shared/ipc-channels';
 import Donut from '../../components/Donut';
 import Icon from '../../components/Icon';
 import GenerateDocumentDrawer, { type GenerateSubmission } from '../../components/GenerateDocumentDrawer';
+import AnswersDrawer from '../../components/AnswersDrawer';
 
 type Reco = 'apply' | 'consider' | 'skip' | 'pending';
 type RecoFilter = 'all' | 'apply' | 'consider' | 'skip';
@@ -79,7 +80,7 @@ interface DetailProps {
   onStatusChange: (s: JobStatus) => void;
   onEvaluate: () => void;
   onOpenGenerate: (type: 'resume' | 'cover-letter') => void;
-  onGoAnswers: () => void;
+  onAddAnswer: () => void;
   onDelete: () => void;
   evaluating: boolean;
   generatingResume: boolean;
@@ -95,7 +96,7 @@ function JobDetail({
   onStatusChange,
   onEvaluate,
   onOpenGenerate,
-  onGoAnswers,
+  onAddAnswer,
   onDelete,
   evaluating,
   generatingResume,
@@ -273,7 +274,9 @@ function JobDetail({
                   <div className="material-title">Answers</div>
                 </div>
                 <div className="material-actions">
-                  <button className="pill-btn pill-btn-ghost" onClick={onGoAnswers}>Open</button>
+                  <button className="pill-btn pill-btn-accent" onClick={onAddAnswer}>
+                    <Icon name="plus" size={13} /> Add Answers
+                  </button>
                 </div>
               </div>
             </div>
@@ -344,20 +347,22 @@ function JobDetail({
 interface JobsProps {
   jobs: Job[];
   onJobsChange: (jobs: Job[] | ((prev: Job[]) => Job[])) => void;
-  onGoAnswers: () => void;
+  answers: AnswerEntry[];
+  onAnswersChange: (answers: AnswerEntry[]) => void;
   collapsed: boolean;
   onExpand: () => void;
   evaluatingJobIds: Set<string>;
   onEvaluatingChange: (jobId: string, isEvaluating: boolean) => void;
 }
 
-export default function Jobs({ jobs, onJobsChange, onGoAnswers, collapsed, onExpand, evaluatingJobIds, onEvaluatingChange }: JobsProps) {
+export default function Jobs({ jobs, onJobsChange, answers, onAnswersChange, collapsed, onExpand, evaluatingJobIds, onEvaluatingChange }: JobsProps) {
   const [filter, setFilter] = useState<RecoFilter>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [urlInput, setUrlInput] = useState('');
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generateModalType, setGenerateModalType] = useState<'resume' | 'cover-letter' | null>(null);
+  const [showAnswersDrawer, setShowAnswersDrawer] = useState(false);
   const [generatingKeys, setGeneratingKeys] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [localNotes, setLocalNotes] = useState('');
@@ -447,6 +452,7 @@ export default function Jobs({ jobs, onJobsChange, onGoAnswers, collapsed, onExp
           jobId: submission.job.id,
           tailoringNotes: submission.tailoringNotes,
           totalWordCount: submission.totalWordCount,
+          tone: submission.tone,
         }) as { pdfPath: string };
         updateJob({ ...submission.job, coverLetterPdfPath: result.pdfPath, theme: 'cover-letter' });
       }
@@ -577,7 +583,7 @@ export default function Jobs({ jobs, onJobsChange, onGoAnswers, collapsed, onExp
               onStatusChange={handleStatusChange}
               onEvaluate={handleEvaluate}
               onOpenGenerate={setGenerateModalType}
-              onGoAnswers={onGoAnswers}
+              onAddAnswer={() => setShowAnswersDrawer(true)}
               onDelete={handleDelete}
               evaluating={evaluatingJobIds.has(selected.id)}
               generatingResume={generatingKeys.has(`${selected.id}:resume`)}
@@ -603,6 +609,15 @@ export default function Jobs({ jobs, onJobsChange, onGoAnswers, collapsed, onExp
           job={selected}
           onClose={() => setGenerateModalType(null)}
           onSubmit={handleGenerateSubmit}
+        />
+      )}
+
+      {showAnswersDrawer && selected && (
+        <AnswersDrawer
+          job={selected}
+          answers={answers}
+          onAnswersChange={onAnswersChange}
+          onClose={() => setShowAnswersDrawer(false)}
         />
       )}
     </div>
