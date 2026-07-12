@@ -26,3 +26,4 @@ publish:
 files:
   - out/**/*
   - "!**/*.map"
+  - "!node_modules/@anthropic-ai/claude-code/vendor/claude-code-jetbrains-plugin/**/*"
