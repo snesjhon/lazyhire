@@ -78,6 +78,8 @@ Once releases resume, installing will be:
 2. Open the `.dmg` and drag `lazyhire` into `Applications`.
 3. Launch it from `Applications` (or Spotlight).
 
+From then on, `lazyhire` checks for and installs new versions automatically on launch — no need to revisit the Releases page.
+
 ### Prerequisites
 
 - macOS (Windows/Linux packaging isn't set up yet — see `electron-builder.yml`).

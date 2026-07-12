@@ -7,6 +7,7 @@ import { registerProfileHandlers } from './ipc/profile.js';
 import { registerSettingsHandlers } from './ipc/settings.js';
 import { registerScanHandlers } from './ipc/scan.js';
 import { registerAiHandlers } from './ipc/ai.js';
+import { initAutoUpdater } from './services/updater.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -54,6 +55,7 @@ app.whenReady().then(() => {
   registerAiHandlers();
 
   createWindow();
+  initAutoUpdater();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

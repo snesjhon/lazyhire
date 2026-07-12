@@ -6,210 +6,36 @@ on:
       - 'v*'
 
 jobs:
-  build-mac:
+  release:
     runs-on: macos-latest
     permissions:
       contents: write
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-    outputs:
-      sha256_arm64: ${{ steps.sha256_arm64.outputs.hash }}
-      sha256_x64: ${{ steps.sha256_x64.outputs.hash }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          bun-version: latest
+          node-version-file: '.nvmrc'
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install
+        run: pnpm install --frozen-lockfile
 
-      - name: Install x64 native module for cross-compilation
-        run: |
-          VERSION=$(jq -r '.version' node_modules/@opentui/core/package.json)
-          mkdir -p node_modules/@opentui/core-darwin-x64
-          curl -fsSL "https://registry.npmjs.org/@opentui/core-darwin-x64/-/core-darwin-x64-${VERSION}.tgz" \
-            | tar -xz --strip-components=1 -C node_modules/@opentui/core-darwin-x64
+      - name: Typecheck
+        run: pnpm typecheck
 
-      - name: Build binaries
-        run: |
-          bun build --compile src/index.tsx --outfile lazyhire-mac-arm64
-          bun build --compile --target bun-darwin-x64 src/index.tsx --outfile lazyhire-mac-x64
-
-      - name: Import signing certificate
+      - name: Build, sign, notarize, and publish
         env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-        run: |
-          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
-          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          echo "$APPLE_CERTIFICATE" | base64 --decode > /tmp/certificate.p12
-          security import /tmp/certificate.p12 -k "$KEYCHAIN_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security list-keychain -d user -s "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          rm /tmp/certificate.p12
-
-      - name: Sign binaries
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          printf '%s\n' \
-            '<?xml version="1.0" encoding="UTF-8"?>' \
-            '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
-            '<plist version="1.0"><dict>' \
-            '  <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>' \
-            '  <key>com.apple.security.cs.disable-library-validation</key><true/>' \
-            '</dict></plist>' > entitlements.plist
-          for binary in lazyhire-mac-arm64 lazyhire-mac-x64; do
-            codesign --remove-signature "$binary" || true
-            codesign --sign "Developer ID Application: Jhonatan Paredes ($APPLE_TEAM_ID)" \
-              --options runtime \
-              --timestamp \
-              --force \
-              --entitlements entitlements.plist \
-              "$binary"
-          done
-
-      - name: Notarize binaries
-        env:
+          CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          for binary in lazyhire-mac-arm64 lazyhire-mac-x64; do
-            zip "$binary.zip" "$binary"
-            xcrun notarytool submit "$binary.zip" \
-              --apple-id "$APPLE_ID" \
-              --team-id "$APPLE_TEAM_ID" \
-              --password "$APPLE_APP_PASSWORD" \
-              --wait
-            rm "$binary.zip"
-          done
-
-      - name: Compute SHA256 arm64
-        id: sha256_arm64
-        run: |
-          HASH=$(shasum -a 256 lazyhire-mac-arm64 | cut -d' ' -f1)
-          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
-
-      - name: Compute SHA256 x64
-        id: sha256_x64
-        run: |
-          HASH=$(shasum -a 256 lazyhire-mac-x64 | cut -d' ' -f1)
-          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
-
-      - name: Upload arm64 artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: lazyhire-mac-arm64
-          path: lazyhire-mac-arm64
-
-      - name: Upload x64 artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: lazyhire-mac-x64
-          path: lazyhire-mac-x64
-
-  build-windows:
-    runs-on: windows-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-    outputs:
-      sha256: ${{ steps.sha256.outputs.hash }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Build binary
-        run: bun build --compile src/index.tsx --outfile lazyhire-windows-x64
-
-      - name: Compute SHA256
-        id: sha256
-        run: |
-          $hash = (Get-FileHash lazyhire-windows-x64.exe -Algorithm SHA256).Hash.ToLower()
-          echo "hash=$hash" >> $env:GITHUB_OUTPUT
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: lazyhire-windows-x64
-          path: lazyhire-windows-x64.exe
-
-  release:
-    needs: [build-mac, build-windows]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
-    steps:
-      - name: Download Mac arm64 artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: lazyhire-mac-arm64
-
-      - name: Download Mac x64 artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: lazyhire-mac-x64
-
-      - name: Download Windows artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: lazyhire-windows-x64
-
-      - name: Write release files
-        run: |
-          TAG="${{ github.ref_name }}"
-          REPO="${{ github.repository }}"
-          echo "$TAG" > latest.txt
-          cat > manifest.json <<EOF
-          {
-            "version": "$TAG",
-            "platforms": {
-              "darwin-arm64": {
-                "url": "https://github.com/$REPO/releases/download/$TAG/lazyhire-mac-arm64",
-                "sha256": "${{ needs.build-mac.outputs.sha256_arm64 }}"
-              },
-              "darwin-x64": {
-                "url": "https://github.com/$REPO/releases/download/$TAG/lazyhire-mac-x64",
-                "sha256": "${{ needs.build-mac.outputs.sha256_x64 }}"
-              },
-              "windows-x64": {
-                "url": "https://github.com/$REPO/releases/download/$TAG/lazyhire-windows-x64.exe",
-                "sha256": "${{ needs.build-windows.outputs.sha256 }}"
-              }
-            }
-          }
-          EOF
-
-      - name: Create GitHub Release
-        env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "${{ github.ref_name }}" \
-            lazyhire-mac-arm64 \
-            lazyhire-mac-x64 \
-            lazyhire-windows-x64.exe \
-            manifest.json \
-            latest.txt \
-            --repo "${{ github.repository }}" \
-            --title "${{ github.ref_name }}" \
-            --generate-notes
+        run: pnpm release:mac
