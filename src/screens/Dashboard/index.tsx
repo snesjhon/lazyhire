@@ -4,6 +4,7 @@ import { JOB_STATUSES } from '@shared/types';
 import { IPC } from '@shared/ipc-channels';
 import Donut from '../../components/Donut';
 import Icon from '../../components/Icon';
+import GenerateDocumentDrawer, { type GenerateSubmission } from '../../components/GenerateDocumentDrawer';
 
 type Reco = 'apply' | 'consider' | 'skip' | 'pending';
 type RecoFilter = 'all' | 'apply' | 'consider' | 'skip';
@@ -77,8 +78,7 @@ interface DetailProps {
   job: Job;
   onStatusChange: (s: JobStatus) => void;
   onEvaluate: () => void;
-  onGenerateResume: () => void;
-  onGenerateCover: () => void;
+  onOpenGenerate: (type: 'resume' | 'cover-letter') => void;
   onGoDocuments: () => void;
   onGoAnswers: () => void;
   onDelete: () => void;
@@ -95,8 +95,7 @@ function JobDetail({
   job,
   onStatusChange,
   onEvaluate,
-  onGenerateResume,
-  onGenerateCover,
+  onOpenGenerate,
   onGoDocuments,
   onGoAnswers,
   onDelete,
@@ -221,16 +220,20 @@ function JobDetail({
                 ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Evaluating…</>
                 : <><Icon name="sparkle" size={14} /> {job.score !== null ? 'Re-evaluate' : 'Evaluate'}</>}
             </button>
-            <button className="btn btn-ghost" onClick={onGenerateResume} disabled={anyRunning}>
-              {generatingResume
-                ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Generating…</>
-                : <><Icon name="docs" size={14} /> Resume</>}
-            </button>
-            <button className="btn btn-ghost" onClick={onGenerateCover} disabled={anyRunning}>
-              {generatingCover
-                ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Generating…</>
-                : <><Icon name="docs" size={14} /> Cover Letter</>}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Generate:</span>
+              <button className="btn btn-ghost" onClick={() => onOpenGenerate('resume')} disabled={anyRunning}>
+                {generatingResume
+                  ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Generating…</>
+                  : 'Resume'}
+              </button>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>|</span>
+              <button className="btn btn-ghost" onClick={() => onOpenGenerate('cover-letter')} disabled={anyRunning}>
+                {generatingCover
+                  ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Generating…</>
+                  : 'Cover Letter'}
+              </button>
+            </div>
           </div>
 
           {/* Application material quick-cards */}
@@ -355,8 +358,8 @@ export default function Jobs({ jobs, onJobsChange, onGoDocuments, onGoAnswers, c
   const [urlInput, setUrlInput] = useState('');
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [generatingResume, setGeneratingResume] = useState(false);
-  const [generatingCover, setGeneratingCover] = useState(false);
+  const [generateModalType, setGenerateModalType] = useState<'resume' | 'cover-letter' | null>(null);
+  const [generating, setGenerating] = useState<{ jobId: string; type: 'resume' | 'cover-letter' } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [localNotes, setLocalNotes] = useState('');
 
@@ -427,33 +430,32 @@ export default function Jobs({ jobs, onJobsChange, onGoDocuments, onGoAnswers, c
     await evaluateJob(selected.id);
   };
 
-  const handleGenerateResume = async () => {
-    if (!selected) return;
-    setGeneratingResume(true);
+  const handleGenerateSubmit = async (submission: GenerateSubmission) => {
+    setGenerating({ jobId: submission.job.id, type: submission.type });
     setError(null);
     try {
-      await window.api.invoke(IPC.AI_GENERATE_RESUME, { jobId: selected.id });
-      const list = await window.api.invoke(IPC.JOBS_LIST) as Job[];
-      onJobsChange(list);
+      if (submission.type === 'resume') {
+        const result = await window.api.invoke(IPC.AI_GENERATE_RESUME, {
+          jobId: submission.job.id,
+          tailoringNotes: submission.tailoringNotes,
+          bulletWordRange: submission.bulletWordRange,
+          textSizeScale: submission.textSizeScale,
+        }) as { pdfPath: string };
+        updateJob({ ...submission.job, pdfPath: result.pdfPath, theme: 'resume' });
+      } else {
+        const result = await window.api.invoke(IPC.AI_GENERATE_COVER_LETTER, {
+          jobId: submission.job.id,
+          tailoringNotes: submission.tailoringNotes,
+          totalWordCount: submission.totalWordCount,
+        }) as { pdfPath: string };
+        updateJob({ ...submission.job, coverLetterPdfPath: result.pdfPath, theme: 'cover-letter' });
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Resume generation failed');
+      setError(err instanceof Error
+        ? err.message
+        : `Failed to generate ${submission.type === 'resume' ? 'resume' : 'cover letter'}`);
     } finally {
-      setGeneratingResume(false);
-    }
-  };
-
-  const handleGenerateCover = async () => {
-    if (!selected) return;
-    setGeneratingCover(true);
-    setError(null);
-    try {
-      await window.api.invoke(IPC.AI_GENERATE_COVER_LETTER, { jobId: selected.id });
-      const list = await window.api.invoke(IPC.JOBS_LIST) as Job[];
-      onJobsChange(list);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Cover letter generation failed');
-    } finally {
-      setGeneratingCover(false);
+      setGenerating(null);
     }
   };
 
@@ -563,14 +565,13 @@ export default function Jobs({ jobs, onJobsChange, onGoDocuments, onGoAnswers, c
               job={selected}
               onStatusChange={handleStatusChange}
               onEvaluate={handleEvaluate}
-              onGenerateResume={handleGenerateResume}
-              onGenerateCover={handleGenerateCover}
+              onOpenGenerate={setGenerateModalType}
               onGoDocuments={onGoDocuments}
               onGoAnswers={onGoAnswers}
               onDelete={handleDelete}
               evaluating={evaluatingJobIds.has(selected.id)}
-              generatingResume={generatingResume}
-              generatingCover={generatingCover}
+              generatingResume={generating?.jobId === selected.id && generating.type === 'resume'}
+              generatingCover={generating?.jobId === selected.id && generating.type === 'cover-letter'}
               deleting={deleting}
               localNotes={localNotes}
               onNotesChange={setLocalNotes}
@@ -585,6 +586,15 @@ export default function Jobs({ jobs, onJobsChange, onGoDocuments, onGoAnswers, c
           )}
         </div>
       </div>
+
+      {generateModalType && selected && (
+        <GenerateDocumentDrawer
+          type={generateModalType}
+          job={selected}
+          onClose={() => setGenerateModalType(null)}
+          onSubmit={handleGenerateSubmit}
+        />
+      )}
     </div>
   );
 }

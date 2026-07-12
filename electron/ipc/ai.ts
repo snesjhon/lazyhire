@@ -1,17 +1,39 @@
 import { ipcMain } from 'electron';
-import { mkdirSync } from 'fs';
 import { join } from 'path';
 import { query } from '@anthropic-ai/claude-code';
-import puppeteer from 'puppeteer-core';
 import { IPC } from '@shared/ipc-channels';
 import { loadProfile } from '../services/profile.js';
 import { getClaudeQueryOptions } from '../services/claude.js';
-import { buildWritingGuidance, buildSharedWritingGuidance, buildArtifactWritingGuidance } from '../services/writing-guidance.js';
+import { buildWritingGuidance } from '../services/writing-guidance.js';
 import { extractTextFromPdf, fetchPdfFromUrl } from '../services/pdf.js';
-import { findChrome } from '../services/chrome.js';
-import { db } from '../services/db.js';
+import { db, answersDb } from '../services/db.js';
 import { DATA_DIR } from '../services/paths.js';
-import type { AnswerCategory, EvaluationResult, GeneratedCV, GeneratedCoverLetter, Job, Profile } from '@shared/types';
+import {
+  renderPDF,
+  renderCoverLetterPDF,
+  buildResumeFilename,
+  buildCoverLetterFilename,
+} from '../services/jobs.js';
+import {
+  CV_TEXT_SIZE_PRESETS,
+  DEFAULT_CV_BULLET_WORD_RANGE,
+  DEFAULT_CV_TEXT_SIZE_SCALE,
+  DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT,
+  type CvBulletWordRange,
+  type CvTextSizeScale,
+  type CoverLetterTotalWordCount,
+} from '@shared/generate-presets';
+import type {
+  AnswerCategory,
+  AnswerEntry,
+  EvaluationResult,
+  GeneratedCV,
+  GeneratedCoverLetter,
+  Job,
+  Profile,
+} from '@shared/types';
+import GENERATE_CV_PROMPT from '../prompts/generate-cv.md?raw';
+import GENERATE_COVER_LETTER_PROMPT from '../prompts/generate-cover-letter.md?raw';
 
 // ── Shared helpers ─────────────────────────────────────────────────
 
@@ -271,182 +293,206 @@ async function evaluateJob(job: Job, profile: Profile): Promise<EvaluationResult
 
 // ── Resume generation ─────────────────────────────────────────────
 
-const RESUME_PROMPT = (profile: Profile, job: Pick<Job, 'company' | 'role' | 'jd' | 'jdSummary'>) => `You are writing a tailored, ATS-optimized resume for a specific job application.
+const BULLET_WORD_RANGE_TOKEN = '{{BULLET_WORD_RANGE}}';
+const TEXT_SIZE_NAME_TOKEN = '{{TEXT_SIZE_NAME}}';
+const TEXT_SIZE_BODY_PT_TOKEN = '{{TEXT_SIZE_BODY_PT}}';
+const TOTAL_WORD_COUNT_TOKEN = '{{TOTAL_WORD_COUNT}}';
 
-## Candidate Profile
-Name: ${profile.candidate.name}
-Email: ${profile.candidate.email}
-Location: ${profile.candidate.location}
-Site: ${profile.candidate.site}
-${profile.candidate.github ? `GitHub: ${profile.candidate.github}` : ''}
-${profile.candidate.linkedin ? `LinkedIn: ${profile.candidate.linkedin}` : ''}
-Headline: ${profile.headline}
-Summary: ${profile.summary}
-Skills: ${profile.skills.join(', ')}
-Experiences:
-${profile.experiences.map((e) => `
-Company: ${e.company}
-Role: ${e.role}
-Period: ${e.period.start} - ${e.period.end}
+function buildExperienceContext(experiences: Profile['experiences']): string {
+  return experiences
+    .map(
+      (e) => `--- ${e.company} | ${e.role} | ${e.period.start} to ${e.period.end} ---
+Tags: ${e.tags.join(', ')}
 Bullets:
-${e.bullets.map((b) => `  - ${b}`).join('\n')}`).join('\n')}
-Education:
-${profile.education.map((e) => `- ${e.degree} at ${e.institution}`).join('\n')}
-
-## Target Job
-Company: ${job.company}
-Role: ${job.role}
-Job Description:
-${(job.jdSummary || job.jd || '').slice(0, 2000)}
-
-## Task
-Generate a tailored resume optimized for this specific job. Return ONLY valid JSON matching this exact schema. No explanation. No markdown fences.
-
-{
-  "name": <string>,
-  "title": <string: a headline/title tailored to this role>,
-  "contact": { "email": <string>, "location": <string>, "site": <string> },
-  "skills": <string[]: 8-12 skills most relevant to this job, ordered by relevance>,
-  "roles": [
-    {
-      "company": <string>,
-      "role": <string>,
-      "period": { "start": <string: YYYY-MM>, "end": <string: YYYY-MM or "Present"> },
-      "bullets": <string[]: 3-5 tailored achievement bullets, quantified where possible>
-    }
-  ],
-  "education": [{ "institution": <string>, "degree": <string> }]
+${e.bullets.map((b) => `- ${b}`).join('\n')}
+Narrative:
+${e.narrative.trim()}`,
+    )
+    .join('\n\n');
 }
 
-${buildSharedWritingGuidance()}
-${buildArtifactWritingGuidance('cv')}
+function buildGenerateCvPrompt(
+  job: Pick<Job, 'jd' | 'url' | 'category' | 'focus'>,
+  profile: Profile,
+  tailoringNotes: string,
+  bulletWordRange: CvBulletWordRange,
+  textSizeScale: CvTextSizeScale,
+): string {
+  const textSizePreset =
+    CV_TEXT_SIZE_PRESETS.find((preset) => preset.scale.bodyPt === textSizeScale.bodyPt) ??
+    CV_TEXT_SIZE_PRESETS.find((preset) => preset.id === 'balanced')!;
 
-OUTPUT ONLY VALID JSON. NO EXPLANATION. NO MARKDOWN CODE FENCES.`;
+  const promptTemplate = GENERATE_CV_PROMPT.replace(BULLET_WORD_RANGE_TOKEN, `${bulletWordRange.min}-${bulletWordRange.max}`)
+    .replace(TEXT_SIZE_NAME_TOKEN, textSizePreset.name.toLowerCase())
+    .replace(TEXT_SIZE_BODY_PT_TOKEN, String(textSizeScale.bodyPt));
 
-const COVER_LETTER_PROMPT = (profile: Profile, job: Pick<Job, 'company' | 'role' | 'jd' | 'jdSummary'>) => `You are writing a tailored cover letter for a job application.
+  return `${promptTemplate}
 
-## Candidate Profile
+---
+
+${buildWritingGuidance('cv')}
+
+---
+
+## Job Description
+
+${job.jd || `URL: ${job.url}`}
+
+---
+
+## Detected Category: ${job.category ?? 'engineering'}
+
+## Detected Focus: ${job.focus ?? 'none'}
+
+---
+
+## Candidate CV
+
+${profile.cv}
+
+---
+
+## Experience Database
+
+${buildExperienceContext(profile.experiences)}
+
+---
+
+## Candidate Info
+
 Name: ${profile.candidate.name}
 Email: ${profile.candidate.email}
 Location: ${profile.candidate.location}
 Site: ${profile.candidate.site}
-Headline: ${profile.headline}
-Summary: ${profile.summary}
-Skills: ${profile.skills.join(', ')}
-${profile.experiences.slice(0, 3).map((e) => `- ${e.role} at ${e.company}: ${e.narrative || e.bullets.slice(0, 2).join('; ')}`).join('\n')}
 
-## Target Job
-Company: ${job.company}
-Role: ${job.role}
-Job Description:
-${(job.jdSummary || job.jd || '').slice(0, 2000)}
+Education (static, use exactly as-is):
+${profile.education.map((e) => `- ${e.institution}: ${e.degree}`).join('\n')}
 
-## Task
-Generate a compelling, concise cover letter (3 paragraphs). Return ONLY valid JSON matching this exact schema. No explanation. No markdown fences.
+## Application Guidance
 
-{
-  "name": <string>,
-  "contact": { "email": <string>, "location": <string>, "site": <string> },
-  "company": <string>,
-  "role": <string>,
-  "paragraphs": <string[]: exactly 3 paragraphs — opening hook, body with evidence, closing>
+${tailoringNotes.trim() || 'No additional guidance provided. Infer the strongest truthful framing from the JD and experience database.'}
+
+OUTPUT ONLY VALID JSON. NO EXPLANATION. NO MARKDOWN.`;
 }
 
-${buildSharedWritingGuidance()}
-${buildArtifactWritingGuidance('cover-letter')}
+function parseGeneratedCV(text: string): GeneratedCV {
+  const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('No JSON found in resume generation response');
 
-OUTPUT ONLY VALID JSON. NO EXPLANATION. NO MARKDOWN CODE FENCES.`;
-
-// ── PDF rendering ─────────────────────────────────────────────────
-
-async function renderToPdf(html: string, outputPath: string): Promise<void> {
-  const browser = await puppeteer.launch({
-    executablePath: findChrome(),
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
-  try {
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    await page.pdf({ path: outputPath, format: 'Letter', margin: { top: '0.75in', bottom: '0.75in', left: '0.75in', right: '0.75in' } });
-  } finally {
-    await browser.close();
+  const parsed = JSON.parse(jsonMatch[0]) as Partial<GeneratedCV>;
+  if (!parsed.name) throw new Error('Missing name in generated resume');
+  if (!Array.isArray(parsed.roles) || parsed.roles.length === 0) {
+    throw new Error('Missing or empty roles in generated resume');
   }
+  if (!Array.isArray(parsed.skills)) throw new Error('Missing skills in generated resume');
+
+  // Guard: strip any education entries that leaked into the roles array (no bullets = not a role)
+  parsed.roles = parsed.roles.filter((r) => Array.isArray(r.bullets) && r.bullets.length > 0);
+  if (parsed.roles.length === 0) {
+    throw new Error('All roles were filtered out — possible education/roles mix-up in generation');
+  }
+
+  return parsed as GeneratedCV;
 }
 
-function buildResumeHtml(cv: GeneratedCV): string {
-  const roles = cv.roles.map((r) => `
-    <div class="role">
-      <div class="role-header">
-        <span class="company">${r.company}</span>
-        <span class="period">${r.period.start} – ${r.period.end}</span>
-      </div>
-      <div class="role-title">${r.role}</div>
-      <ul>${r.bullets.map((b) => `<li>${b}</li>`).join('')}</ul>
-    </div>`).join('');
+// ── Cover letter generation ────────────────────────────────────────
 
-  const education = cv.education.map((e) => `<div class="edu"><strong>${e.institution}</strong> — ${e.degree}</div>`).join('');
-
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Georgia, serif; font-size: 10.5pt; color: #111; line-height: 1.45; }
-    h1 { font-size: 18pt; font-weight: bold; letter-spacing: -0.02em; }
-    .title { font-size: 11pt; color: #444; margin-top: 2px; margin-bottom: 8px; }
-    .contact { font-size: 9.5pt; color: #555; margin-bottom: 16px; }
-    .contact span + span::before { content: " · "; }
-    h2 { font-size: 10pt; text-transform: uppercase; letter-spacing: 0.08em; color: #555; border-bottom: 0.5px solid #ccc; padding-bottom: 2px; margin: 14px 0 8px; }
-    .skills { font-size: 9.5pt; color: #222; }
-    .role { margin-bottom: 12px; }
-    .role-header { display: flex; justify-content: space-between; }
-    .company { font-weight: bold; }
-    .period { font-size: 9.5pt; color: #666; }
-    .role-title { font-style: italic; color: #444; margin-bottom: 3px; }
-    ul { padding-left: 16px; }
-    li { margin-bottom: 2px; font-size: 9.5pt; }
-    .edu { margin-bottom: 4px; font-size: 9.5pt; }
-  </style></head><body>
-    <h1>${cv.name}</h1>
-    <div class="title">${cv.title}</div>
-    <div class="contact">
-      <span>${cv.contact.email}</span>
-      <span>${cv.contact.location}</span>
-      ${cv.contact.site ? `<span>${cv.contact.site}</span>` : ''}
-    </div>
-    <h2>Skills</h2>
-    <div class="skills">${cv.skills.join(' · ')}</div>
-    <h2>Experience</h2>
-    ${roles}
-    <h2>Education</h2>
-    ${education}
-  </body></html>`;
+function selectRelevantAnswers(answers: AnswerEntry[], job: Pick<Job, 'company' | 'role'>): AnswerEntry[] {
+  const matchingCompany = answers.filter((answer) => answer.company === job.company);
+  const matchingRole = answers.filter((answer) => answer.role === job.role);
+  const recent = [...answers].sort((a, b) => b.revised.localeCompare(a.revised));
+  const combined = [...matchingCompany, ...matchingRole, ...recent];
+  const unique = combined.filter(
+    (answer, index) => combined.findIndex((candidate) => candidate.id === answer.id) === index,
+  );
+  return unique.slice(0, 5);
 }
 
-function buildCoverLetterHtml(cl: GeneratedCoverLetter): string {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Georgia, serif; font-size: 11pt; color: #111; line-height: 1.6; }
-    .header { margin-bottom: 32px; }
-    h1 { font-size: 16pt; font-weight: bold; }
-    .contact { font-size: 9.5pt; color: #555; margin-top: 4px; }
-    .contact span + span::before { content: " · "; }
-    .salutation { margin-bottom: 16px; }
-    p { margin-bottom: 14px; }
-    .closing { margin-top: 24px; }
-  </style></head><body>
-    <div class="header">
-      <h1>${cl.name}</h1>
-      <div class="contact">
-        <span>${cl.contact.email}</span>
-        <span>${cl.contact.location}</span>
-        ${cl.contact.site ? `<span>${cl.contact.site}</span>` : ''}
-      </div>
-    </div>
-    <div class="salutation">Hiring Team, ${cl.company}</div>
-    <div class="body">
-      ${cl.paragraphs.map((p) => `<p>${p}</p>`).join('')}
-    </div>
-    <div class="closing">Sincerely,<br><strong>${cl.name}</strong></div>
-  </body></html>`;
+function buildAnswerVoiceContext(answers: AnswerEntry[]): string {
+  if (answers.length === 0) {
+    return [
+      'No saved answers are available.',
+      'Infer a professional but natural voice using the cover letter guidance only.',
+    ].join('\n');
+  }
+
+  return answers
+    .map((answer) =>
+      [
+        `Question: ${answer.question}`,
+        `Tone: ${answer.tone}`,
+        answer.context.trim() ? `Candidate Notes: ${answer.context.trim()}` : '',
+        `Answer Sample: ${answer.answer.trim()}`,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    )
+    .join('\n\n---\n\n');
+}
+
+function buildGenerateCoverLetterPrompt(
+  job: Pick<Job, 'company' | 'role' | 'jdSummary' | 'jd' | 'url'>,
+  profile: Profile,
+  tailoringNotes: string,
+  totalWordCount: CoverLetterTotalWordCount,
+): string {
+  const relevantAnswers = selectRelevantAnswers(answersDb.readAnswers(), job);
+  const promptTemplate = GENERATE_COVER_LETTER_PROMPT.replace(TOTAL_WORD_COUNT_TOKEN, String(totalWordCount.target));
+
+  return `${promptTemplate}
+
+---
+
+${buildWritingGuidance('cover-letter')}
+
+---
+
+## Candidate Background
+
+${buildProfileSummary(profile)}
+
+---
+
+## Company and Role Context
+
+${buildJobContext(job)}
+
+---
+
+## Saved Answers Voice Reference
+
+Use these to mirror tone, sentence discipline, and boundaries. Reuse the style, not the wording.
+
+${buildAnswerVoiceContext(relevantAnswers)}
+
+---
+
+## Application Guidance
+
+${tailoringNotes.trim() || 'No additional guidance provided. Use the strongest truthful fit from the role and candidate background.'}
+
+OUTPUT ONLY VALID JSON. NO EXPLANATION. NO MARKDOWN.`;
+}
+
+function parseGeneratedCoverLetter(text: string): GeneratedCoverLetter {
+  const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('No JSON found in cover letter generation response');
+
+  const parsed = JSON.parse(jsonMatch[0]) as Partial<GeneratedCoverLetter>;
+  if (!parsed.name) throw new Error('Missing name in generated cover letter');
+  if (!parsed.contact?.email) throw new Error('Missing contact in generated cover letter');
+  if (!parsed.company) throw new Error('Missing company in generated cover letter');
+  if (!parsed.role) throw new Error('Missing role in generated cover letter');
+  if (!Array.isArray(parsed.paragraphs) || parsed.paragraphs.length < 3 || parsed.paragraphs.length > 4) {
+    throw new Error('Generated cover letter must contain 3-4 paragraphs');
+  }
+
+  return {
+    ...parsed,
+    paragraphs: parsed.paragraphs.map((paragraph) => String(paragraph)),
+  } as GeneratedCoverLetter;
 }
 
 // ── IPC handler registration ──────────────────────────────────────
@@ -459,19 +505,30 @@ export function registerAiHandlers(): void {
     return evaluateJob(job, profile);
   });
 
-  ipcMain.handle(IPC.AI_GENERATE_RESUME, async (_event, { jobId }: { jobId: string }) => {
-    const job = db.readJobs().find((j) => j.id === jobId);
-    if (!job) throw new Error(`Job ${jobId} not found`);
+  ipcMain.handle(IPC.AI_GENERATE_RESUME, async (
+    _event,
+    args: {
+      jobId: string;
+      tailoringNotes?: string;
+      bulletWordRange?: CvBulletWordRange;
+      textSizeScale?: CvTextSizeScale;
+    },
+  ) => {
+    const job = db.readJobs().find((j) => j.id === args.jobId);
+    if (!job) throw new Error(`Job ${args.jobId} not found`);
     const profile = loadProfile();
 
-    const prompt = RESUME_PROMPT(profile, job);
+    const tailoringNotes = args.tailoringNotes ?? '';
+    const bulletWordRange = args.bulletWordRange ?? DEFAULT_CV_BULLET_WORD_RANGE;
+    const textSizeScale = args.textSizeScale ?? DEFAULT_CV_TEXT_SIZE_SCALE;
+
+    const prompt = buildGenerateCvPrompt(job, profile, tailoringNotes, bulletWordRange, textSizeScale);
     let lastError: Error | null = null;
     let cv: GeneratedCV | null = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
       const raw = await runQuery(prompt);
       try {
-        const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        cv = JSON.parse(cleaned) as GeneratedCV;
+        cv = parseGeneratedCV(raw);
         break;
       } catch (err) {
         lastError = err as Error;
@@ -479,30 +536,36 @@ export function registerAiHandlers(): void {
     }
     if (!cv) throw new Error(`Failed to generate resume: ${lastError?.message}`);
 
-    const pdfDir = join(DATA_DIR, 'pdfs');
-    mkdirSync(pdfDir, { recursive: true });
-    const filename = `resume_${jobId}_${Date.now()}.pdf`;
-    const pdfPath = join(pdfDir, filename);
-    const html = buildResumeHtml(cv);
-    await renderToPdf(html, pdfPath);
+    const filename = buildResumeFilename(profile.candidate.name, job.company);
+    const pdfPath = join(DATA_DIR, 'output', filename);
+    await renderPDF(cv, pdfPath, textSizeScale);
 
-    db.updateJob(jobId, { pdfPath });
+    db.updateJob(job.id, { pdfPath, theme: 'resume' });
     return { pdfPath };
   });
 
-  ipcMain.handle(IPC.AI_GENERATE_COVER_LETTER, async (_event, { jobId }: { jobId: string }) => {
-    const job = db.readJobs().find((j) => j.id === jobId);
-    if (!job) throw new Error(`Job ${jobId} not found`);
+  ipcMain.handle(IPC.AI_GENERATE_COVER_LETTER, async (
+    _event,
+    args: {
+      jobId: string;
+      tailoringNotes?: string;
+      totalWordCount?: CoverLetterTotalWordCount;
+    },
+  ) => {
+    const job = db.readJobs().find((j) => j.id === args.jobId);
+    if (!job) throw new Error(`Job ${args.jobId} not found`);
     const profile = loadProfile();
 
-    const prompt = COVER_LETTER_PROMPT(profile, job);
+    const tailoringNotes = args.tailoringNotes ?? '';
+    const totalWordCount = args.totalWordCount ?? DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT;
+
+    const prompt = buildGenerateCoverLetterPrompt(job, profile, tailoringNotes, totalWordCount);
     let lastError: Error | null = null;
     let cl: GeneratedCoverLetter | null = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
       const raw = await runQuery(prompt);
       try {
-        const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        cl = JSON.parse(cleaned) as GeneratedCoverLetter;
+        cl = parseGeneratedCoverLetter(raw);
         break;
       } catch (err) {
         lastError = err as Error;
@@ -510,15 +573,12 @@ export function registerAiHandlers(): void {
     }
     if (!cl) throw new Error(`Failed to generate cover letter: ${lastError?.message}`);
 
-    const pdfDir = join(DATA_DIR, 'pdfs');
-    mkdirSync(pdfDir, { recursive: true });
-    const filename = `cover_${jobId}_${Date.now()}.pdf`;
-    const pdfPath = join(pdfDir, filename);
-    const html = buildCoverLetterHtml(cl);
-    await renderToPdf(html, pdfPath);
+    const filename = buildCoverLetterFilename(profile.candidate.name, job.company);
+    const coverLetterPdfPath = join(DATA_DIR, 'output', filename);
+    await renderCoverLetterPDF(cl, coverLetterPdfPath);
 
-    db.updateJob(jobId, { coverLetterPdfPath: pdfPath });
-    return { pdfPath };
+    db.updateJob(job.id, { coverLetterPdfPath, theme: 'cover-letter' });
+    return { pdfPath: coverLetterPdfPath };
   });
 
   ipcMain.handle(IPC.AI_EXTRACT_PROFILE, async (_event, resumeInput: string | number[]) => {

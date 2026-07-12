@@ -4,31 +4,15 @@ import puppeteer from 'puppeteer-core';
 import { findChrome } from './chrome.js';
 import { DATA_DIR } from './paths.js';
 import type { GeneratedCV, GeneratedCoverLetter, Job } from '@shared/types';
+import type { CvTextSizeScale } from '@shared/generate-presets';
+import { DEFAULT_CV_TEXT_SIZE_SCALE } from '@shared/generate-presets';
 
-// ── CV text size types (shared with ai.ts for PDF generation) ─────
-
-export interface CvBulletWordRange {
-  min: number;
-  max: number;
-}
-
-export interface CvTextSizeScale {
-  bodyPt: number;
-  headingNamePt: number;
-  headingSectionPt: number;
-  headingRolePt: number;
-}
-
-export const DEFAULT_CV_BULLET_WORD_RANGE: CvBulletWordRange = { min: 25, max: 44 };
-
-export const DEFAULT_CV_TEXT_SIZE_SCALE: CvTextSizeScale = {
-  bodyPt: 10,
-  headingNamePt: 20,
-  headingSectionPt: 11,
-  headingRolePt: 10.5,
-};
-
-export const DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT = 280;
+export type { CvBulletWordRange, CvTextSizeScale } from '@shared/generate-presets';
+export {
+  DEFAULT_CV_BULLET_WORD_RANGE,
+  DEFAULT_CV_TEXT_SIZE_SCALE,
+  DEFAULT_COVER_LETTER_TOTAL_WORD_COUNT,
+} from '@shared/generate-presets';
 
 // ── HTML templates (inlined via ?raw) ────────────────────────────
 
