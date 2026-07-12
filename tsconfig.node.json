@@ -7,8 +7,9 @@
     "lib": ["ES2022"]
   },
   "include": [
-    "electron/**/*",
-    "shared/**/*",
+    "src/main/**/*",
+    "src/preload/**/*",
+    "src/shared/**/*",
     "electron.vite.config.ts"
   ]
 }

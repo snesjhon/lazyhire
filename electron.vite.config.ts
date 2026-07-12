@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import react from '@vitejs/plugin-react';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const shared = resolve(__dirname, 'shared');
+const shared = resolve(__dirname, 'src/shared');
 
 export default defineConfig({
   main: {
@@ -12,7 +12,7 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'electron/main.ts'),
+          index: resolve(__dirname, 'src/main/main.ts'),
         },
       },
     },
@@ -25,7 +25,7 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'electron/preload.ts'),
+          index: resolve(__dirname, 'src/preload/preload.ts'),
         },
         output: {
           format: 'cjs',
@@ -38,14 +38,14 @@ export default defineConfig({
     },
   },
   renderer: {
-    root: resolve(__dirname, 'src'),
+    root: resolve(__dirname, 'src/renderer'),
     server: {
       host: '127.0.0.1',
     },
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'src/index.html'),
+          index: resolve(__dirname, 'src/renderer/index.html'),
         },
       },
     },

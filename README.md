@@ -1,4 +1,4 @@
-<p align="center"><img src="./src/assets/logo.svg" alt="lazyhire" width="520"/></p>
+<p align="center"><img src="./src/renderer/assets/logo.svg" alt="lazyhire" width="520"/></p>
 
 <p align="center">
 <strong>
@@ -121,9 +121,10 @@ pnpm dev            # launches the Electron app in dev mode with hot reload
 
 ### Project layout
 
-- `electron/` — main process: IPC handlers (`ipc/`), services (Claude integration, PDF generation, job-board sourcing), and prompt templates.
-- `shared/` — IPC channel names and types shared between the main and renderer processes.
-- `src/` — the React renderer (screens, components, hooks).
+- `src/main/` — Electron main process: IPC handlers (`ipc/`), services (Claude integration, PDF generation, job-board sourcing), and prompt templates.
+- `src/preload/` — the preload script bridging main and renderer.
+- `src/renderer/` — the React renderer (screens, components, hooks).
+- `src/shared/` — IPC channel names and types shared between the main and renderer processes.
 
 ## Inspirations
 
