@@ -1,26 +1,54 @@
 import { execSync } from 'child_process';
-import { accessSync, constants, existsSync, readFileSync } from 'fs';
+import { accessSync, constants, existsSync, readFileSync, statSync } from 'fs';
 import { homedir } from 'os';
 import path from 'path';
 import { join } from 'path';
 import type { Options } from '@anthropic-ai/claude-code';
 
+const isWindows = process.platform === 'win32';
+// npm/volta/etc ship Windows shims with these extensions; a bare `claude` file
+// generally doesn't exist there the way it does on macOS/Linux.
+const WIN_BIN_NAMES = ['claude.exe', 'claude.cmd', 'claude.bat', 'claude.ps1', 'claude'];
+
 function isExecutable(filePath: string): boolean {
   try {
     accessSync(filePath, constants.X_OK);
-    return true;
+    // On Windows, X_OK is treated the same as F_OK (existence-only), so also
+    // confirm it's a file and not a directory that merely happens to exist.
+    return statSync(filePath).isFile();
   } catch {
     return false;
   }
 }
 
 function getClaudeBinaryCandidates(): string[] {
-  const home = process.env.HOME ?? '';
+  const binNames = isWindows ? WIN_BIN_NAMES : ['claude'];
+
   const pathEntries = (process.env.PATH ?? '')
     .split(path.delimiter)
     .filter(Boolean)
-    .map((entry) => path.join(entry, 'claude'));
+    .flatMap((entry) => binNames.map((name) => path.join(entry, name)));
 
+  if (isWindows) {
+    const appData = process.env.APPDATA ?? '';
+    const localAppData = process.env.LOCALAPPDATA ?? '';
+    const home = process.env.USERPROFILE ?? '';
+
+    const dirs = [
+      path.join(process.cwd(), 'node_modules', '.bin'),
+      appData ? path.join(appData, 'npm') : '',
+      home ? path.join(home, '.local', 'bin') : '',
+      home ? path.join(home, '.bun', 'bin') : '',
+      localAppData ? path.join(localAppData, 'Volta', 'bin') : '',
+      localAppData ? path.join(localAppData, 'pnpm') : '',
+      localAppData ? path.join(localAppData, 'Programs', 'claude', 'bin') : '',
+    ].filter(Boolean);
+
+    const candidates = dirs.flatMap((dir) => binNames.map((name) => path.join(dir, name)));
+    return [...new Set([...candidates, ...pathEntries])];
+  }
+
+  const home = process.env.HOME ?? '';
   const candidates = [
     path.join(process.cwd(), 'node_modules', '.bin', 'claude'),
     home ? path.join(home, '.local', 'bin', 'claude') : '',
@@ -39,8 +67,12 @@ function getClaudeBinaryCandidates(): string[] {
 
 export function findClaudeBinary(): string | undefined {
   try {
-    const result = execSync('which claude', { encoding: 'utf8' }).trim();
-    if (result && isExecutable(result)) return result;
+    const command = isWindows ? 'where claude' : 'which claude';
+    const result = execSync(command, { encoding: 'utf8' })
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => line && isExecutable(line));
+    if (result) return result;
   } catch {}
 
   return getClaudeBinaryCandidates().find(isExecutable);

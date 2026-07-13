@@ -1,24 +1,24 @@
 import { execSync } from 'child_process';
-import { accessSync, constants } from 'fs';
+import { accessSync, constants, statSync } from 'fs';
 import path from 'path';
+
+const isWindows = process.platform === 'win32';
 
 function isExecutable(filePath: string): boolean {
   try {
     accessSync(filePath, constants.X_OK);
-    return true;
+    // On Windows, X_OK is treated the same as F_OK (existence-only), so also
+    // confirm it's a file and not a directory that merely happens to exist.
+    return statSync(filePath).isFile();
   } catch {
     return false;
   }
 }
 
 function getPathCommandCandidates(): string[] {
-  const names = [
-    'google-chrome',
-    'google-chrome-stable',
-    'chromium',
-    'chromium-browser',
-    'chrome',
-  ];
+  const names = isWindows
+    ? ['chrome.exe', 'chromium.exe', 'msedge.exe', 'brave.exe']
+    : ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'chrome'];
 
   return (process.env.PATH ?? '')
     .split(path.delimiter)
@@ -26,7 +26,29 @@ function getPathCommandCandidates(): string[] {
     .flatMap((entry) => names.map((name) => path.join(entry, name)));
 }
 
+function getWindowsChromeCandidates(): string[] {
+  const programFiles = process.env['PROGRAMFILES'] ?? 'C:\\Program Files';
+  const programFilesX86 = process.env['PROGRAMFILES(X86)'] ?? 'C:\\Program Files (x86)';
+  const localAppData = process.env.LOCALAPPDATA ?? '';
+
+  return [
+    process.env.CHROME_PATH ?? '',
+    path.join(programFiles, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    path.join(programFilesX86, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    localAppData ? path.join(localAppData, 'Google', 'Chrome', 'Application', 'chrome.exe') : '',
+    path.join(programFiles, 'Chromium', 'Application', 'chrome.exe'),
+    localAppData ? path.join(localAppData, 'Chromium', 'Application', 'chrome.exe') : '',
+    path.join(programFiles, 'BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe'),
+    localAppData ? path.join(localAppData, 'BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe') : '',
+    path.join(programFilesX86, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+    localAppData ? path.join(localAppData, 'Microsoft', 'Edge', 'Application', 'msedge.exe') : '',
+    ...getPathCommandCandidates(),
+  ];
+}
+
 function getChromeCandidates(): string[] {
+  if (isWindows) return [...new Set(getWindowsChromeCandidates().filter(Boolean))];
+
   const home = process.env.HOME ?? '';
 
   const candidates = [
@@ -54,10 +76,11 @@ function getChromeCandidates(): string[] {
 
 export function findChrome(): string {
   try {
-    const result = execSync('which google-chrome || which google-chrome-stable || which chromium || which chromium-browser || which chrome', {
-      encoding: 'utf8',
-    })
-      .split('\n')
+    const command = isWindows
+      ? 'where chrome.exe || where msedge.exe || where chromium.exe || where brave.exe'
+      : 'which google-chrome || which google-chrome-stable || which chromium || which chromium-browser || which chrome';
+    const result = execSync(command, { encoding: 'utf8' })
+      .split(/\r?\n/)
       .map((line) => line.trim())
       .find(Boolean);
 

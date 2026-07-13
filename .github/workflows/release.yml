@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  release:
+  release-mac:
     runs-on: macos-latest
     permissions:
       contents: write
@@ -39,3 +39,40 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm release:mac
+
+  release-win:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build and publish
+        # Ships unsigned for now, so Windows SmartScreen will warn users on
+        # first run. Once a code signing cert is available, base64-encode the
+        # .pfx into a WINDOWS_CERTIFICATE secret (alongside a
+        # WINDOWS_CERTIFICATE_PASSWORD secret) and uncomment the two env vars
+        # below — electron-builder picks up CSC_LINK/CSC_KEY_PASSWORD
+        # automatically, same as the mac job above.
+        env:
+          # CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE }}
+          # CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm release:win

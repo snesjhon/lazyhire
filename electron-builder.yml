@@ -19,6 +19,21 @@ mac:
 dmg:
   title: LazyHire
 
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  # Unsigned for now — Windows will show a SmartScreen warning until a code
+  # signing cert is added. Once you have a .pfx, set CSC_LINK/CSC_KEY_PASSWORD
+  # the same way APPLE_CERTIFICATE is set for mac; electron-builder picks them
+  # up automatically, no yml change needed.
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+
 publish:
   provider: github
   owner: snesjhon
