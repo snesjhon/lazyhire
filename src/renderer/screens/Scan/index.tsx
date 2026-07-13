@@ -188,12 +188,25 @@ export default function Scan({
   const mineStatus = companiesStatus === null
     ? ' '
     : companiesStatus.fetchedAt
-      ? `${companiesStatus.greenhouse} Greenhouse + ${companiesStatus.ashby} Ashby · ${formatRelativeTime(companiesStatus.fetchedAt)}`
+      ? `${companiesStatus.greenhouse} companies mined · ${formatRelativeTime(companiesStatus.fetchedAt)}`
       : 'Not mined yet';
 
   const discoverStatus = discoveredJobs.length === 0 && !discovering
     ? 'Not discovered yet'
     : `${discoveredJobs.length} posting${discoveredJobs.length === 1 ? '' : 's'} discovered so far`;
+
+  // Only Greenhouse is active right now, so pull out its single progress
+  // entry rather than rendering a per-source list.
+  const ghProgress = sourceProgress.find((s) => s.source === 'scan-greenhouse');
+  const checkedCount = ghProgress?.fetchedCompanies ?? 0;
+  const checkedTotal = ghProgress?.companiesTotal;
+  const progressHeadline = checkedTotal
+    ? `${checkedCount} of ${checkedTotal} companies checked`
+    : `${checkedCount} companies checked`;
+  const progressSub = [
+    ghProgress?.cachedCompanies ? `${ghProgress.cachedCompanies} cached` : null,
+    `${ghProgress?.count ?? 0} posting${(ghProgress?.count ?? 0) === 1 ? '' : 's'} pulled in`,
+  ].filter(Boolean).join(' · ');
 
   return (
     <div className="main">
@@ -241,24 +254,17 @@ export default function Scan({
                 <div className="stage-title">Discover postings</div>
                 <div className="stage-status">{discoverStatus}</div>
 
-                {sourceProgress.length > 0 && (
+                {ghProgress && (
                   <div className="source-list">
-                    {sourceProgress.map((s) => (
-                      <div key={s.source} className="source-row">
-                        <div className="source-row-head">
-                          <span className="source-name">{s.source}</span>
-                          <span className="source-count">{s.count}</span>
-                        </div>
-                        {(s.cachedCompanies !== undefined || s.fetchedCompanies !== undefined) && (
-                          <div className="source-sub">
-                            {s.cachedCompanies ?? 0} cached · {s.fetchedCompanies ?? 0} fetched
-                          </div>
-                        )}
-                        {(s.remainingStale ?? 0) > 0 && (
-                          <div className="source-backlog">{s.remainingStale} left in backlog</div>
-                        )}
+                    <div className="source-row">
+                      <div className="source-row-head">
+                        <span className="source-name">{progressHeadline}</span>
                       </div>
-                    ))}
+                      <div className="source-sub">{progressSub}</div>
+                      {(ghProgress.remainingStale ?? 0) > 0 && (
+                        <div className="source-backlog">{ghProgress.remainingStale} left in backlog</div>
+                      )}
+                    </div>
                   </div>
                 )}
 

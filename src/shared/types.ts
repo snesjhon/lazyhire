@@ -208,4 +208,5 @@ export interface SourceProgress {
   cachedCompanies?: number;
   fetchedCompanies?: number;
   remainingStale?: number;
+  companiesTotal?: number;
 }

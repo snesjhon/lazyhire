@@ -15,7 +15,7 @@ export async function fetchGreenhouse(slug: string, companyName: string): Promis
   const url = `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs`;
   const res = await fetch(url, {
     headers: { 'User-Agent': 'open-positions/1.0' },
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(5000),
   });
   if (!res.ok) return [];
   const data = await res.json() as GHResponse;

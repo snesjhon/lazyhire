@@ -6,10 +6,7 @@ import { db, discoveredDb, dismissedDb, jobCacheDb } from '../services/db.js';
 import { loadProfile } from '../services/profile.js';
 import { getClaudeQueryOptions } from '../services/claude.js';
 import { fetchGreenhouse } from '../services/sources/greenhouse.js';
-import { fetchAshby } from '../services/sources/ashby.js';
-import { fetchCCCrawlId, fetchGreenhouseSlugs, fetchAshbySlugs } from '../services/sources/commoncrawl.js';
-import { isMockDiscoverEnabled } from '../services/mock-flag.js';
-import * as mockDiscover from '../services/sources/mock-discover.js';
+import { fetchCCCrawlId, fetchGreenhouseSlugs } from '../services/sources/commoncrawl.js';
 import type { CompanyEntry, DiscoveredStore, JobCacheEntry, JobCacheStore, Profile, ScanJob } from '@shared/types';
 
 // ── Relevance-scoring constants ────────────────────────────────────
@@ -217,22 +214,29 @@ const MAX_SLUGS_PER_SOURCE = 2000;
 // up on the next Discover run.
 const DISCOVER_RUN_LIMIT = 300;
 
-const DISCOVER_BATCH_SIZE = 30;
+const DISCOVER_BATCH_SIZE = 50;
 
 // Maps each slug to its fetch result, or null if the fetch failed (distinct
 // from an empty array, which means "fetched successfully, zero jobs").
+// Reports progress after each batch via onBatch so callers can stream live
+// updates instead of going silent until the entire slug list is done.
 async function runBatched(
   slugs: string[],
   fn: (slug: string) => Promise<ScanJob[]>,
   batchSize = DISCOVER_BATCH_SIZE,
+  onBatch?: (companiesDone: number, jobsSoFar: number) => void,
 ): Promise<Map<string, ScanJob[] | null>> {
   const results = new Map<string, ScanJob[] | null>();
+  let jobsSoFar = 0;
   for (let i = 0; i < slugs.length; i += batchSize) {
     const batch = slugs.slice(i, i + batchSize);
     const settled = await Promise.allSettled(batch.map(fn));
     settled.forEach((r, idx) => {
-      results.set(batch[idx], r.status === 'fulfilled' ? r.value : null);
+      const value = r.status === 'fulfilled' ? r.value : null;
+      results.set(batch[idx], value);
+      if (value) jobsSoFar += value.length;
     });
+    onBatch?.(Math.min(i + batchSize, slugs.length), jobsSoFar);
   }
   return results;
 }
@@ -359,14 +363,14 @@ Respond with ONLY a JSON object mapping slug to vertical. No explanation, no mar
 }
 
 // ── Stage 1: Scan Companies ─────────────────────────────────────────
-// Mines which companies exist on Greenhouse/Ashby. Never fetches job
-// postings. Cached for SLUG_CACHE_TTL_MS since this almost never changes.
+// Mines which companies exist on Greenhouse. Never fetches job postings.
+// Cached for SLUG_CACHE_TTL_MS since this almost never changes.
 //
-// Mock mode uses an in-memory cache (never written to disk) so flipping
-// MOCK_DISCOVER off later can't leave fake companies behind in the real
-// cache, while still requiring Scan Companies to run before Discover.
-
-let mockSlugCache: { greenhouse: string[]; ashby: string[]; fetchedAt: string } | null = null;
+// Ashby mining is intentionally disconnected for now — the source-level
+// fetchers/types still exist (commoncrawl.ts, ashby.ts) so re-enabling it
+// later is a small diff, but nothing here calls them. Any ashby slugs
+// already on disk from before this change are preserved rather than wiped,
+// in case that code comes back.
 
 export interface ScanCompaniesSummary {
   greenhouse: number;
@@ -375,7 +379,7 @@ export interface ScanCompaniesSummary {
   fetchedAt: string;
 }
 
-export type CompanyScanStepName = 'cc-greenhouse' | 'cc-ashby' | 'done';
+export type CompanyScanStepName = 'cc-greenhouse' | 'done';
 
 export interface CompanyScanProgress {
   step: CompanyScanStepName;
@@ -385,52 +389,43 @@ export interface CompanyScanProgress {
 
 async function scanCompanies(onProgress?: (progress: CompanyScanProgress) => void): Promise<ScanCompaniesSummary> {
   const store = discoveredDb.readDiscovered();
-  const mock = isMockDiscoverEnabled();
-  const cached = mock ? mockSlugCache : readSlugCache(store)?.slugCache ?? null;
+  const cached = readSlugCache(store)?.slugCache ?? null;
 
   if (cached) {
     onProgress?.({ step: 'cc-greenhouse', status: 'cached', count: cached.greenhouse.length });
-    onProgress?.({ step: 'cc-ashby', status: 'cached', count: cached.ashby.length });
     onProgress?.({ step: 'done', status: 'done' });
     return { greenhouse: cached.greenhouse.length, ashby: cached.ashby.length, cached: true, fetchedAt: cached.fetchedAt };
   }
 
-  const crawlId = mock ? await mockDiscover.fetchCCCrawlId() : await fetchCCCrawlId();
+  const crawlId = await fetchCCCrawlId();
 
   onProgress?.({ step: 'cc-greenhouse', status: 'running' });
-  const ghRaw = mock ? await mockDiscover.fetchGreenhouseSlugs() : await fetchGreenhouseSlugs(crawlId);
+  const ghRaw = await fetchGreenhouseSlugs(crawlId);
   const ghSlugs = ghRaw.slice(0, MAX_SLUGS_PER_SOURCE);
   onProgress?.({ step: 'cc-greenhouse', status: 'done', count: ghSlugs.length });
 
-  onProgress?.({ step: 'cc-ashby', status: 'running' });
-  const asRaw = mock ? await mockDiscover.fetchAshbySlugs() : await fetchAshbySlugs(crawlId);
-  const asSlugs = asRaw.slice(0, MAX_SLUGS_PER_SOURCE);
-  onProgress?.({ step: 'cc-ashby', status: 'done', count: asSlugs.length });
-
-  if (ghSlugs.length === 0 && asSlugs.length === 0) {
+  if (ghSlugs.length === 0) {
     throw new Error('Common Crawl returned no slugs — fetch may have timed out or the index is unavailable.');
   }
 
   const fetchedAt = new Date().toISOString();
+  const existingAshbySlugs = store.slugCache?.ashby ?? [];
 
-  if (mock) {
-    mockSlugCache = { greenhouse: ghSlugs, ashby: asSlugs, fetchedAt };
-  } else {
-    discoveredDb.writeDiscovered({
-      ...store,
-      slugCache: { greenhouse: ghSlugs, ashby: asSlugs, fetchedAt },
-    });
-  }
+  discoveredDb.writeDiscovered({
+    ...store,
+    slugCache: { greenhouse: ghSlugs, ashby: existingAshbySlugs, fetchedAt },
+  });
 
   onProgress?.({ step: 'done', status: 'done' });
-  return { greenhouse: ghSlugs.length, ashby: asSlugs.length, cached: false, fetchedAt };
+  return { greenhouse: ghSlugs.length, ashby: existingAshbySlugs.length, cached: false, fetchedAt };
 }
 
 // ── Stage 2: Discover ────────────────────────────────────────────────
 // Uses the already-mined company list (never re-mines) to fetch job
 // postings, classify/score them against the profile, and surface matches.
+// Greenhouse-only for now — see the note above scanCompanies.
 
-export type DiscoveryStepName = 'scan-ashby' | 'scan-greenhouse' | 'classify' | 'done';
+export type DiscoveryStepName = 'scan-greenhouse' | 'classify' | 'done';
 
 export interface DiscoveryProgress {
   step: DiscoveryStepName;
@@ -439,6 +434,7 @@ export interface DiscoveryProgress {
   cachedCompanies?: number;
   fetchedCompanies?: number;
   remainingStale?: number;
+  companiesTotal?: number;
 }
 
 async function discoverJobs(
@@ -446,43 +442,43 @@ async function discoverJobs(
   onProgress?: (progress: DiscoveryProgress) => void,
 ): Promise<ScanJob[]> {
   const store = discoveredDb.readDiscovered();
-  const mock = isMockDiscoverEnabled();
 
-  const ghSlugs = mock ? mockSlugCache?.greenhouse : store.slugCache?.greenhouse;
-  const asSlugs = mock ? mockSlugCache?.ashby : store.slugCache?.ashby;
+  const ghSlugs = store.slugCache?.greenhouse;
 
-  if (!ghSlugs || !asSlugs || (ghSlugs.length === 0 && asSlugs.length === 0)) {
+  if (!ghSlugs || ghSlugs.length === 0) {
     throw new Error('No companies found — run Scan Companies first.');
   }
 
-  const fetchGH = mock ? mockDiscover.fetchGreenhouse : fetchGreenhouse;
-  const fetchAS = mock ? mockDiscover.fetchAshby : fetchAshby;
-
-  // Mock mode never persists a job cache (mirrors mockSlugCache's "never
-  // written to disk" convention) — every slug is treated as stale so mock
-  // fetchers run every time, same as before caching existed.
-  const jobCache: JobCacheStore = mock ? { greenhouse: {}, ashby: {} } : jobCacheDb.readJobCache();
+  const jobCache: JobCacheStore = jobCacheDb.readJobCache();
   const ghPartition = partitionSlugs(ghSlugs, jobCache.greenhouse);
-  const asPartition = partitionSlugs(asSlugs, jobCache.ashby);
 
   // Only attempt a bounded slice of the stale backlog this run — the
   // remainder stays stale (and un-cached) so the next Discover click resumes
   // where this one left off instead of re-attempting everything.
   const ghToFetch = ghPartition.staleSlugs.slice(0, DISCOVER_RUN_LIMIT);
-  const asToFetch = asPartition.staleSlugs.slice(0, DISCOVER_RUN_LIMIT);
   const ghRemaining = ghPartition.staleSlugs.length - ghToFetch.length;
-  const asRemaining = asPartition.staleSlugs.length - asToFetch.length;
 
   const fetchedAt = new Date().toISOString();
 
-  onProgress?.({ step: 'scan-ashby', status: 'running' });
-  onProgress?.({ step: 'scan-greenhouse', status: 'running' });
+  onProgress?.({ step: 'scan-greenhouse', status: 'running', companiesTotal: ghToFetch.length });
 
-  // Independent APIs — run both concurrently instead of sequentially.
-  const [ghFetchResults, asFetchResults] = await Promise.all([
-    runBatched(ghToFetch, (slug) => fetchGH(slug, slugToName(slug))),
-    runBatched(asToFetch, (slug) => fetchAS(slug, slugToName(slug))),
-  ]);
+  // Streams a progress event after every batch (instead of once at the very
+  // end) so the UI shows live movement through a run instead of one static
+  // spinner for the whole 300-company backlog slice.
+  const ghFetchResults = await runBatched(
+    ghToFetch,
+    (slug) => fetchGreenhouse(slug, slugToName(slug)),
+    DISCOVER_BATCH_SIZE,
+    (companiesDone, jobsSoFar) => {
+      onProgress?.({
+        step: 'scan-greenhouse',
+        status: 'running',
+        count: jobsSoFar,
+        fetchedCompanies: companiesDone,
+        companiesTotal: ghToFetch.length,
+      });
+    },
+  );
 
   const gh = resolveSourceJobs(ghPartition.cachedSlugs, ghPartition.staleSlugs, ghFetchResults, jobCache.greenhouse, fetchedAt);
   onProgress?.({
@@ -492,31 +488,18 @@ async function discoverJobs(
     cachedCompanies: ghPartition.cachedSlugs.length,
     fetchedCompanies: gh.fetchedCount,
     remainingStale: ghRemaining,
+    companiesTotal: ghToFetch.length,
   });
 
-  const as = resolveSourceJobs(asPartition.cachedSlugs, asPartition.staleSlugs, asFetchResults, jobCache.ashby, fetchedAt);
-  onProgress?.({
-    step: 'scan-ashby',
-    status: 'done',
-    count: as.jobs.length,
-    cachedCompanies: asPartition.cachedSlugs.length,
-    fetchedCompanies: as.fetchedCount,
-    remainingStale: asRemaining,
-  });
-
-  if (!mock) {
-    jobCacheDb.writeJobCache({ greenhouse: gh.nextCache, ashby: as.nextCache });
-  }
+  jobCacheDb.writeJobCache({ greenhouse: gh.nextCache, ashby: jobCache.ashby });
 
   const ghJobs = gh.jobs;
-  const asJobs = as.jobs;
 
-  const allJobs = [...ghJobs, ...asJobs];
   const existingUrls = new Set(db.readJobs().map((j) => canonicalizeJobUrl(j.url)));
   const dismissedUrls = new Set(dismissedDb.readDismissed().map(canonicalizeJobUrl));
 
   const dedupSeen = new Set<string>();
-  const deduped = allJobs.filter((job) => {
+  const deduped = ghJobs.filter((job) => {
     const url = canonicalizeJobUrl(job.url);
     if (existingUrls.has(url) || dismissedUrls.has(url) || dedupSeen.has(url)) return false;
     dedupSeen.add(url);
@@ -530,11 +513,10 @@ async function discoverJobs(
   // Classify companies by vertical (auxiliary metadata, not shown in the job list)
   onProgress?.({ step: 'classify', status: 'running' });
   const bySlug = new Map<string, { name: string; ats: 'greenhouse' | 'ashby'; titles: string[] }>();
-  for (const job of [...ghJobs, ...asJobs]) {
+  for (const job of ghJobs) {
     const slug = extractSlugFromUrl(job.url);
     if (!slug) continue;
-    const ats = ghJobs.includes(job) ? 'greenhouse' : 'ashby';
-    const entry = bySlug.get(slug) ?? { name: job.company, ats, titles: [] };
+    const entry = bySlug.get(slug) ?? { name: job.company, ats: 'greenhouse' as const, titles: [] };
     entry.titles.push(job.title);
     bySlug.set(slug, entry);
   }
@@ -573,7 +555,7 @@ export function registerScanHandlers(): void {
   });
 
   ipcMain.handle(IPC.SCAN_COMPANIES_STATUS, () => {
-    const cache = isMockDiscoverEnabled() ? mockSlugCache : discoveredDb.readDiscovered().slugCache;
+    const cache = discoveredDb.readDiscovered().slugCache;
     return {
       greenhouse: cache?.greenhouse.length ?? 0,
       ashby: cache?.ashby.length ?? 0,
@@ -591,6 +573,7 @@ export function registerScanHandlers(): void {
         cachedCompanies: progress.cachedCompanies,
         fetchedCompanies: progress.fetchedCompanies,
         remainingStale: progress.remainingStale,
+        companiesTotal: progress.companiesTotal,
       });
     });
   });
