@@ -334,6 +334,8 @@ const VERTICALS = [
   'e-commerce', 'edtech', 'consumer', 'govtech', 'media', 'other',
 ] as const;
 
+const CLASSIFY_TIMEOUT_MS = 20_000;
+
 async function classifyCompanies(
   companies: Array<{ slug: string; name: string; ats: 'greenhouse' | 'ashby'; titles: string[] }>,
 ): Promise<Record<string, string>> {
@@ -349,9 +351,17 @@ Verticals (pick exactly one per company): ${VERTICALS.join(', ')}
 Respond with ONLY a JSON object mapping slug to vertical. No explanation, no markdown:
 {"slug1":"fintech","slug2":"dev-tools"}`;
 
+  // Auxiliary metadata, not shown in the job list — bounded with its own timeout so a
+  // stuck/misconfigured Claude Code process can never block the rest of Discover.
+  const abortController = new AbortController();
+  const timeout = setTimeout(() => abortController.abort(), CLASSIFY_TIMEOUT_MS);
+
   let result = '';
   try {
-    for await (const msg of query({ prompt, options: getClaudeQueryOptions({ maxTurns: 1 }) })) {
+    for await (const msg of query({
+      prompt,
+      options: { ...getClaudeQueryOptions({ maxTurns: 1 }), abortController },
+    })) {
       if (msg.type === 'result' && msg.subtype === 'success') result = msg.result;
     }
     const match = result.match(/\{[\s\S]*\}/);
@@ -359,6 +369,8 @@ Respond with ONLY a JSON object mapping slug to vertical. No explanation, no mar
     return JSON.parse(match[0]) as Record<string, string>;
   } catch {
     return {};
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

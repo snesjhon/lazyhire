@@ -65,10 +65,20 @@ export function getClaudeQueryOptions(
   allowedTools?: string[];
   pathToClaudeCodeExecutable?: string;
   model?: string;
+  executable: string;
+  env: NodeJS.ProcessEnv;
 } {
   return {
     ...base,
     model: getModel(),
     pathToClaudeCodeExecutable: findClaudeBinary(),
+    // When no native `claude` binary is found, the SDK falls back to spawning its
+    // bundled cli.js via `node` on PATH. A packaged, GUI-launched Electron app gets a
+    // minimal PATH (no `node`) and ships that file inside app.asar, which a plain
+    // system Node process can't read. Re-spawning the Electron binary itself in
+    // Node-emulation mode sidesteps both problems — this is a no-op for the
+    // native-binary path, which ignores `executable`/`env`.
+    executable: process.execPath,
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
   };
 }
