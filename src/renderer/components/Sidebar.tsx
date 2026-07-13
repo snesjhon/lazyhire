@@ -1,4 +1,5 @@
 import Icon from './Icon';
+import Logo from './Logo';
 
 type Screen = 'jobs' | 'docs' | 'answers' | 'scan' | 'profile' | 'settings';
 
@@ -61,10 +62,7 @@ export default function Sidebar({
       {/* Brand + collapse */}
       <div className="brand">
         <div className="brand-left">
-          <div className="brand-mark">⌁</div>
-          <div className="brand-name">
-            <span className="lazy">lazy</span>hire
-          </div>
+          <Logo size={26} textSize={16} />
         </div>
         <button className="collapse-btn" onClick={onCollapse} title="Hide sidebar">
           <Icon name="sidebarToggle" size={17} />

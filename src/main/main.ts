@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, nativeImage } from 'electron';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { IPC } from '@shared/ipc-channels';
@@ -44,6 +44,10 @@ function createWindow(): void {
 app.whenReady().then(() => {
   if (process.platform === 'darwin') {
     app.dock?.show();
+    if (process.env['ELECTRON_RENDERER_URL']) {
+      const icon = nativeImage.createFromPath(join(__dirname, '../../src/build/icon.png'));
+      if (!icon.isEmpty()) app.dock?.setIcon(icon);
+    }
   }
 
   ipcMain.handle(IPC.SHELL_OPEN_PATH, (_event, filePath: string) => shell.openPath(filePath));

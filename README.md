@@ -1,4 +1,5 @@
-<p align="center"><img src="./src/renderer/assets/logo.svg" alt="lazyhire" width="520"/></p>
+<p align="center"><img src="./src/renderer/assets/icon.svg" alt="LazyHire" width="96"/></p>
+<h1 align="center">LazyHire</h1>
 
 <p align="center">
 <strong>
@@ -20,19 +21,19 @@ Resume in, applications out. &nbsp;&nbsp;
 
 Job searching runs across too many tabs. You have the posting in one window, your resume in another, a blank cover letter doc open somewhere, and no consistent way to decide if a role is even worth applying to before you've already spent an hour on it.
 
-`lazyhire` is built around one loop: build your profile once, add a job, get a fit score before writing anything, then generate what you need if you decide to apply. Everything stays local on your machine.
+LazyHire is built around one loop: build your profile once, add a job, get a fit score before writing anything, then generate what you need if you decide to apply. Everything stays local on your machine.
 
 ## Features
 
 ### Build your profile once
 
-On first launch, import a hosted resume PDF or fill in your profile manually. `lazyhire` pulls out your experience, skills, targets, and deal-breakers and saves them locally. Every evaluation and every generated document draws from that profile, so you're not re-explaining yourself for each role.
+On first launch, import a hosted resume PDF or fill in your profile manually. LazyHire pulls out your experience, skills, targets, and deal-breakers and saves them locally. Every evaluation and every generated document draws from that profile, so you're not re-explaining yourself for each role.
 
 <!-- ![Onboarding](./docs/gifs/onboarding.gif) -->
 
 ### Triage by score before spending time
 
-Add a role from a URL or a pasted job description. `lazyhire` runs it against your profile and returns:
+Add a role from a URL or a pasted job description. LazyHire runs it against your profile and returns:
 
 - an overall fit score
 - matched and missing requirements
@@ -68,17 +69,17 @@ The tool works best when your profile is accurate and the job descriptions you p
 
 ## Download
 
-`lazyhire` is a desktop app (Electron + React), currently packaged for macOS.
+LazyHire is a desktop app (Electron + React), currently packaged for macOS.
 
 > No packaged release has been published since the move to Electron yet — the [Releases page](https://github.com/snesjhon/lazyhire/releases) is still on the old CLI build. Until a new release goes out, build it yourself from source (see [Development](#development) below); it only takes a couple of commands.
 
 Once releases resume, installing will be:
 
-1. Download the latest `lazyhire-<version>.dmg` from [Releases](https://github.com/snesjhon/lazyhire/releases).
-2. Open the `.dmg` and drag `lazyhire` into `Applications`.
+1. Download the latest `LazyHire-<version>.dmg` from [Releases](https://github.com/snesjhon/lazyhire/releases).
+2. Open the `.dmg` and drag `LazyHire` into `Applications`.
 3. Launch it from `Applications` (or Spotlight).
 
-From then on, `lazyhire` checks for and installs new versions automatically on launch — no need to revisit the Releases page.
+From then on, LazyHire checks for and installs new versions automatically on launch — no need to revisit the Releases page.
 
 ### Prerequisites
 

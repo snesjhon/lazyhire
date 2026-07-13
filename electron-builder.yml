@@ -1,5 +1,8 @@
 appId: com.lazyhire.app
-productName: lazyhire
+productName: LazyHire
+
+directories:
+  buildResources: src/build
 
 mac:
   target:
@@ -14,7 +17,7 @@ mac:
   notarize: true
 
 dmg:
-  title: lazyhire
+  title: LazyHire
 
 publish:
   provider: github
