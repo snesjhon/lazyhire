@@ -3,6 +3,7 @@ import { accessSync, constants, existsSync, readFileSync } from 'fs';
 import { homedir } from 'os';
 import path from 'path';
 import { join } from 'path';
+import type { Options } from '@anthropic-ai/claude-code';
 
 function isExecutable(filePath: string): boolean {
   try {
@@ -60,14 +61,7 @@ export function getModel(): string {
 
 export function getClaudeQueryOptions(
   base: { maxTurns: number; allowedTools?: string[] },
-): {
-  maxTurns: number;
-  allowedTools?: string[];
-  pathToClaudeCodeExecutable?: string;
-  model?: string;
-  executable: string;
-  env: NodeJS.ProcessEnv;
-} {
+): Options {
   return {
     ...base,
     model: getModel(),
@@ -77,8 +71,10 @@ export function getClaudeQueryOptions(
     // minimal PATH (no `node`) and ships that file inside app.asar, which a plain
     // system Node process can't read. Re-spawning the Electron binary itself in
     // Node-emulation mode sidesteps both problems — this is a no-op for the
-    // native-binary path, which ignores `executable`/`env`.
-    executable: process.execPath,
+    // native-binary path, which ignores `executable`/`env`. The SDK's type only
+    // declares 'node' | 'bun' | 'deno' here, but spawn() takes `executable` as a
+    // literal command string, so a full path works fine at runtime.
+    executable: process.execPath as Options['executable'],
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
   };
 }
