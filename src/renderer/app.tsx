@@ -174,6 +174,9 @@ export default function App() {
         )}
         {screen === 'scan' && (
           <Scan
+            jobs={jobs}
+            collapsed={collapsed}
+            onExpand={() => setCollapsed(false)}
             discoveredJobs={discoveredJobs}
             onDiscoveredJobsChange={setDiscoveredJobs}
             addedUrls={discoveredAddedUrls}

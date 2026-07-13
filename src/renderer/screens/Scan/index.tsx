@@ -2,9 +2,7 @@ import { useState, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { EvaluationResult, Job, ScanJob, SourceProgress } from '@shared/types';
 import { IPC } from '@shared/ipc-channels';
-import Button from '../../components/Button';
-import ScoreBadge from '../../components/ScoreBadge';
-import Spinner from '../../components/Spinner';
+import Icon from '../../components/Icon';
 
 interface CompaniesStatus {
   greenhouse: number;
@@ -12,7 +10,22 @@ interface CompaniesStatus {
   fetchedAt: string | null;
 }
 
+type Verdict = 'apply' | 'consider' | 'skip';
+
 const REVEAL_STEP = 10;
+
+const VERDICT_LABEL: Record<Verdict, string> = { apply: 'Apply', consider: 'Consider', skip: 'Skip' };
+const VERDICT_ICON: Record<Verdict, 'check' | 'clock' | 'minus'> = { apply: 'check', consider: 'clock', skip: 'minus' };
+
+function getVerdict(score: number): Verdict {
+  if (score >= 4.0) return 'apply';
+  if (score >= 2.5) return 'consider';
+  return 'skip';
+}
+
+function getLogoChar(company: string) {
+  return company.trim().charAt(0).toUpperCase();
+}
 
 function mergeScanJobs(existing: ScanJob[], incoming: ScanJob[]): ScanJob[] {
   const byUrl = new Map(existing.map((job) => [job.url, job]));
@@ -34,6 +47,7 @@ function formatRelativeTime(iso: string): string {
 }
 
 interface ScanProps {
+  jobs: Job[];
   discoveredJobs: ScanJob[];
   onDiscoveredJobsChange: Dispatch<SetStateAction<ScanJob[]>>;
   addedUrls: Set<string>;
@@ -51,9 +65,12 @@ interface ScanProps {
   onJobAdded: (job: Job) => void;
   onJobUpdated: (job: Job) => void;
   onEvaluatingChange: (jobId: string, isEvaluating: boolean) => void;
+  collapsed: boolean;
+  onExpand: () => void;
 }
 
 export default function Scan({
+  jobs,
   discoveredJobs,
   onDiscoveredJobsChange,
   addedUrls,
@@ -71,6 +88,8 @@ export default function Scan({
   onJobAdded,
   onJobUpdated,
   onEvaluatingChange,
+  collapsed,
+  onExpand,
 }: ScanProps) {
   const [companiesStatus, setCompaniesStatus] = useState<CompaniesStatus | null>(null);
   const [addingUrls, setAddingUrls] = useState<Set<string>>(new Set());
@@ -90,7 +109,7 @@ export default function Scan({
       const status = await window.api.invoke('scan:companies') as CompaniesStatus;
       setCompaniesStatus(status);
     } catch (err) {
-      onErrorChange(err instanceof Error ? err.message : 'Scan Companies failed');
+      onErrorChange(err instanceof Error ? err.message : 'Mine companies failed');
     } finally {
       onScanningCompaniesChange(false);
     }
@@ -145,10 +164,10 @@ export default function Scan({
         status: 'Evaluated',
       });
       const list = await window.api.invoke(IPC.JOBS_LIST) as Job[];
-      const evaluated = list.find((j) => j.id === addedJob!.id);
-      if (evaluated) onJobUpdated(evaluated);
+      const evaluatedJob = list.find((j) => j.id === addedJob!.id);
+      if (evaluatedJob) onJobUpdated(evaluatedJob);
     } catch (err) {
-      onErrorChange(err instanceof Error ? err.message : `Failed to evaluate ${job.company}`);
+      onErrorChange(err instanceof Error ? err.message : `Failed to analyze ${job.company}`);
     } finally {
       onEvaluatingChange(addedJob.id, false);
       setEvaluatingUrls((prev) => {
@@ -164,100 +183,119 @@ export default function Scan({
   };
 
   const isRunning = scanningCompanies || discovering;
+  const jobsByUrl = new Map(jobs.map((j) => [j.url, j]));
+
+  const mineStatus = companiesStatus === null
+    ? ' '
+    : companiesStatus.fetchedAt
+      ? `${companiesStatus.greenhouse} Greenhouse + ${companiesStatus.ashby} Ashby · ${formatRelativeTime(companiesStatus.fetchedAt)}`
+      : 'Not mined yet';
+
+  const discoverStatus = discoveredJobs.length === 0 && !discovering
+    ? 'Not discovered yet'
+    : `${discoveredJobs.length} posting${discoveredJobs.length === 1 ? '' : 's'} discovered so far`;
 
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-      {/* Left: controls + progress */}
-      <div
-        style={{
-          width: 220,
-          flexShrink: 0,
-          borderRight: '1px solid var(--border)',
-          display: 'flex',
-          flexDirection: 'column',
-          padding: 16,
-          gap: 12,
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <Button variant="secondary" onClick={handleScanCompanies} disabled={isRunning}>
-            {scanningCompanies ? <><Spinner size={11} /> Scanning…</> : 'Scan Companies'}
-          </Button>
-          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.5 }}>
-            {companiesStatus === null
-              ? ' '
-              : companiesStatus.fetchedAt
-                ? `${companiesStatus.greenhouse} Greenhouse + ${companiesStatus.ashby} Ashby · ${formatRelativeTime(companiesStatus.fetchedAt)}`
-                : 'Not scanned yet'}
-          </span>
+    <div className="main">
+      <div className={'view-head' + (collapsed ? ' collapsed' : '')}>
+        <div>
+          <div className="view-title-row">
+            {collapsed && (
+              <button className="expand-btn" onClick={onExpand} title="Show sidebar">
+                <Icon name="sidebarToggle" size={17} />
+              </button>
+            )}
+            <div className="view-title">Discover</div>
+          </div>
+          <div className="view-sub">Mine companies, discover postings, then add the ones worth pursuing</div>
         </div>
-
-        <Button
-          variant="primary"
-          onClick={handleDiscover}
-          disabled={isRunning}
-        >
-          {discovering ? <><Spinner size={11} color="#fff" /> Discovering…</> : 'Discover'}
-        </Button>
-
-        {/* Per-source progress */}
-        {sourceProgress.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Sources
-            </span>
-            {sourceProgress.map((s) => (
-              <div key={s.source} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{s.source}</span>
-                  <span style={{ fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{s.count}</span>
-                </div>
-                {(s.cachedCompanies !== undefined || s.fetchedCompanies !== undefined) && (
-                  <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                    {s.cachedCompanies ?? 0} cached · {s.fetchedCompanies ?? 0} fetched
-                  </span>
-                )}
-                {(s.remainingStale ?? 0) > 0 && (
-                  <span style={{ fontSize: 9, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
-                    {s.remainingStale} left in backlog — run Discover again
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {isRunning && sourceProgress.length === 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 11 }}>
-            <Spinner size={11} /> Starting…
-          </div>
-        )}
-        {error && (
-          <div style={{ color: 'var(--red)', fontSize: 11, lineHeight: 1.5 }}>
-            {error}
-          </div>
-        )}
       </div>
 
-      {/* Right: results */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-        <JobResults
-          jobs={discoveredJobs}
-          visibleCount={visibleDiscoverCount}
-          discovering={discovering}
-          addedUrls={addedUrls}
-          addingUrls={addingUrls}
-          evaluatingUrls={evaluatingUrls}
-          onAdd={handleAddJob}
-          onShowMore={handleShowMore}
-        />
+      <div className="discover-body">
+        {/* Pipeline rail */}
+        <div className="discover-rail">
+          <div className="rail-label">Pipeline</div>
+
+          <div className="pipeline">
+            <div className={'stage' + (scanningCompanies ? ' active' : companiesStatus?.fetchedAt ? ' done' : '')}>
+              <div className="stage-line">
+                <span className="stage-dot" />
+                <span className="stage-connector" />
+              </div>
+              <div className="stage-body">
+                <div className="stage-title">Mine companies</div>
+                <div className="stage-status">{mineStatus}</div>
+                <button className="btn btn-ghost stage-btn" onClick={handleScanCompanies} disabled={isRunning}>
+                  {scanningCompanies
+                    ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Mining…</>
+                    : 'Scan companies'}
+                </button>
+              </div>
+            </div>
+
+            <div className={'stage' + (discovering ? ' active' : discoveredJobs.length > 0 ? ' done' : '')}>
+              <div className="stage-line">
+                <span className="stage-dot" />
+              </div>
+              <div className="stage-body">
+                <div className="stage-title">Discover postings</div>
+                <div className="stage-status">{discoverStatus}</div>
+
+                {sourceProgress.length > 0 && (
+                  <div className="source-list">
+                    {sourceProgress.map((s) => (
+                      <div key={s.source} className="source-row">
+                        <div className="source-row-head">
+                          <span className="source-name">{s.source}</span>
+                          <span className="source-count">{s.count}</span>
+                        </div>
+                        {(s.cachedCompanies !== undefined || s.fetchedCompanies !== undefined) && (
+                          <div className="source-sub">
+                            {s.cachedCompanies ?? 0} cached · {s.fetchedCompanies ?? 0} fetched
+                          </div>
+                        )}
+                        {(s.remainingStale ?? 0) > 0 && (
+                          <div className="source-backlog">{s.remainingStale} left in backlog</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button className="btn btn-primary stage-btn" onClick={handleDiscover} disabled={isRunning}>
+                  {discovering
+                    ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Discovering…</>
+                    : discoveredJobs.length > 0 ? 'Discover again' : 'Discover'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {error && <div className="stage-error">{error}</div>}
+        </div>
+
+        {/* Results */}
+        <div className="discover-results">
+          <DiscoverResults
+            jobs={discoveredJobs}
+            jobsByUrl={jobsByUrl}
+            visibleCount={visibleDiscoverCount}
+            discovering={discovering}
+            addedUrls={addedUrls}
+            addingUrls={addingUrls}
+            evaluatingUrls={evaluatingUrls}
+            onAdd={handleAddJob}
+            onShowMore={handleShowMore}
+          />
+        </div>
       </div>
     </div>
   );
 }
 
-interface JobResultsProps {
+interface DiscoverResultsProps {
   jobs: ScanJob[];
+  jobsByUrl: Map<string, Job>;
   visibleCount: number;
   discovering: boolean;
   addedUrls: Set<string>;
@@ -267,87 +305,103 @@ interface JobResultsProps {
   onShowMore: () => void;
 }
 
-function JobResults({ jobs, visibleCount, discovering, addedUrls, addingUrls, evaluatingUrls, onAdd, onShowMore }: JobResultsProps) {
+function DiscoverResults({
+  jobs, jobsByUrl, visibleCount, discovering, addedUrls, addingUrls, evaluatingUrls, onAdd, onShowMore,
+}: DiscoverResultsProps) {
   if (discovering && jobs.length === 0) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8, color: 'var(--text-muted)', fontSize: 11 }}>
-        <Spinner size={12} /> Discovering matches…
+      <div className="empty-state">
+        <span className="spinner" style={{ width: 20, height: 20 }} />
+        <div className="es-title">Discovering matches…</div>
+        <div className="es-sub">Ranking postings from mined companies against your profile</div>
       </div>
     );
   }
 
   if (!discovering && jobs.length === 0) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)' }}>
-        scan companies, then run discover to find matches
+      <div className="empty-state">
+        <Icon name="scan" size={36} />
+        <div className="es-title">Nothing discovered yet</div>
+        <div className="es-sub">Mine companies, then discover to find postings ranked for your profile</div>
       </div>
     );
   }
 
   const shown = Math.min(visibleCount, jobs.length);
   const visibleJobs = jobs.slice(0, shown);
+  const maxScore = Math.max(1, ...jobs.map((j) => j.score));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-        <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-          {shown} of {jobs.length} shown
-        </span>
+      <div className="discover-count-row">
+        <span className="discover-count"><b>{shown}</b> of <b>{jobs.length}</b> shown · ranked by fit</span>
       </div>
+
       {visibleJobs.map((job, i) => {
         const added = addedUrls.has(job.url);
         const adding = addingUrls.has(job.url);
         const evaluating = evaluatingUrls.has(job.url);
+        const addedJob = jobsByUrl.get(job.url);
+        const relevancePct = Math.max(6, Math.round((job.score / maxScore) * 100));
+
         return (
-          <div
-            key={`${job.url}-${i}`}
-            style={{
-              padding: '10px 14px',
-              borderBottom: '1px solid var(--border-subtle)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 10,
-              opacity: added ? 0.5 : 1,
-            }}
-          >
-            <ScoreBadge score={job.score} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                <span style={{ fontWeight: 500, fontSize: 12, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                  {job.company}
-                </span>
-                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', background: 'var(--bg-overlay)', padding: '1px 5px', borderRadius: 'var(--radius-sm)', flexShrink: 0 }}>
-                  {job.source}
-                </span>
+          <div key={`${job.url}-${i}`} className={'scan-row' + (added ? ' added' : '')}>
+            <div className="logo">{getLogoChar(job.company)}</div>
+            <div className="scan-main">
+              <div className="scan-top">
+                <span className="scan-company">{job.company}</span>
+                <span className="scan-source">{job.source}</span>
               </div>
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {job.title}
-              </span>
-              {job.snippet && (
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginTop: 3 }}>
-                  {job.snippet}
+              <span className="scan-title">{job.title}</span>
+              {job.snippet && <span className="scan-snippet">{job.snippet}</span>}
+            </div>
+
+            <div className="scan-side">
+              {!added && (
+                <>
+                  <div className="relevance" title={`Relevance score ${job.score}`}>
+                    <span className="relevance-track">
+                      <span className="relevance-fill" style={{ width: `${relevancePct}%` }} />
+                    </span>
+                    <span className="relevance-num">{job.score}</span>
+                  </div>
+                  <button className="mini-btn accent" onClick={() => onAdd(job)} disabled={adding}>
+                    {adding
+                      ? <><span className="spinner" style={{ width: 11, height: 11 }} /> Adding…</>
+                      : <><Icon name="plus" size={12} /> Add</>}
+                  </button>
+                </>
+              )}
+
+              {added && evaluating && (
+                <div className="scan-analyzing">
+                  <span className="spinner" style={{ width: 11, height: 11 }} /> Analyzing…
+                </div>
+              )}
+
+              {added && !evaluating && addedJob?.score != null && (
+                <span className={'scan-verdict ' + getVerdict(addedJob.score)}>
+                  <Icon name={VERDICT_ICON[getVerdict(addedJob.score)]} size={11} />
+                  {VERDICT_LABEL[getVerdict(addedJob.score)]} · {addedJob.score}
+                </span>
+              )}
+
+              {added && !evaluating && addedJob?.score == null && (
+                <span className="scan-verdict pending">
+                  <Icon name="check" size={11} /> Added
                 </span>
               )}
             </div>
-            <Button
-              size="sm"
-              variant={added ? 'ghost' : 'secondary'}
-              onClick={() => !added && !adding && onAdd(job)}
-              disabled={added || adding || evaluating}
-              style={{ flexShrink: 0 }}
-            >
-              {evaluating
-                ? <><Spinner size={11} /> Evaluating…</>
-                : added ? 'Added' : adding ? <Spinner size={11} /> : 'Add'}
-            </Button>
           </div>
         );
       })}
+
       {shown < jobs.length && (
-        <div style={{ padding: '12px 14px', display: 'flex', justifyContent: 'center' }}>
-          <Button size="sm" variant="secondary" onClick={onShowMore}>
+        <div className="discover-more">
+          <button className="btn btn-ghost" onClick={onShowMore}>
             Show {Math.min(REVEAL_STEP, jobs.length - shown)} more
-          </Button>
+          </button>
         </div>
       )}
     </div>

@@ -715,6 +715,126 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .screen-pad { padding: 24px 28px; overflow-y: auto; flex: 1; }
 
 /* ============================================================
+   DISCOVER VIEW — sourcing funnel: mine companies, then discover
+   postings in ranked batches. The rail renders those two batch
+   stages as a connected sequence; each result row then carries
+   itself through analyze → add live as its own mini funnel.
+   ============================================================ */
+.discover-body { display: flex; flex: 1; min-height: 0; border-top: 1px solid var(--border-soft); }
+
+.discover-rail {
+  width: 264px; flex-shrink: 0; overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding: 22px 18px 28px;
+}
+.rail-label {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3);
+  margin-bottom: 20px;
+}
+
+.pipeline { display: flex; flex-direction: column; }
+.stage { display: flex; gap: 12px; padding-bottom: 26px; }
+.stage:last-child { padding-bottom: 0; }
+.stage-line { width: 9px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding-top: 4px; }
+.stage-dot {
+  width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+  background: var(--surface); border: 2px solid var(--border);
+  transition: background 0.15s, border-color 0.15s;
+}
+.stage-connector { width: 2px; flex: 1; margin-top: 5px; background: var(--border-soft); transition: background 0.15s; }
+.stage.done .stage-dot { background: var(--accent); border-color: var(--accent); }
+.stage.done .stage-connector { background: var(--accent-soft); }
+.stage.active .stage-dot { border-color: var(--accent); animation: stagePulse 1.6s ease-in-out infinite; }
+
+@keyframes stagePulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-soft); }
+  50% { box-shadow: 0 0 0 4px var(--accent-soft); }
+}
+
+.stage-body { flex: 1; min-width: 0; }
+.stage-title { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.stage-status { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); margin-top: 4px; line-height: 1.6; }
+.stage-btn { margin-top: 12px; width: 100%; justify-content: center; height: 30px; font-size: 12px; }
+
+.source-list {
+  margin-top: 12px; padding: 10px 11px; display: flex; flex-direction: column; gap: 9px;
+  border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--border-soft);
+}
+.source-row + .source-row { padding-top: 9px; border-top: 1px dashed var(--border-soft); }
+.source-row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.source-name { font-family: var(--font-mono); font-size: 11px; color: var(--text-2); }
+.source-count { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+.source-sub { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-3); margin-top: 2px; }
+.source-backlog { font-family: var(--font-mono); font-size: 9.5px; color: var(--accent); margin-top: 2px; }
+
+.stage-error {
+  margin-top: 18px; padding: 10px 12px; border-radius: var(--r-sm);
+  background: var(--state-skip-soft); color: var(--state-skip);
+  font-size: 11px; line-height: 1.5;
+}
+
+.discover-results { flex: 1; overflow-y: auto; min-width: 0; display: flex; flex-direction: column; }
+.discover-count-row { padding: 11px 22px; border-bottom: 1px solid var(--border-soft); flex-shrink: 0; }
+.discover-count {
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3);
+}
+.discover-count b { color: var(--text-2); font-weight: 600; }
+
+.scan-row {
+  display: flex; align-items: flex-start; gap: 13px;
+  padding: 14px 22px; border-bottom: 1px solid var(--border-soft);
+  transition: background 0.12s;
+}
+.scan-row:hover { background: var(--surface-2); }
+.scan-row.added { background: var(--surface-2); }
+.scan-row .logo { width: 34px; height: 34px; font-size: 12px; margin-top: 1px; }
+.scan-main { flex: 1; min-width: 0; }
+.scan-top { display: flex; align-items: center; gap: 7px; margin-bottom: 2px; }
+.scan-company {
+  font-size: 13px; font-weight: 600; color: var(--text); flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.scan-source {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 500; letter-spacing: 0.03em;
+  color: var(--text-3); background: var(--surface-2); border: 1px solid var(--border-soft);
+  padding: 1px 6px; border-radius: 999px; flex-shrink: 0;
+}
+.scan-title { font-size: 12px; color: var(--text-2); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scan-snippet {
+  font-size: 11px; color: var(--text-3); line-height: 1.55; margin-top: 5px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+.scan-side { display: flex; flex-direction: column; align-items: flex-end; gap: 9px; flex-shrink: 0; min-width: 74px; padding-top: 2px; }
+.relevance { display: flex; align-items: center; gap: 7px; }
+.relevance-track { width: 30px; height: 4px; border-radius: 2px; background: var(--border-soft); overflow: hidden; }
+.relevance-fill { display: block; height: 100%; background: var(--text-3); border-radius: 2px; }
+.relevance-num { font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; color: var(--text-2); min-width: 15px; text-align: right; }
+
+.scan-analyzing { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); }
+
+.scan-verdict {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+}
+.scan-verdict.apply { background: var(--state-apply-soft); color: var(--state-apply); }
+.scan-verdict.consider { background: var(--state-consider-soft); color: var(--state-consider); }
+.scan-verdict.skip { background: var(--state-skip-soft); color: var(--state-skip); }
+.scan-verdict.pending { background: var(--surface-3); color: var(--text-3); }
+
+.discover-more { padding: 16px 22px; display: flex; justify-content: center; }
+
+@media (max-width: 760px) {
+  .discover-body { flex-direction: column; overflow-y: auto; }
+  .discover-rail, .discover-results { overflow-y: visible; }
+  .discover-rail { width: 100%; border-right: none; border-bottom: 1px solid var(--border-soft); }
+}
+
+/* ============================================================
    PROFILE VIEW — resume-style two-pane layout: a contact/skills
    rail (mirrors what a generated resume's header looks like)
    next to the fuller prose content.
