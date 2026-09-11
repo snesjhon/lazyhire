@@ -1,16 +1,25 @@
 import { useState, useEffect, Fragment } from 'react';
 import { IPC } from '@shared/ipc-channels';
-import type { Profile } from '@shared/types';
+import type { Experience, Profile } from '@shared/types';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
 import Input from '../../components/Input';
 import Spinner from '../../components/Spinner';
 import ProfileSetup from './ProfileSetup';
-import { Textarea } from './ProfileEditForm';
+import { ListTextarea, Textarea } from './ProfileEditForm';
 
 // ── Profile view (read-only + inline section editing) ─────────────
 
-type EditSection = 'identity' | 'targets' | 'summary' | 'education' | 'skills' | null;
+type EditSection = 'identity' | 'targets' | 'summary' | 'education' | 'skills' | 'experiences' | null;
+
+const BLANK_EXPERIENCE: Experience = {
+  company: '',
+  role: '',
+  period: { start: '', end: '' },
+  tags: [],
+  bullets: [],
+  narrative: '',
+};
 
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -19,7 +28,7 @@ function getInitials(name: string) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function ProfileView({ profile, onUpdate }: { profile: Profile; onUpdate: (p: Profile) => void }) {
+function ProfileView({ profile, onUpdate, collapsed, onExpand }: { profile: Profile; onUpdate: (p: Profile) => void; collapsed: boolean; onExpand: () => void }) {
   const [editing, setEditing] = useState<EditSection>(null);
   const [draft, setDraft] = useState<Profile>(profile);
   const [saving, setSaving] = useState(false);
@@ -44,9 +53,14 @@ function ProfileView({ profile, onUpdate }: { profile: Profile; onUpdate: (p: Pr
 
   return (
     <div className="main">
-      <div className="view-head">
+      <div className={'view-head' + (collapsed ? ' collapsed' : '')}>
         <div>
           <div className="view-title-row">
+            {collapsed && (
+              <button className="expand-btn" onClick={onExpand} title="Show sidebar">
+                <Icon name="sidebarToggle" size={17} />
+              </button>
+            )}
             <div className="view-title">Profile</div>
           </div>
           <div className="view-sub">The details behind every tailored resume, cover letter, and answer</div>
@@ -101,10 +115,10 @@ function ProfileView({ profile, onUpdate }: { profile: Profile; onUpdate: (p: Pr
             saving={saving}
           >
             {editing === 'skills' ? (
-              <Textarea
+              <ListTextarea
                 label="Skills (one per line)"
-                value={draft.skills.join('\n')}
-                onChange={(v) => setDraft({ ...draft, skills: v.split('\n').filter(Boolean) })}
+                items={draft.skills}
+                onChange={(items) => setDraft({ ...draft, skills: items })}
                 rows={8}
               />
             ) : (
@@ -148,10 +162,10 @@ function ProfileView({ profile, onUpdate }: { profile: Profile; onUpdate: (p: Pr
             >
               {editing === 'targets' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <Textarea
+                  <ListTextarea
                     label="Target roles (one per line)"
-                    value={draft.targets.roles.join('\n')}
-                    onChange={(v) => setDraft({ ...draft, targets: { ...draft.targets, roles: v.split('\n').filter(Boolean) } })}
+                    items={draft.targets.roles}
+                    onChange={(items) => setDraft({ ...draft, targets: { ...draft.targets, roles: items } })}
                     rows={3}
                   />
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -168,10 +182,10 @@ function ProfileView({ profile, onUpdate }: { profile: Profile; onUpdate: (p: Pr
                       onChange={(e) => setDraft({ ...draft, targets: { ...draft.targets, salaryMax: Number(e.target.value) } })}
                     />
                   </div>
-                  <Textarea
+                  <ListTextarea
                     label="Deal-breakers (one per line)"
-                    value={draft.targets.dealBreakers.join('\n')}
-                    onChange={(v) => setDraft({ ...draft, targets: { ...draft.targets, dealBreakers: v.split('\n').filter(Boolean) } })}
+                    items={draft.targets.dealBreakers}
+                    onChange={(items) => setDraft({ ...draft, targets: { ...draft.targets, dealBreakers: items } })}
                     rows={3}
                   />
                 </div>
@@ -196,7 +210,7 @@ function ProfileView({ profile, onUpdate }: { profile: Profile; onUpdate: (p: Pr
               {editing === 'education' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {draft.education.map((edu, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, alignItems: 'end' }}>
                       <Input
                         label="Institution"
                         value={edu.institution}
@@ -213,8 +227,23 @@ function ProfileView({ profile, onUpdate }: { profile: Profile; onUpdate: (p: Pr
                           setDraft({ ...draft, education: next });
                         }}
                       />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDraft({ ...draft, education: draft.education.filter((_, j) => j !== i) })}
+                        title="Remove education"
+                      >
+                        <Icon name="trash" size={14} />
+                      </Button>
                     </div>
                   ))}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setDraft({ ...draft, education: [...draft.education, { institution: '', degree: '' }] })}
+                  >
+                    <Icon name="plus" size={13} /> Add education
+                  </Button>
                 </div>
               ) : (
                 <div>
@@ -228,23 +257,105 @@ function ProfileView({ profile, onUpdate }: { profile: Profile; onUpdate: (p: Pr
               )}
             </ProfileSection>
 
-            {/* Experience (read-only) */}
-            <ProfileSection title="Experience" editing={false} onEdit={() => {}} onSave={async () => {}} onCancel={() => {}} saving={false} hideEditButton>
-              <div>
-                {p.experiences.map((exp, i) => (
-                  <div key={i} className="exp-row">
-                    <div className="exp-role">
-                      {exp.role} <span className="exp-company">at {exp.company}</span>
+            <ProfileSection
+              title="Experience"
+              editing={editing === 'experiences'}
+              onEdit={() => { setDraft(profile); setEditing('experiences'); }}
+              onSave={handleSave}
+              onCancel={cancelEdit}
+              saving={saving}
+            >
+              {editing === 'experiences' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {draft.experiences.map((exp, i) => {
+                    function updateExp(patch: Partial<Experience>) {
+                      const next = draft.experiences.map((x, j) => j === i ? { ...x, ...patch } : x);
+                      setDraft({ ...draft, experiences: next });
+                    }
+                    return (
+                      <div
+                        key={i}
+                        style={{
+                          border: '1px solid var(--border-soft, var(--border))',
+                          borderRadius: 'var(--r-md, var(--radius))',
+                          padding: 14,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 12,
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDraft({ ...draft, experiences: draft.experiences.filter((_, j) => j !== i) })}
+                            title="Remove experience"
+                          >
+                            <Icon name="trash" size={14} />
+                          </Button>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                          <Input label="Company" value={exp.company} onChange={(e) => updateExp({ company: e.target.value })} />
+                          <Input label="Role" value={exp.role} onChange={(e) => updateExp({ role: e.target.value })} />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                          <Input
+                            label="Start"
+                            value={exp.period.start}
+                            onChange={(e) => updateExp({ period: { ...exp.period, start: e.target.value } })}
+                          />
+                          <Input
+                            label="End"
+                            value={exp.period.end}
+                            onChange={(e) => updateExp({ period: { ...exp.period, end: e.target.value } })}
+                          />
+                        </div>
+                        <ListTextarea
+                          label="Tags (one per line)"
+                          items={exp.tags}
+                          onChange={(items) => updateExp({ tags: items })}
+                          rows={2}
+                        />
+                        <ListTextarea
+                          label="Bullets (one per line)"
+                          items={exp.bullets}
+                          onChange={(items) => updateExp({ bullets: items })}
+                          rows={4}
+                        />
+                        <Textarea
+                          label="Narrative"
+                          value={exp.narrative}
+                          onChange={(v) => updateExp({ narrative: v })}
+                          rows={3}
+                        />
+                      </div>
+                    );
+                  })}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setDraft({ ...draft, experiences: [...draft.experiences, BLANK_EXPERIENCE] })}
+                  >
+                    <Icon name="plus" size={13} /> Add experience
+                  </Button>
+                </div>
+              ) : (
+                <div>
+                  {p.experiences.map((exp, i) => (
+                    <div key={i} className="exp-row">
+                      <div className="exp-role">
+                        {exp.role} <span className="exp-company">at {exp.company}</span>
+                      </div>
+                      <div className="exp-period">{exp.period.start} – {exp.period.end}</div>
+                      <ul className="exp-bullets">
+                        {exp.bullets.slice(0, 3).map((b, j) => (
+                          <li key={j}>{b}</li>
+                        ))}
+                      </ul>
                     </div>
-                    <div className="exp-period">{exp.period.start} – {exp.period.end}</div>
-                    <ul className="exp-bullets">
-                      {exp.bullets.slice(0, 3).map((b, j) => (
-                        <li key={j}>{b}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </ProfileSection>
           </div>
         </div>
@@ -311,7 +422,7 @@ function Fields({ items }: { items: [string, string][] }) {
 
 // ── Root ──────────────────────────────────────────────────────────
 
-export default function Profile() {
+export default function Profile({ collapsed, onExpand }: { collapsed: boolean; onExpand: () => void }) {
   const [hasProfile, setHasProfile] = useState<boolean | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
 
@@ -371,6 +482,8 @@ export default function Profile() {
     <ProfileView
       profile={profile}
       onUpdate={(p) => setProfile(p)}
+      collapsed={collapsed}
+      onExpand={onExpand}
     />
   );
 }

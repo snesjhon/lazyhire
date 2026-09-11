@@ -196,8 +196,8 @@ export default function App() {
             onEvaluatingChange={handleEvaluatingChange}
           />
         )}
-        {screen === 'profile' && <Profile />}
-        {screen === 'settings' && <Settings />}
+        {screen === 'profile' && <Profile collapsed={collapsed} onExpand={() => setCollapsed(false)} />}
+        {screen === 'settings' && <Settings collapsed={collapsed} onExpand={() => setCollapsed(false)} />}
       </div>
 
       <StatusBar jobsCount={jobs.length} />

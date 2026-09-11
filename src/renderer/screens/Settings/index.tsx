@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { IPC } from '@shared/ipc-channels';
 import Select from '../../components/Select';
 import Button from '../../components/Button';
+import Icon from '../../components/Icon';
 
 const MODEL_OPTIONS = [
   { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (Recommended)' },
@@ -11,7 +12,7 @@ const MODEL_OPTIONS = [
 
 type SettingsState = { model: string; outputDir: string | null; defaultOutputDir: string };
 
-export default function Settings() {
+export default function Settings({ collapsed, onExpand }: { collapsed: boolean; onExpand: () => void }) {
   const [model, setModel] = useState('claude-sonnet-4-6');
   const [outputDir, setOutputDir] = useState<string | null>(null);
   const [defaultOutputDir, setDefaultOutputDir] = useState('');
@@ -58,8 +59,15 @@ export default function Settings() {
   return (
     <div style={{ padding: 32, maxWidth: 480, color: 'var(--text-primary)' }}>
       <div style={{ marginBottom: 28 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Settings</h2>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>App configuration</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {collapsed && (
+            <button className="expand-btn" onClick={onExpand} title="Show sidebar">
+              <Icon name="sidebarToggle" size={17} />
+            </button>
+          )}
+          <h2 style={{ fontSize: 15, fontWeight: 600 }}>Settings</h2>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>App configuration</p>
       </div>
 
       <section style={{ marginBottom: 32 }}>

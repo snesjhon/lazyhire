@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('api', {
     return ipcRenderer.invoke(channel, ...args);
   },
   on(channel: string, callback: (...args: unknown[]) => void): () => void {
+
     const listener = (_event: Electron.IpcRendererEvent, ...args: unknown[]): void => {
       callback(...args);
     };

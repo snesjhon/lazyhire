@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react';
 import type { Profile } from '@shared/types';
 import Input from '../../components/Input';
+import Button from '../../components/Button';
+import Icon from '../../components/Icon';
 
 export function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
@@ -62,6 +65,40 @@ export function Textarea({
   );
 }
 
+export function ListTextarea({
+  label,
+  items,
+  onChange,
+  rows,
+}: {
+  label?: string;
+  items: string[];
+  onChange: (items: string[]) => void;
+  rows?: number;
+}) {
+  const [text, setText] = useState(items.join('\n'));
+
+  useEffect(() => {
+    const normalized = text.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    if (normalized.join('\n') !== items.join('\n')) {
+      setText(items.join('\n'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
+  return (
+    <Textarea
+      label={label}
+      value={text}
+      rows={rows}
+      onChange={(v) => {
+        setText(v);
+        onChange(v.split(/\r?\n/).map((s) => s.trim()).filter(Boolean));
+      }}
+    />
+  );
+}
+
 export default function ProfileEditForm({ profile, onChange }: { profile: Profile; onChange: (p: Profile) => void }) {
   function set<K extends keyof Profile>(key: K, val: Profile[K]) {
     onChange({ ...profile, [key]: val });
@@ -95,10 +132,10 @@ export default function ProfileEditForm({ profile, onChange }: { profile: Profil
 
       <SectionHeader>Targets</SectionHeader>
       <div style={fieldStyle}>
-        <Textarea
+        <ListTextarea
           label="Target roles (one per line)"
-          value={profile.targets.roles.join('\n')}
-          onChange={(v) => setTargets('roles', v.split('\n').filter(Boolean))}
+          items={profile.targets.roles}
+          onChange={(items) => setTargets('roles', items)}
           rows={3}
         />
       </div>
@@ -117,27 +154,27 @@ export default function ProfileEditForm({ profile, onChange }: { profile: Profil
         />
       </div>
       <div style={{ marginBottom: 16 }}>
-        <Textarea
+        <ListTextarea
           label="Deal-breakers (one per line)"
-          value={profile.targets.dealBreakers.join('\n')}
-          onChange={(v) => setTargets('dealBreakers', v.split('\n').filter(Boolean))}
+          items={profile.targets.dealBreakers}
+          onChange={(items) => setTargets('dealBreakers', items)}
           rows={3}
         />
       </div>
 
       <SectionHeader>Skills</SectionHeader>
       <div style={{ marginBottom: 16 }}>
-        <Textarea
+        <ListTextarea
           label="Skills (one per line)"
-          value={profile.skills.join('\n')}
-          onChange={(v) => set('skills', v.split('\n').filter(Boolean))}
+          items={profile.skills}
+          onChange={(items) => set('skills', items)}
           rows={5}
         />
       </div>
 
       <SectionHeader>Education</SectionHeader>
       {profile.education.map((edu, i) => (
-        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, marginBottom: 12, alignItems: 'end' }}>
           <Input
             label="Institution"
             value={edu.institution}
@@ -154,8 +191,24 @@ export default function ProfileEditForm({ profile, onChange }: { profile: Profil
               set('education', next);
             }}
           />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => set('education', profile.education.filter((_, j) => j !== i))}
+            title="Remove education"
+          >
+            <Icon name="trash" size={14} />
+          </Button>
         </div>
       ))}
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => set('education', [...profile.education, { institution: '', degree: '' }])}
+        style={{ marginBottom: 16 }}
+      >
+        <Icon name="plus" size={13} /> Add education
+      </Button>
     </div>
   );
 }
